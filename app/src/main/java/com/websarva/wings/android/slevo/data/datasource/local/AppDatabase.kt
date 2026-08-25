@@ -23,6 +23,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.BoardFet
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PendingOwnPostDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadStateDao
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BbsServiceEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bbs.BoardCategoryCrossRef
@@ -43,10 +44,11 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.cache.Board
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostHistoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostIdentityHistoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PostLastIdentityEntity
+import com.websarva.wings.android.slevo.data.datasource.local.entity.history.PendingOwnPostEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 
 /** Room DB schema version。`@Database` annotation、[BackupDatabaseValidator]、[PendingRestoreApplier] などから参照する。 */
-internal const val DATABASE_VERSION = 9
+internal const val DATABASE_VERSION = 11
 
 @TypeConverters(NgTypeConverter::class)
 @Database(
@@ -70,6 +72,7 @@ internal const val DATABASE_VERSION = 9
         PostHistoryEntity::class,
         PostIdentityHistoryEntity::class,
         PostLastIdentityEntity::class,
+        PendingOwnPostEntity::class,
         ThreadStateEntity::class
     ],
     version = DATABASE_VERSION,
@@ -94,6 +97,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun postHistoryDao(): PostHistoryDao
     abstract fun postIdentityHistoryDao(): PostIdentityHistoryDao
     abstract fun postLastIdentityDao(): PostLastIdentityDao
+    abstract fun pendingOwnPostDao(): PendingOwnPostDao
     abstract fun threadStateDao(): ThreadStateDao
 
     companion object {
@@ -103,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
         /**
          * バックアップ復元で受け付ける最小 Room DB schema version。
          * この version から現在 version まで migration path が連続している。
-         * source inspection で migration chain の連続性を確認済み (v2 → v9)。
+         * source inspection で migration chain の連続性を確認済み (v2 → v11)。
          * v1 は exported Room schema が存在せず、事前 schema sanity check の
          * source of truth を用意できないため、復元対象外とする。
          */
@@ -344,6 +348,50 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS pending_own_posts (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "providerId TEXT NOT NULL, " +
+                        "boardKey TEXT NOT NULL, " +
+                        "threadKey TEXT NOT NULL, " +
+                        "status TEXT NOT NULL, " +
+                        "content TEXT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "email TEXT NOT NULL, " +
+                        "baseResCount INTEGER NOT NULL, " +
+                        "lastCheckedResNum INTEGER NOT NULL, " +
+                        "submittedAt INTEGER NOT NULL, " +
+                        "expiresAt INTEGER NOT NULL, " +
+                        "matchedResNum INTEGER"
+                        + ")"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_pending_own_posts_providerId_boardKey_threadKey_status " +
+                        "ON pending_own_posts(providerId, boardKey, threadKey, status)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_pending_own_posts_status_submittedAt " +
+                        "ON pending_own_posts(status, submittedAt)"
+                )
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE pending_own_posts ADD COLUMN confirmedResNum INTEGER"
+                )
+                db.execSQL(
+                    "ALTER TABLE pending_own_posts ADD COLUMN serverPostDateMillis INTEGER"
+                )
+                db.execSQL(
+                    "ALTER TABLE pending_own_posts ADD COLUMN posterIdHint TEXT"
+                )
+            }
+        }
+
         /**
          * Room に登録する全 migration の共有リスト。
          * `DatabaseModule.provideAppDatabase()` はこのリストを使って `.addMigrations(...)` する。
@@ -358,6 +406,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_6_7,
             MIGRATION_7_8,
             MIGRATION_8_9,
+            MIGRATION_9_10,
+            MIGRATION_10_11,
         )
 
         /**

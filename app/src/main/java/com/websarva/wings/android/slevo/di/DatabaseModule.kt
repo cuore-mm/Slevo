@@ -21,6 +21,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.cache.ThreadSu
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostIdentityHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PendingOwnPostDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadStateDao
 import com.squareup.moshi.Moshi
@@ -189,6 +190,11 @@ object DatabaseModule {
     @Provides
     fun providePostLastIdentityDao(db: AppDatabase): PostLastIdentityDao =
         db.postLastIdentityDao()
+
+    /** 未確定自分投稿のDAOを提供する。 */
+    @Provides
+    fun providePendingOwnPostDao(db: AppDatabase): PendingOwnPostDao =
+        db.pendingOwnPostDao()
 
     @Provides
     fun provideThreadStateDao(db: AppDatabase): ThreadStateDao =

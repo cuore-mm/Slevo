@@ -11,6 +11,7 @@ import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
 import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.PendingOwnPostRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -54,6 +55,13 @@ class ThreadRouteViewModelTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun resolvePendingBaseResCount_prefersCapturedBoundaryAfterRefresh() {
+        assertEquals(10, resolvePendingBaseResCount(10, loadedResCount = 11, tabResCount = 11))
+        assertEquals(11, resolvePendingBaseResCount(null, loadedResCount = 11, tabResCount = 10))
+        assertEquals(10, resolvePendingBaseResCount(null, loadedResCount = null, tabResCount = 10))
+    }
 
     @Test
     fun uiStateFor_sameKeyReusesCachedFlow() {
@@ -150,6 +158,24 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
 
         assertEquals(com.websarva.wings.android.slevo.R.string.thread_load_failed, dependencies.sessionStates.value[threadId.value]?.pendingToastResId)
+    }
+
+    @Test
+    fun reloadThread_reconciliationFailure_keepsSuccessfulLoadState() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            reconciliationFailure = IllegalStateException("database temporarily unavailable"),
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+
+        val session = dependencies.sessionStates.value[threadId.value]
+        assertEquals(null, session?.pendingToastResId)
+        assertEquals(false, session?.isLoading)
     }
 
     @Test
@@ -398,6 +424,7 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
+        reconciliationFailure: Throwable? = null,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -454,6 +481,8 @@ class ThreadRouteViewModelTest {
         val postHistoryRepository = mockk<PostHistoryRepository>(relaxed = true)
         every { postHistoryRepository.observeMyPostNumbers(any()) } returns flowOf(emptySet())
 
+        val pendingOwnPostRepository = mockk<PendingOwnPostRepository>(relaxed = true)
+
         val bookmarkRepository = mockk<ThreadBookmarkRepository>()
         every { bookmarkRepository.getBookmarkWithGroup(any(), any()) } returns flowOf(null)
 
@@ -503,6 +532,13 @@ class ThreadRouteViewModelTest {
             }
         }
 
+        val ownPostReconciliationUseCase = mockk<OwnPostReconciliationUseCase>(relaxed = true)
+        reconciliationFailure?.let { failure ->
+            coEvery {
+                ownPostReconciliationUseCase.reconcile(any(), any(), any(), any(), any())
+            } throws failure
+        }
+
         return RouteDependencies(
             store = store,
             openTabs = openTabs,
@@ -511,12 +547,14 @@ class ThreadRouteViewModelTest {
             boardRepository = boardRepository,
             historyRepository = historyRepository,
             postHistoryRepository = postHistoryRepository,
+            pendingOwnPostRepository = pendingOwnPostRepository,
             bookmarkRepository = bookmarkRepository,
             ngRepository = ngRepository,
             settingsRepository = settingsRepository,
             tabsRepository = tabsRepository,
             readStateRepository = readStateRepository,
             threadContentLoadUseCase = threadContentLoadUseCase,
+            ownPostReconciliationUseCase = ownPostReconciliationUseCase,
             threadVisiblePostsUseCase = ThreadVisiblePostsUseCase(),
             logger = mockk(relaxed = true),
         )
@@ -531,12 +569,14 @@ class ThreadRouteViewModelTest {
         val boardRepository: BoardRepository,
         val historyRepository: ThreadHistoryRepository,
         val postHistoryRepository: PostHistoryRepository,
+        val pendingOwnPostRepository: PendingOwnPostRepository,
         val bookmarkRepository: ThreadBookmarkRepository,
         val ngRepository: NgRepository,
         val settingsRepository: SettingsRepository,
         val tabsRepository: TabsRepository,
         val readStateRepository: ThreadReadStateRepository,
         val threadContentLoadUseCase: ThreadContentLoadUseCase,
+        val ownPostReconciliationUseCase: OwnPostReconciliationUseCase,
         val threadVisiblePostsUseCase: ThreadVisiblePostsUseCase,
         val logger: AppLogger,
     ) {
@@ -547,12 +587,14 @@ class ThreadRouteViewModelTest {
                 boardRepository = boardRepository,
                 historyRepository = historyRepository,
                 postHistoryRepository = postHistoryRepository,
+                pendingOwnPostRepository = pendingOwnPostRepository,
                 threadBookmarkRepository = bookmarkRepository,
                 ngRepository = ngRepository,
                 settingsRepository = settingsRepository,
                 tabsRepository = tabsRepository,
                 threadReadStateRepository = readStateRepository,
                 threadContentLoadUseCase = threadContentLoadUseCase,
+                ownPostReconciliationUseCase = ownPostReconciliationUseCase,
                 threadVisiblePostsUseCase = threadVisiblePostsUseCase,
                 logger = logger,
             )

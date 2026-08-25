@@ -146,7 +146,7 @@ TBD - created by archiving change add-backup-restore. Update Purpose after archi
 
 #### Scenario: DB schema compatibility を検証する
 - **WHEN** システムが `database/slevo.db` を pending restore として保存しようとする
-- **THEN** システムは `PRAGMA user_version = 9`、`room_master_table` の `id = 42` / `identity_hash = "f87f9edff16faf278567dbb60497a466"`、および design.md section 8 に列挙した 20 個の必須 application table が存在することを確認する
+- **THEN** システムは `PRAGMA user_version = 11`、exported Room schema v11と一致する `room_master_table` のidentity hash、および証拠列を持つ `pending_own_posts` を含むv11の必須application tableが存在することを確認する
 
 #### Scenario: 整合性検証に失敗した DB を拒否する
 - **WHEN** 復元対象 DB を開けない、または `PRAGMA integrity_check` が `ok` 以外を返す

@@ -130,14 +130,14 @@ class BackupDatabaseValidatorTest {
 
     @Test
     fun expectedTablesByVersion_matchesCurrentRequiredTables() {
-        // v9 (current) の expected table set は REQUIRED_TABLES と一致すること。
-        val v9Tables = getExpectedTablesForVersion(9)
-        assertNotNull("v9 に expected table set が定義されていること", v9Tables)
+        // v11 (current) の expected table set は REQUIRED_TABLES と一致すること。
+        val v11Tables = getExpectedTablesForVersion(11)
+        assertNotNull("v11 に expected table set が定義されていること", v11Tables)
         val currentRequired = RealBackupDatabaseValidator.REQUIRED_TABLES.toSet()
         assertEquals(
-            "v9 expected table set が REQUIRED_TABLES と一致すること",
+            "v11 expected table set が REQUIRED_TABLES と一致すること",
             currentRequired,
-            v9Tables!!,
+            v11Tables!!,
         )
     }
 

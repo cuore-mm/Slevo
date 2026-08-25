@@ -242,6 +242,7 @@ class PostDialogController @AssistedInject constructor(
         host: String,
         board: String,
         threadKey: String?,
+        baseResCount: Int? = null,
     ) {
         val formState = stateAdapter.readState().formState
         val request = PostDialogFirstPhaseRequest(
@@ -254,7 +255,7 @@ class PostDialogController @AssistedInject constructor(
         scope.launch {
             updateState { it.copy(isPosting = true, isDialogVisible = false) }
             val result = executor.postFirstPhase(request)
-            handlePostResult(result, formState)
+            handlePostResult(result, formState, baseResCount)
         }
     }
 
@@ -266,6 +267,7 @@ class PostDialogController @AssistedInject constructor(
         board: String,
         threadKey: String?,
         confirmationData: ConfirmationData,
+        baseResCount: Int? = null,
     ) {
         val formState = stateAdapter.readState().formState
         val request = PostDialogSecondPhaseRequest(
@@ -277,14 +279,18 @@ class PostDialogController @AssistedInject constructor(
         scope.launch {
             updateState { it.copy(isPosting = true, isConfirmationScreen = false) }
             val result = executor.postSecondPhase(request)
-            handlePostResult(result, formState)
+            handlePostResult(result, formState, baseResCount)
         }
     }
 
     /**
      * 投稿処理の結果を受け取り、UI状態と後処理を更新する。
      */
-    private fun handlePostResult(result: PostResult, submittedForm: PostFormState) {
+    private fun handlePostResult(
+        result: PostResult,
+        submittedForm: PostFormState,
+        baseResCount: Int?,
+    ) {
         // --- Posting flag ---
         updateState { it.copy(isPosting = false) }
 
@@ -301,10 +307,11 @@ class PostDialogController @AssistedInject constructor(
                 recordIdentityIfNeeded(submittedForm)
                 onPostSuccess(
                     PostDialogSuccess(
-                        resNum = result.resNum,
+                        receipt = result.receipt,
                         message = submittedForm.message,
                         name = submittedForm.name,
                         mail = submittedForm.mail,
+                        baseResCount = baseResCount,
                     )
                 )
             }

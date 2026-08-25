@@ -11,7 +11,6 @@ import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOper
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.isThreadTabOperationConfirmed
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
-import com.websarva.wings.android.slevo.ui.tabs.session.PendingThreadPostState
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import io.mockk.coEvery
@@ -325,10 +324,6 @@ class ThreadTabsCoordinatorTest {
             )
         )
         val tab = coordinator.openThreadTabs.value.first()
-        coordinator.updateThreadRuntimeState(tab.id) {
-            it.copy(pendingPost = PendingThreadPostState(10, "message", "name", "mail"))
-        }
-
         coordinator.closeThreadTab(tab)
 
         assertEquals(null, coordinator.threadRuntimeStates.value[tab.id.value])

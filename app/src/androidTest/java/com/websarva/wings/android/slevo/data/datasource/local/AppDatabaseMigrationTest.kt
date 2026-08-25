@@ -702,6 +702,112 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v9へ未確定自分投稿テーブルを追加し、既存テーブルを保持する。 */
+    @Test
+    fun migrate9To10_createsPendingOwnPostsTable() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 9).apply {
+            execSQL(
+                "INSERT INTO services (domain, displayName, menuUrl) VALUES ('example.com', 'Example', NULL)"
+            )
+            execSQL(
+                "INSERT INTO boards (serviceId, url, name) VALUES (1, 'https://example.com/test/', 'Test')"
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            10,
+            true,
+            AppDatabase.MIGRATION_9_10,
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_10_11)
+            .build()
+        val writable = db.openHelper.writableDatabase
+        writable.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertTrue(
+                columns.containsAll(
+                    listOf(
+                        "id", "providerId", "boardKey", "threadKey", "status",
+                        "content", "name", "email", "baseResCount", "lastCheckedResNum",
+                        "submittedAt", "expiresAt", "matchedResNum",
+                    )
+                )
+            )
+        }
+        writable.query(
+            "SELECT count(*) FROM boards WHERE url = 'https://example.com/test/'"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    /** v10の既存pending行を保持したまま照合証拠列を追加する。 */
+    @Test
+    fun migrate10To11_addsNullableReceiptColumns() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 10).apply {
+            execSQL(
+                """
+                INSERT INTO pending_own_posts(
+                    providerId, boardKey, threadKey, status, content, name, email,
+                    baseResCount, lastCheckedResNum, submittedAt, expiresAt, matchedResNum
+                ) VALUES ('provider', 'board', 'thread', 'PENDING', 'message', 'name', 'mail',
+                    1, 1, 10, 20, NULL)
+                """.trimIndent()
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            11,
+            true,
+            AppDatabase.MIGRATION_10_11,
+        )
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
+            .addMigrations(AppDatabase.MIGRATION_10_11)
+            .build()
+        db.openHelper.writableDatabase.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertTrue(
+                columns.containsAll(
+                    listOf("confirmedResNum", "serverPostDateMillis", "posterIdHint")
+                )
+            )
+        }
+        db.openHelper.writableDatabase.query(
+            """
+            SELECT confirmedResNum, serverPostDateMillis, posterIdHint
+            FROM pending_own_posts WHERE providerId = 'provider'
+            """.trimIndent()
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertTrue(cursor.isNull(0))
+            assertTrue(cursor.isNull(1))
+            assertTrue(cursor.isNull(2))
+        }
+        db.close()
+    }
+
     /**
      * wrapped migration が SQL transaction の前に開始証跡を commit し、delegate 例外後も旧 version
      * を残すことを実 DB で検証する。

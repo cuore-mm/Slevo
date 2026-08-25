@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.data.backup.pending
 import android.content.Context
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.restore.BackupDatabaseValidator
+import com.websarva.wings.android.slevo.data.datasource.local.AppDatabase
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -204,7 +205,7 @@ class PendingRestoreCompletionCheckerTest {
 
         fileStore.resultWriteFailure = null
         validator.nextValidateResult = null
-        validator.userVersion = 9
+        validator.userVersion = AppDatabase.CURRENT_DATABASE_VERSION
         val dbSwapper = mockk<PendingRestoreDbSwapper>(relaxed = true)
         every { dbSwapper.getLiveDbFile() } returns liveDbFile
         every { dbSwapper.hasRollbackBackup(any(), any()) } returns true
@@ -282,7 +283,7 @@ class PendingRestoreCompletionCheckerTest {
         checker.runIfNeeded()
 
         fileStore.markerWriteFailsAfter = null
-        validator.userVersion = 9
+        validator.userVersion = AppDatabase.CURRENT_DATABASE_VERSION
         val dbSwapper = mockk<PendingRestoreDbSwapper>(relaxed = true)
         every { dbSwapper.getLiveDbFile() } returns liveDbFile
         every { dbSwapper.hasRollbackBackup(any(), any()) } returns true

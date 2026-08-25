@@ -30,6 +30,33 @@ class PostHistoryRepository @Inject constructor(
         email: String,
         postId: String
     ) = gate.withWritePermit {
+        recordPostUngated(
+            content = content,
+            date = date,
+            threadHistoryId = threadHistoryId,
+            boardId = boardId,
+            resNum = resNum,
+            name = name,
+            email = email,
+            postId = postId,
+        )
+    }
+
+    /**
+     * 投稿履歴と投稿identityを、既に取得済みのwrite gate内で保存する。
+     *
+     * 複数Repositoryをまたぐtransactionalな投稿確定処理から呼び出し、gateの二重取得を防ぐ。
+     */
+    internal suspend fun recordPostUngated(
+        content: String,
+        date: Long,
+        threadHistoryId: Long,
+        boardId: Long,
+        resNum: Int,
+        name: String,
+        email: String,
+        postId: String,
+    ) {
         dao.insert(
             PostHistoryEntity(
                 content = content,

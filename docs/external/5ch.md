@@ -1,243 +1,867 @@
-# 5ch.net / 2ch互換掲示板 取得仕様
+# 5ch外部仕様
 
-このドキュメントでは、**5ch.net** および **2ch互換掲示板（BBSPINK、まちBBS等）** のURL構造と、専用ブラウザ（専ブラ）がデータを取得するための仕様をまとめる。
+この文書は、5chの公開ページ、運営告知、および公開されているデータファイルから確認できる外部仕様をまとめる。
+特定の専用ブラウザやアプリケーションの実装仕様は対象としない。
 
-### 2ch互換掲示板の扱いについて
-**BBSPINK** や **まちBBS** などの2ch互換掲示板は、基本的に 5ch.net と同一のシステム（BBS.CGIベース）を採用しており、URL構造やデータ形式（subject.txt, dat）は共通である。
-したがって、本ドキュメントにおける `5ch.net` の記述は、特記がない限りこれらの互換掲示板にも同様に適用される。
+- 基準日: 2026-08-21
+- 対象: `5ch.io`配下の5ch
+- 対象外: BBSPINK、まちBBS、2ch.scなどの互換掲示板
 
-*   **共通事項**: URLのディレクトリ構成、`subject.txt` や `dat` のデータフォーマット、パラメータ仕様。
-*   **相違点**: ホストのドメイン部分（例: `.bbspink.com`, `.machi.to` 等）。
+5chには、専用ブラウザ向けの完全な固定仕様書が公開されていない機能もある。そのため、本文では根拠を次のように区別する。
 
----
+| 表記 | 意味 |
+| --- | --- |
+| 現行公式 | 現行の運営告知または公式ページで明示されている |
+| 現行公開形式 | 現行の公式ページ、フォーム、データファイルから直接確認できる |
+| 参考仕様 | 旧公式Wikiなどに記載されているが、現行環境での保証は確認できない |
+| 旧仕様 | 運営告知により廃止された、または旧ドメイン時代だけに適用された |
 
-## 0. 前提：識別子とURLパーツ
-
-内部処理においては以下の識別子を抽出し、データ取得用URLを組み立てる。
-
-- `server` (host): サーバのサブドメイン部分（例：`agree`, `kanto`） ※ドメイン名（`.5ch.net`, `.machi.to` 等）は含まない
-- `board` : 板キー（例：`operate`, `tokyo`）
-- `threadKey` : スレッドID（UNIX時刻由来の数値文字列）
-- `option` : `read.cgi` の表示オプション（取得では使用しない）
-- `prefix` : 過去ログ（`oyster`）のディレクトリ名（`threadKey` 先頭4桁）
+公開フォームのhidden項目、Cookie、応答HTML、エラー文言は予告なく変更される可能性がある。フォーム送信では、固定値を推測せず、対象ページがその時点で提示する値を使用する。
 
 ---
 
-## 1. URL パターン一覧
+## 第1章 基本仕様
 
-以下は 5ch.net 関連で登場する主要なURL形式である。
+### 1.1 用語と識別子
 
-### 一般的なブラウザ向け (HTML)
-*   **板トップ**
-    *   `https://<server>.5ch.net/<board>/`
-*   **スレッド (現行)**
-    *   `https://<server>.5ch.net/test/read.cgi/<board>/<threadKey>/[option]`
-*   **スレッド (過去ログ)**
-    *   `https://kako.5ch.net/test/read.cgi/<board>/<threadKey>/[option]`
+| 名前 | 内容 | 例 |
+| --- | --- | --- |
+| `host` | 板を収容する完全なホスト名 | `agree.5ch.io` |
+| `server` | ホスト名の先頭部分 | `agree` |
+| `board` | 板を識別する板キー | `operate` |
+| `threadKey` | スレッドを識別する数字列 | `1608930977` |
+| `option` | `read.cgi`の表示範囲指定 | `l50`、`1-100` |
+| `prefix` | oyster過去ログのディレクトリ名 | `threadKey`の先頭4桁 |
 
-### スマートフォンブラウザ向け (itest)
-*   **板トップ (subback)**
-    *   `https://itest.5ch.net/subback/<board>`
-*   **スレッド**
-    *   `https://itest.5ch.net/<server>/test/read.cgi/<board>/<threadKey>/[option]`
+`threadKey`は通常、スレッド作成時刻に由来する10桁の数字列である。ただし、クライアントは時刻として再生成せず、URLや一覧に記載された文字列を識別子として扱う。
 
-### 専用ブラウザ・データ取得向け
-*   **スレッド一覧 (subject.txt)**
-    *   `https://<server>.5ch.net/<board>/subject.txt`
-*   **板設定 (SETTING.TXT)**
-    *   `https://<server>.5ch.net/<board>/SETTING.TXT`
-*   **スレッドデータ (dat - 現行)**
-    *   `https://<server>.5ch.net/<board>/dat/<threadKey>.dat`
-*   **スレッドデータ (dat - 過去ログ/oyster)**
-    *   `https://<server>.5ch.net/<board>/oyster/<threadKey上位4桁>/<threadKey>.dat`
+### 1.2 正規ドメイン
 
----
+2026年3月7日以降の正規ドメインは`5ch.io`である。
 
-## 2. データ取得仕様詳細
-
-このセクションでは、ユーザーが入力する **「一般的なブラウザ向けURL (PC/HTML)」** および **「スマートフォンブラウザ向けURL (itest)」** を起点に、アプリがデータを取得するためのエンドポイント（`dat` や `subject.txt`）へ変換するロジックを定義する。
-
-**※ 本仕様では、`dat` や `subject.txt` のURLが直接入力されるケースは考慮しない。**
-
----
-
-### 2.1 入力URLのパターン判定
-
-ユーザー入力URLを以下の4パターンに分類する。
-
-#### A. PC版・板URL
-- パターン: `https://<server>.5ch.net/<board>/`
-- 例: `https://agree.5ch.net/operate/`
-
-#### B. PC版・スレURL
-- パターン: `https://<server>.5ch.net/test/read.cgi/<board>/<threadKey>/[option]`
-- 例: `https://agree.5ch.net/test/read.cgi/operate/1767525739/`
-- 備考: `kako.5ch.net` の場合も含むが、取得ロジックとしてはサーバー名が `kako` となるだけである。
-
-#### C. itest版・板URL (subback)
-- パターン: `https://itest.5ch.net/subback/<board>`
-- 例: `https://itest.5ch.net/subback/operate`
-- **注意**: URL内に `server` 情報が含まれない。
-
-#### D. itest版・スレURL
-- パターン: `https://itest.5ch.net/<server>/test/read.cgi/<board>/<threadKey>/[option]`
-- 例: `https://itest.5ch.net/agree/test/read.cgi/operate/1767525739/l50`
-
----
-
-### 2.2 データ取得URLへの変換ルール
-
-入力パターンごとに、データ取得用URL（`subject.txt` または `dat`）への変換を行う。
-
-#### 2.2.1 板の閲覧（PC版 A / itest版 C）→ スレ一覧 (subject.txt)
-
-板が開かれた場合、スレッド一覧 `subject.txt` を取得する。
-
-**変換ロジック**
-
-1.  **`<board>` の特定**
-    *   (A) PC版: URLパスから抽出。
-    *   (C) itest版: URLパス `subback/` の後ろから抽出。
-2.  **`<server>` の特定**
-    *   (A) PC版: ドメイン部分 `<server>.5ch.net` から抽出。
-    *   (C) itest版: **URLに含まれないため、アプリ内の板一覧データ（BBSMENU等）を参照し、`<board>` に対応する `<server>` を解決する。**
-3.  **URL生成**
-    *   `https://<server>.5ch.net/<board>/subject.txt`
-
----
-
-#### 2.2.2 スレッドの閲覧（PC版 B / itest版 D）→ 本文 (dat)
-
-スレッドが開かれた場合、スレッドデータ `dat` を取得する。
-
-**変換ロジック**
-
-1.  **各パーツの抽出**
-    *   (B) PC版:
-        *   `<server>`: ドメインから抽出。
-        *   `<board>`, `<threadKey>`: パス `/test/read.cgi/<board>/<threadKey>` から抽出。
-    *   (D) itest版:
-        *   `<server>`: パス先頭 `/<server>/test/...` から抽出。
-        *   `<board>`, `<threadKey>`: パス後続部分から抽出。
-2.  **URL生成**
-    *   `https://<server>.5ch.net/<board>/dat/<threadKey>.dat`
-
----
-
-### 2.3 過去ログへのフォールバック
-
-上記 2.2.2 で生成した `dat` URL での取得に失敗した場合（404 Not Found 等）、過去ログ倉庫 (`oyster`) を試行する。
-
-- **フォールバック先URL:**
-  `https://<server>.5ch.net/<board>/oyster/<prefix>/<threadKey>.dat`
-  - `<prefix>`: `threadKey` の先頭4桁
-
----
-
-## 3. 取得フローまとめ
-
-### 3.1 板URL (PC/itest) が入力された場合
-1.  URLパターン判定 (A or C)。
-2.  `<board>` を抽出。itest (C) の場合は板マスタから `<server>` を補完。
-3.  `subject.txt` (`https://<server>.5ch.net/<board>/subject.txt`) を取得。
-4.  スレ一覧をパースして表示。
-
-### 3.2 スレURL (PC/itest) が入力された場合
-1.  URLパターン判定 (B or D)。
-2.  `<server>`, `<board>`, `<threadKey>` を抽出。
-3.  現行 `dat` (`https://<server>.5ch.net/<board>/dat/<threadKey>.dat`) の取得を試行。
-4.  **成功:** パースして表示。
-5.  **失敗:** 過去ログ `oyster` (`.../oyster/<prefix>/<threadKey>.dat`) の取得を試行。
-
----
-
-## 4. エンドポイント仕様
-
-### 4.1 スレ一覧（subject.txt）
-
-**URL**
-- `https://<server>.5ch.net/<board>/subject.txt`
-
-**文字コード**
-- Shift_JIS
-
-**フォーマット**
-- 1行につき1スレッド  
--書式：`[スレッド番号].dat<>[スレッドタイトル] ([レス数])`
-
-**例**
-```
-1767525739.dat<>スレタイ例 (123)
-1766802272.dat<>雑談スレッド ★18 (456)
+```text
+https://<server>.5ch.io/<board>/
 ```
 
-**パース指針**
-- `<>` で2分割（左：`xxxx.dat`、右：`タイトル (レス数)`）  
-- 左側は `.dat` を除去して `threadKey` として扱う  
-- 右側末尾の `(数字)` をレス数として抽出、残りをタイトル  
-- タイトルは HTML を含む場合があるためデコードする
+- `5ch.net`は旧ドメインであり、現行URLの生成には使用しない。
+- `5ch.one`は5chの正規ドメインではない。運営はフィッシング目的とみられるクローンサイトとして注意喚起している。
+- 板の収容サーバーは移転することがあるため、古いホスト名を恒久的な識別子として扱わない。
+
+**根拠:** 現行公式。2026年3月6日・7日の運営告知。
+
+### 1.3 主要なURL
+
+#### 1.3.1 ブラウザ向けURL
+
+| 種別 | URL |
+| --- | --- |
+| 板トップ | `https://<server>.5ch.io/<board>/` |
+| スレッド | `https://<server>.5ch.io/test/read.cgi/<board>/<threadKey>/[option]` |
+| itest板一覧 | `https://itest.5ch.io/subback/<board>` |
+| itestスレッド | `https://itest.5ch.io/<server>/test/read.cgi/<board>/<threadKey>/[option]` |
+
+`option`はHTMLの表示範囲を指定する。主な例は`l50`、`1-100`、`-100`であり、datのURLには含めない。
+
+#### 1.3.2 データ取得URL
+
+| 種別 | URL |
+| --- | --- |
+| 板メニュー | `https://menu.5ch.io/bbsmenu.html` |
+| スレッド一覧 | `https://<server>.5ch.io/<board>/subject.txt` |
+| 板設定 | `https://<server>.5ch.io/<board>/SETTING.TXT` |
+| 現行dat | `https://<server>.5ch.io/<board>/dat/<threadKey>.dat` |
+| oyster過去ログ | `https://<server>.5ch.io/<board>/oyster/<prefix>/<threadKey>.dat` |
+
+**根拠:** 現行公式、現行公開形式。
+
+### 1.4 文字コード
+
+5chの従来型ページおよびテキストデータでは、Shift_JISが使用される。
+
+| 対象 | 文字コード |
+| --- | --- |
+| 板トップHTML | Shift_JIS |
+| `read.cgi` HTML | Shift_JIS |
+| `bbsmenu.html` | Shift_JIS |
+| `subject.txt` | Shift_JIS |
+| dat | Shift_JIS |
+| `SETTING.TXT` | Shift_JIS |
+| 投稿フォーム | ページまたはフォームが指定するShift_JIS |
+
+HTMLの`meta charset`または`Content-Type`が明示する文字コードを優先する。一部の検索、ログイン、周辺サービスはUTF-8を使用するため、5ch.io配下の全サービスがShift_JISであるとは限らない。
+
+### 1.5 HTTP通信
+
+- HTTPSを使用する。
+- リダイレクトはHTTPの一般仕様に従って処理する。
+- `403`、`404`、`429`、`5xx`などを特定の意味に決め打ちしない。
+- `Content-Encoding`が指定された場合は、その圧縮方式を処理する。
+- 投稿では対象ページと同一オリジンのRefererが要求される場合がある。
+- Cookieは`Domain`、`Path`、`Secure`、有効期限などの属性に従って送信する。
 
 ---
 
+## 第2章 閲覧・データ取得仕様
 
-### 4.2 現行スレ本文（dat）
+### 2.1 板とサーバーの特定
 
-**URL**
-- `https://<server>.5ch.net/<board>/dat/<threadKey>.dat`
+#### 2.1.1 BBS MENU
 
-**文字コード**
-- Shift_JIS
+板一覧は次のHTMLから取得できる。
 
-**レスポンス**
-- 1レス = 1行  
-- 区切り：`<>`  
-- 改行：LF
+```text
+https://menu.5ch.io/bbsmenu.html
+```
 
-**1行のフォーマット**
-`[名前]<>[メール]<>[日付+ID等]<>[本文]<>[スレッドタイトル]`
+`bbsmenu.html`はカテゴリー見出しと板へのリンクを含むShift_JISのHTMLである。板リンクのホスト名から`host`を、パスの先頭要素から`board`を取得できる。
 
-**重要な挙動**
-- スレッドタイトルは **1番レスにのみ入る**のが基本  
-  → `1` を含まない差分取得ではタイトルが欠落し得る
-- `日付+ID等` には `ID:xxxxx` や `BE:xxxx-xxxxx` が混在することがある
+板の収容サーバーは移転することがある。板キーしか分からない場合や、保存済みホストで取得できない場合は、最新のBBS MENUを参照してホストを再解決する。
 
-**本文・名前の整形**
-- `名前` にHTMLタグが混ざることがある  
-- `本文` は `<br>` 改行やHTMLエンティティ（例：`&amp;`）を含むことがある  
-- 推奨整形：  
-  - `<br>` → `\n`  
-  - HTMLエンティティをデコード  
-  - タグ除去（リンク/アンカーを保持するかはUI方針で決める）
+**根拠:** 現行公開形式。
+
+#### 2.1.2 板URL
+
+板トップのURLは次の形式である。
+
+```text
+https://<server>.5ch.io/<board>/
+```
+
+例:
+
+```text
+https://agree.5ch.io/operate/
+```
+
+itestの板URLには収容サーバーが含まれない。
+
+```text
+https://itest.5ch.io/subback/<board>
+```
+
+この場合、BBS MENUなどから`board`に対応する`host`を解決する。
+
+### 2.2 スレッド一覧
+
+#### 2.2.1 `subject.txt`
+
+```text
+https://<server>.5ch.io/<board>/subject.txt
+```
+
+- 文字コード: Shift_JIS
+- 改行: 通常LF
+- 1行: 1スレッド
+
+基本形式:
+
+```text
+<threadKey>.dat<>スレッドタイトル (<responseCount>)
+```
+
+例:
+
+```text
+1608930977.dat<>質問・雑談スレッド (479)
+```
+
+解析時は最初の`<>`で識別子部分と表示部分を分け、表示部分末尾の`(数字)`をレス数として扱う。タイトルにはHTML文字参照、タブ、連続空白などが含まれる場合がある。
+
+**根拠:** 現行公開形式。
+
+#### 2.2.2 HTMLのスレッド一覧
+
+板トップおよび`subback.html`にもスレッド一覧が表示される。
+
+```text
+https://<server>.5ch.io/<board>/subback.html
+```
+
+HTMLの構造は表示用であり、固定APIとしての安定性は保証されていない。データ取得には`subject.txt`を優先する。
+
+### 2.3 スレッド本文
+
+#### 2.3.1 現行dat
+
+```text
+https://<server>.5ch.io/<board>/dat/<threadKey>.dat
+```
+
+- 文字コード: Shift_JIS
+- 改行: LF
+- 1行: 1レス
+- フィールド区切り: `<>`
+
+基本形式:
+
+```text
+名前<>メール<>日付・時刻・ID等<>本文<>スレッドタイトル
+```
+
+スレッドタイトルは通常1番レスにだけ含まれ、2番以降の同フィールドは空となる。日付フィールドにはID、IP表示、BE情報、どんぐり表示などが追加されることがある。
+
+名前と本文には、次のようなHTML表現が含まれる。
+
+- `<br>`による改行
+- `&amp;`や`&#128512;`などの文字参照
+- アンカーやリンクを表すHTML断片
+- BEアイコンなどを表す付加情報
+
+HTMLとして表示する場合でも、取得した文字列を無条件に信頼せず、安全な要素と属性だけを解釈する。
+
+**根拠:** 現行公式のdat公開、現行公開形式。
+
+#### 2.3.2 `read.cgi`
+
+```text
+https://<server>.5ch.io/test/read.cgi/<board>/<threadKey>/[option]
+```
+
+`read.cgi`はブラウザ向けHTMLを返す。表示範囲、広告、投稿フォーム、どんぐり確認フォームなどを含み、HTML構造は変更される可能性がある。
+
+### 2.4 過去ログ
+
+#### 2.4.1 oyster
+
+現行datが通常の`dat`ディレクトリから取得できない場合、oyster形式で保存されていることがある。
+
+```text
+https://<server>.5ch.io/<board>/oyster/<prefix>/<threadKey>.dat
+```
+
+`prefix`は`threadKey`の先頭4桁である。
+
+例:
+
+```text
+https://agree.5ch.io/operate/oyster/1684/1684064837.dat
+```
+
+過去ログが元のサーバーではなく過去ログサーバーに保存されている場合も、URL構造は同じである。
+
+```text
+https://natto.5ch.io/food/oyster/1021/1021787092.dat
+```
+
+すべての過去ログが取得できることは保証されていない。
+
+**根拠:** 現行公式。2023年7月11日のdatアクセス再公開告知。
+
+#### 2.4.2 取得順序
+
+1. 現在判明しているホストの`dat/<threadKey>.dat`を取得する。
+2. 取得できなければ、同じホストの`oyster/<prefix>/<threadKey>.dat`を確認する。
+3. サーバー移転が疑われる場合は、BBS MENUから板の現行ホストを再解決する。
+4. 過去ログサーバーのホストが判明している場合は、そのホストのoyster URLを確認する。
+
+HTTPエラーだけでは、未作成、dat落ち、削除、移転、アクセス規制を一意に区別できない。
+
+### 2.5 差分取得とHTTPキャッシュ
+
+#### 2.5.1 参考仕様
+
+旧公式Wikiには、datの差分取得について次の方式が記録されている。
+
+| ヘッダまたは状態 | 内容 |
+| --- | --- |
+| `Last-Modified` | 前回取得したdatの更新日時 |
+| `If-Modified-Since` | 更新がない場合の転送を省略する |
+| `Range: bytes=N-` | 既得サイズ以降だけを要求する |
+| `206 Partial Content` | 部分取得に成功 |
+| `304 Not Modified` | 更新なし |
+| `416 Range Not Satisfiable` | 更新なし、またはdat縮小の可能性 |
+
+dat削除を検出する方法として、既得サイズより1バイト前から取得し、最初のバイトが改行か確認する方式も記載されている。
+
+```text
+Range: bytes=<既得サイズ-1>-
+```
+
+差分取得時は圧縮によりバイト位置が変わらないよう、非圧縮表現を要求する必要がある。
+
+> [!CAUTION]
+> この節の詳細は2015年更新の旧公式Wikiを出典とする参考仕様である。datアクセス自体は現行公式に再公開されているが、すべての現行ホストが同じステータスとヘッダを返すことまでは保証されていない。部分取得に失敗した場合は全件取得へ戻る。
+
+#### 2.5.2 現行環境での観測
+
+2026年8月21日の`eagle.5ch.io`に対する実通信では、投稿直後のdatに次の差分リクエストが受理された。
+
+```http
+GET /<board>/dat/<threadKey>.dat
+If-Modified-Since: <previousLastModified>
+Range: bytes=<previousSize-1>-
+Accept-Encoding: identity
+```
+
+応答は`206 Partial Content`で、次のヘッダを含んでいた。
+
+```http
+Content-Type: text/plain
+Content-Length: <partialLength>
+Content-Range: bytes <start>-<end>/<totalLength>
+Last-Modified: <lastModified>
+ETag: <etag>
+```
+
+取得範囲には既得datの末尾1バイトと新しいレスが含まれ、投稿によるdatの追加を差分として確認できた。この観測により、少なくとも当該ホストでは、旧公式Wikiに記載された1バイト前からのRange取得が現行環境でも動作している。
+
+> [!NOTE]
+> これは単一ホストにおける現行公開形式の観測であり、すべてのホスト、板、時点で同じ応答が保証されるものではない。
+
+### 2.6 `SETTING.TXT`
+
+#### 2.6.1 基本形式
+
+```text
+https://<server>.5ch.io/<board>/SETTING.TXT
+```
+
+- 文字コード: Shift_JIS
+- 1行: `KEY=VALUE`
+- 最初の`=`より前がキー、それ以降が値
+- 板によって存在するキーが異なる
+
+値が空の場合とキーが存在しない場合は、必ずしも同じ意味ではない。設定の存在だけで挙動を推測せず、各キーの定義に従う。
+
+#### 2.6.2 表示に関する主なキー
+
+| キー | 内容 |
+| --- | --- |
+| `BBS_TITLE` | 板タイトル |
+| `BBS_TITLE_ORIG` | 接尾辞などを除いた板タイトル |
+| `BBS_NONAME_NAME` | デフォルト名無し |
+| `BBS_SLIP` | 識別符号表示 |
+| `BBS_FORCE_ID` | ID強制表示 |
+| `BBS_FORCE_NOID` | ID強制非表示 |
+| `BBS_DISP_IP` | IPなどの表示 |
+| `BBS_DISP_MSEC` | 日時の小数秒桁数 |
+
+#### 2.6.3 投稿制限に関する主なキー
+
+| キー | 内容 |
+| --- | --- |
+| `BBS_SUBJECT_COUNT` | スレッドタイトルの最大バイト数 |
+| `BBS_NAME_COUNT` | 名前欄の最大バイト数 |
+| `BBS_MAIL_COUNT` | メール欄の最大バイト数 |
+| `BBS_MESSAGE_COUNT` | 本文の最大バイト数 |
+| `BBS_THREAD_TATESUGI` | スレッド作成規制に関する値 |
+| `BBS_FORCE_NONAME` | 名前入力を無効化 |
+| `BBS_FORCE_NOEMAIL` | メール入力を無効化 |
+| `BBS_SAMBA24` | 投稿間隔の下限値または無効化 |
+| `BBS_COPIPE` | コピペ・連投対策の強度 |
+| `timecount` / `timeclose` | 板内連続投稿制限に関する値 |
+
+上限値はShift_JISに変換された後のバイト数として扱われる設定がある。UPLIFT利用者などに別の上限が適用される可能性もあるため、クライアント側の検証だけで投稿可否を確定しない。
+
+#### 2.6.4 どんぐりに関するキー
+
+| キー | 値 | 内容 |
+| --- | --- | --- |
+| `BBS_ACORN_GATE` | `force` | その板でどんぐり機能を常時有効化 |
+| `BBS_ACORN_GATE` | `false` | その板でどんぐり機能を恒久的に無効化 |
+| `BBS_ACORN_GATE` | `true` | 運営判断によりどんぐり機能を再開する状態 |
+
+設定なしの場合を含む既定動作は、運営側のAcorn Gateの状態に依存する。
+
+**根拠:** 現行公式。2025年10月13日のAcorn Gate告知、5ch公式Wiki。
 
 ---
 
+## 第3章 投稿仕様
 
-### 4.3 過去ログ本文（oyster / dat）
+### 3.1 投稿の共通仕様
 
-**URL**
-- `https://<server>.5ch.net/<board>/oyster/<prefix>/<threadKey>.dat`
+#### 3.1.1 エンドポイント
 
-**文字コード / フォーマット**
-- 現行 `dat` と同様
+レス投稿とスレッド作成は、対象板のホストにある`bbs.cgi`へ送信する。
+
+```text
+POST https://<server>.5ch.io/test/bbs.cgi
+```
+
+現行の公開フォームでは相対URL`/test/bbs.cgi`または`//<server>.5ch.io/test/bbs.cgi`が使用されている。
+
+`?guid=ON`は現行公開フォームには含まれないが、2026年8月21日の`eagle.5ch.io`に対するレス投稿では、このクエリを付けたリクエストが受理された。現行の必須パラメータであることまでは確認できない。
+
+#### 3.1.2 Content-Typeと文字コード
+
+投稿はHTMLフォームとして送信する。
+
+```text
+Content-Type: application/x-www-form-urlencoded
+```
+
+現行の`read.cgi`投稿フォームは`accept-charset="Shift_JIS"`を指定している。板トップの投稿フォームはページ自体がShift_JISであり、フォームに`accept-charset`がない場合もある。送信時は対象フォームとページの文字コード指定に従う。
+
+Shift_JISで直接表現できない文字は、公開フォームやサーバーの処理により数値文字参照として扱われることがある。
+
+```text
+&#128512;
+```
+
+数値文字参照への変換方法は公開APIとして固定されていないため、実際のフォーム挙動とサーバー応答を優先する。
+
+#### 3.1.3 フォーム値の扱い
+
+- 公開フォームと同じ投稿経路を再現する場合は、そのフォームに含まれるhiddenフィールドを送信する。
+- `time`、`cert`などがフォームに含まれる場合は、生成または再利用せず、投稿直前に取得したフォーム値を使用する。
+- `site`、`cert`などはすべての投稿で必須ではなく、フォームの種類や投稿経路によって有無が異なる。
+- 公開フォームを再現する場合は、不明なhiddenフィールドを無条件に削除しない。
+- フォームのaction、method、文字コードを対象ページから取得する。
+- Refererには投稿フォームを取得した板またはスレッドのURLを使用する。
+- 同一セッションで受信した有効なCookieを、Cookie属性に従って送信する。
+
+### 3.2 レス投稿
+
+#### 3.2.1 投稿フォーム
+
+レス投稿フォームは、板トップまたは`read.cgi`のスレッドページに表示される。
+
+主なフォーム項目:
+
+| 項目 | 種別 | 内容 |
+| --- | --- | --- |
+| `bbs` | hidden | 板キー |
+| `key` | hidden | スレッドキー |
+| `time` | hidden | サーバーがフォームに設定した値 |
+| `site` | hiddenの場合あり | フォームの表示元を表す値 |
+| `cert` | hiddenの場合あり | フォームごとに発行される検証値 |
+| `FROM` | text | 名前 |
+| `mail` | text | メール欄 |
+| `MESSAGE` | textarea | 本文 |
+| `submit` | submit | 通常は`書き込む` |
+
+`site`、`cert`などの有無はフォームによって異なる。現行の板トップでは、`cert`はスレッドごとに異なる40桁の16進文字列として観測されているが、その生成規則や有効期間は公開されていない。
+
+2026年8月21日の`eagle.5ch.io`に対するレス投稿では、`bbs`、`key`、`time`、`FROM`、`mail`、`MESSAGE`、`submit`だけを含み、`site`と`cert`を含まないリクエストが受理された。これは両項目がすべてのレス投稿で必須ではないことを示すが、他のフォームや投稿経路でも不要であることまでは保証しない。
+
+**根拠:** 現行公開形式。
+
+#### 3.2.2 投稿先とReferer
+
+投稿先:
+
+```text
+https://<server>.5ch.io/test/bbs.cgi
+```
+
+スレッドページから投稿する場合のReferer:
+
+```text
+https://<server>.5ch.io/test/read.cgi/<board>/<threadKey>[/]
+```
+
+末尾スラッシュの有無は問わない。
+
+板トップから投稿する場合は、その板トップURLをRefererとして使用する。
+
+### 3.3 スレッド作成
+
+#### 3.3.1 投稿フォーム
+
+新規スレッド作成フォームは板トップに表示される。
+
+主なフォーム項目:
+
+| 項目 | 種別 | 内容 |
+| --- | --- | --- |
+| `bbs` | hidden | 板キー |
+| `time` | hidden | サーバーがフォームに設定した値 |
+| `site` | hiddenの場合あり | フォームの表示元を表す値 |
+| `cert` | hiddenの場合あり | フォームごとに発行される検証値 |
+| `subject` | text | スレッドタイトル |
+| `FROM` | text | 名前 |
+| `mail` | text | メール欄 |
+| `MESSAGE` | textarea | 1番レスの本文 |
+| `submit` | submit | 通常は`新規スレッド作成` |
+
+レス投稿と異なり、作成前には`key`が存在しない。作成後のスレッドキーはサーバーが決定する。
+
+#### 3.3.2 投稿先とReferer
+
+投稿先:
+
+```text
+https://<server>.5ch.io/test/bbs.cgi
+```
+
+Referer:
+
+```text
+https://<server>.5ch.io/<board>/
+```
+
+#### 3.3.3 板設定による制限
+
+スレッドタイトル、名前、メール、本文の上限は`SETTING.TXT`の値に依存する。スレッド作成には、どんぐりレベル、BE、投稿元、作成間隔など、公開フォームの入力値だけでは判断できない制限が追加される場合がある。
+
+### 3.4 投稿確認
+
+#### 3.4.1 現行の確認方式
+
+新しい投稿用Cookieが必要な場合、`bbs.cgi`は書き込み確認ページを返すことがある。2025年3月24日の運営告知により、従来の「書き込みボタンを再度押さなくてもCookieを発行する方式」は廃止された。
+
+確認ページが返された場合は、そのページの説明とHTMLフォームに従う。確認ページに含まれるaction、hiddenフィールド、submit値を固定値として推測しない。
+
+**根拠:** 現行公式。2025年3月24日の専用ブラウザ開発者向け告知。
+
+#### 3.4.2 再送信上の注意
+
+- 投稿リクエストのタイムアウトや接続切断だけでは、投稿が失敗したと断定できない。
+- 同じ内容を直ちに再送すると、二重投稿または連投規制になる可能性がある。
+- 成否不明の場合は、`subject.txt`または最新datを再取得して反映を確認する。
+- 確認ページを経由する場合も、サーバーが新たに指定したCookieとフォーム値を使用する。
+
+### 3.5 投稿応答
+
+`bbs.cgi`の応答はHTML、Cookie、HTTPステータスなどから構成される。成功・確認・警告・エラーのHTML文言は観測できるが、固定された機械可読APIとしては公開されていない。
+
+応答は少なくとも次の分類で扱う。
+
+| 分類 | 内容 |
+| --- | --- |
+| 成功 | 投稿またはスレッド作成が受理された |
+| 確認 | Cookie取得や投稿条件への確認が必要 |
+| 警告 | 条件を確認したうえで操作が必要 |
+| 規制 | 投稿間隔、内容、投稿元、どんぐりなどによる拒否 |
+| スレッド状態 | 1000到達、容量超過、停止、過去ログなど |
+| 一時障害 | 過負荷、DDoS対策、サーバー障害など |
+| 不明 | 既知の形式では成否を判定できない |
+
+HTMLタイトルや本文の日本語文言だけに依存せず、HTTPステータス、レスポンスヘッダ、Cookie、HTML全体を保持して判定する。未公開の独自レスポンスヘッダは、存在しない場合も受理できるようにする。
+
+#### 3.5.1 観測されたレス投稿成功応答
+
+2026年8月21日の`eagle.5ch.io`に対するレス投稿では、次のHTTP応答が返り、直後のdat取得で投稿の反映が確認された。
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=Shift_JIS
+```
+
+応答には`Location`ヘッダがなく、Shift_JISのHTML本文に成功表示とmeta refreshが含まれていた。
+
+```html
+<html lang="ja">
+<head>
+<title>書きこみました。</title>
+<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+<meta content=1;URL=//<server>.5ch.io/test/read.cgi/<board>/<threadKey>/l50
+      http-equiv=refresh>
+</head>
+<body>書きこみが終わりました。 [<processingTime>]<br><br>
+画面を切り替えるまでしばらくお待ち下さい。<br><br>
+</body>
+</html>
+```
+
+この形式から、次のことが観測できる。
+
+- 観測した成功応答のタイトルは`書きこみました。`で、末尾に句点を含んでいた。
+- 観測したmeta refreshの待機時間は1秒だった。
+- 観測した遷移先は対象スレッドの`l50`で、スキーム省略URLが使用されていた。
+- 観測したmeta要素では属性値が引用符で囲まれていなかったため、同形式を扱う場合はHTMLとして解析する。
+- この成功応答には`<!-- 2ch_X:true -->`が含まれておらず、このコメントを成功判定の必須条件にはできない。
+
+成功形式のHTMLが返っても投稿が反映されない規制が報告されている。また、受理された投稿がdatへ反映されるまで時間がかかる場合もある。利用可能な応答ヘッダとdatを併せて確認し、直後のdatに見つからない場合も自動で再投稿しない。
+
+#### 3.5.2 観測された投稿結果ヘッダ
+
+同じ成功応答では、次の独自ヘッダが観測された。
+
+| ヘッダ | 観測上の内容 |
+| --- | --- |
+| `X-Postplace` | 投稿先の`board/threadKey` |
+| `X-Resnum` | 投稿されたレス番号 |
+| `X-Postdate` | この観測では`<UNIX秒>.01`形式で、datの投稿日時と一致 |
+| `X-Posterid` | この観測では、dat表示IDの末尾`0`を除いた文字列と一致 |
+| `X-Uplift-Stat` | UPLIFTの状態 |
+| `X-Donguri-Stat` | どんぐりの状態 |
+| `X-Regioninfo` | 地域、ネットワーク、ASなどの判定情報 |
+| `X-Proc-Time` | サーバー処理時間 |
+
+`X-Postdate`は`<UNIX秒>.01`の形式で、追加されたdat行の投稿日時と一致した。`X-Posterid`は、追加されたdat行の表示IDから末尾の`0`を除いた文字列と一致した。末尾の`0`の意味や、他の投稿でも同じ対応になるかは、この観測だけでは確認できない。
+
+これらは未公開の独自ヘッダであり、常に存在すること、値の形式が変わらないこと、スレッド作成でも同じ意味になることは保証されていない。特に`X-Regioninfo`は投稿元に関する情報を含むため、ログの公開や共有時には値を伏せる。
+
+#### 3.5.3 datによる反映確認
+
+同じ観測では、`X-Resnum`の値`5`が直後に差分取得した新規5番レスと一致し、`X-Postdate`の日時および`X-Posterid`も前述の対応関係でdat行と一致した。
+
+投稿成功は、利用可能な情報を次の順に組み合わせて確認する。
+
+1. HTTP成功ステータスを確認する。
+2. 成功HTMLまたは成功を示す遷移先を確認する。
+3. `X-Postplace`、`X-Resnum`、`X-Postdate`などの投稿結果ヘッダを確認する。
+4. datを再取得し、示されたレス番号と投稿内容が反映されたことを確認する。
+
+datへの反映確認が最も強い成功証拠となる。タイムアウト、独自ヘッダの欠落、成功形式に見える規制応答などにより成否を確定できない場合は、自動で再投稿せずdatを確認する。
 
 ---
 
+## 第4章 セッション・規制仕様
 
-### 4.4 掲示板設定（SETTING.TXT）
+### 4.1 Cookie
 
-**URL**
-- `https://<server>.5ch.net/<board>/SETTING.TXT`
+#### 4.1.1 一般的な扱い
 
-**文字コード**
-- Shift_JIS
+5chは投稿確認、投稿セッション、ログイン、どんぐりなどにCookieを使用する。
 
-**フォーマット**
-- LF区切り、1行が `KEY=VALUE`  
-- **最初の `=` までがKEY**（VALUEに `=` が含まれる可能性あり）
+- `Set-Cookie`で受信した属性を保持する。
+- `Domain`またはhost-onlyの範囲を守る。
+- `Path`がリクエスト先に一致するCookieだけを送信する。
+- `Secure` CookieはHTTPSだけで送信する。
+- 期限切れCookieは送信しない。
+- 同名Cookieでもドメインとパスが異なれば別のCookieとして扱う。
 
-**主なキー（例）**
-- `BBS_TITLE_ORIG`：板タイトル（優先）
-- `BBS_TITLE`：板タイトル（フォールバック）
-- `BBS_NONAME_NAME`：デフォ名無し
-- `BBS_THREAD_STOP`：最大レス数
-- `BBS_DELETE_NAME`：あぼーん名無し
+#### 4.1.2 `MonaTicket`
+
+2025年3月24日の運営告知では、投稿用Cookieとして`MonaTicket`を適用するとされている。サーバーが新しい値または失効値を返した場合は、通常のCookie更新規則に従う。
+
+`MonaTicket`の値、生成方法、有効期間、エラー応答の内部形式は公開されていない。別のCookieをまとめて削除する根拠にはしない。
+
+#### 4.1.3 廃止されたCookie
+
+`yuki=akari`は2025年3月24日の運営告知で廃止された。現行投稿の必須Cookieとして送信しない。
+
+### 4.2 どんぐり／Acorn System
+
+#### 4.2.1 概要
+
+どんぐりシステムは、荒らし対策として導入されたユーザー参加型システムである。初回の書き込みでどんぐりが埋められ、時間経過と投稿数に応じてレベルが上がる。
+
+公式サイト:
+
+```text
+https://donguri.5ch.io/
+https://donguri.5ch.io/faq
+```
+
+#### 4.2.2 投稿レベル
+
+- 板やスレッドは投稿に必要なレベルを指定できる。
+- レベル不足の場合、現在レベルと必要レベルを含むエラーが返ることがある。
+- どんぐりが枯れた場合は、再度書き込んだ後、レベルが上がるまで待つ必要がある場合がある。
+- 任意表示の板やスレッドでは、名前欄の`!donguri`でレベルを確認できる。
+
+#### 4.2.3 Acorn Gate
+
+2025年10月13日以降、Acorn Gateがどんぐり機能の全体的な適用状態を制御する。
+
+- 既定状態`false`: 投稿制限などを停止する。
+- 運営が`true`へ変更: 対応する板でどんぐり機能を再開する。
+- 板設定`BBS_ACORN_GATE=force`: その板では常時有効にする。
+- 板設定`BBS_ACORN_GATE=false`: その板では恒久的に無効にする。
+
+大砲機能が有効でも、Acorn Gateの状態により投稿制限を伴わず印だけを付ける場合がある。
+
+### 4.3 投稿規制
+
+投稿可否は、フォーム項目だけでなく、板設定、投稿元、投稿履歴、本文、スレッド状態、どんぐりなどによって決まる。
+
+#### 4.3.1 時間と回数による規制
+
+- 短時間の連続投稿
+- 同一内容の連続投稿
+- 板内の投稿数に基づく規制
+- スレッド作成間隔
+- `BBS_SAMBA24`などの板設定
+
+#### 4.3.2 内容による規制
+
+- NGワード
+- URLやホスト名
+- コピペまたは類似文の連投
+- 名前、メール、本文のバイト数超過
+- 不正または解釈できない文字列
+
+#### 4.3.3 投稿元による規制
+
+- IPアドレスまたはホスト規制
+- Proxy、VPN、海外ホストなどの判定
+- BBxなどの規制
+- Cookieまたはセッションの不整合
+- DDoS対策やレート制限
+
+#### 4.3.4 スレッド状態による制限
+
+- 最大レス数への到達
+- dat容量の上限
+- スレッド停止または削除
+- dat落ちまたは過去ログ化
+- 板またはサーバーの移転
+
+### 4.4 エラーの扱い
+
+規制やエラーの文言は変更されるため、文字列を仕様上の一意なコードとして扱わない。サーバーが返した本文を利用者へ提示し、再試行可能かどうかを慎重に判断する。
+
+特に次の場合は自動再投稿を避ける。
+
+- タイムアウトや接続切断で成否が不明
+- 過負荷またはDDoS対策中
+- Cookie確認が必要
+- 投稿間隔や連投に関する規制
+- 不明なHTML応答
+
+---
+
+## 第5章 仕様の確度と互換性
+
+### 5.1 現行公式仕様
+
+現行仕様として確定的に扱えるのは、現在の運営告知または現行公式ページで確認できる範囲である。
+
+- 正規ドメインは`5ch.io`
+- datへの直接アクセスは公開されている
+- 現行datとoysterのURL構造
+- `bbs.cgi`へのフォームPOST
+- `MonaTicket`の適用とMonaKeyの廃止
+- どんぐりシステムとAcorn Gate
+
+### 5.2 現行公開形式
+
+次の項目は現在の公式ページやデータから確認できるが、安定したAPIとして保証されているとは限らない。
+
+- `subject.txt`とdatの具体的な行形式
+- 投稿フォームの`site`、`cert`などのhidden項目
+- 投稿成功、確認、警告、規制のHTML構造と文言
+- 独自レスポンスヘッダ
+- Cookieの内部的な更新条件
+
+### 5.3 参考仕様
+
+5ch公式WikiのMonazilla資料には、User-Agent、Range、If-Modified-Since、HTTPステータスなどの専用ブラウザ向け情報が掲載されている。ただし、一部ページの最終更新は2015年であり、現行サーバーでの完全な互換性は保証されない。
+
+参考仕様を利用する場合は、次のフォールバックを用意する。
+
+- 差分取得から全件取得へ戻る
+- キャッシュ検証に失敗したら再取得する
+- 未知のステータスやHTMLを受け入れる
+- 最新の公開フォームを再取得する
+
+### 5.4 互換掲示板
+
+BBSPINK、まちBBS、2ch.scなどは、`subject.txt`、dat、`bbs.cgi`に似た形式を使用する場合がある。しかし、運営主体、ドメイン、投稿認証、Cookie、規制、過去ログ構造が異なるため、本仕様をそのまま適用しない。
+
+---
+
+## 第6章 旧仕様
+
+> [!WARNING]
+> この章は履歴資料であり、現行の5ch.ioに対する実装根拠として使用しない。
+
+### 6.1 旧ドメイン
+
+#### 6.1.1 `5ch.net`
+
+2026年3月6日から7日にかけて、正規ドメインは`5ch.net`から`5ch.io`へ移行した。
+
+旧形式:
+
+```text
+https://<server>.5ch.net/<board>/
+https://<server>.5ch.net/test/read.cgi/<board>/<threadKey>/
+https://<server>.5ch.net/<board>/dat/<threadKey>.dat
+```
+
+保存済みURLを参照する場合を除き、新しいURLの生成には使用しない。
+
+#### 6.1.2 `2ch.net`
+
+2017年の名称変更以前に使用されたドメインである。現行5chのURLとして扱わない。
+
+### 6.2 旧過去ログ方式
+
+旧2ch時代には、次のような`kako`ディレクトリやgzip形式が使用された。
+
+```text
+/<board>/kako/<上位4桁>/<上位5桁>/<threadKey>.dat.gz
+/<board>/kako/<上位4桁>/<上位5桁>/<threadKey>.dat
+```
+
+また、有料過去ログ取得などに`offlaw.cgi`が使用された時期がある。現行の5ch.ioでは、これらを標準の過去ログ取得順に含めず、oyster形式を使用する。
+
+### 6.3 旧API制限
+
+2015年以降の一時期、専用ブラウザには許諾を受けたAPIの利用が求められ、datへの直接アクセスやスクレイピングを禁止する案内が掲載されていた。
+
+2023年7月11日の運営告知により、APIは開発者へ再公開され、datへの直接アクセスも再開された。このため、旧`developer.5ch.net`の許諾必須・dat直接取得禁止という説明を現行仕様として扱わない。
+
+### 6.4 MonaKey方式
+
+2022年から2025年まで、専用ブラウザの投稿で次のリクエストヘッダを使用するMonaKey方式が存在した。
+
+- `X-MonaKey`
+- `X-PostSig`
+- `X-APIKey`
+- `X-PostNonce`
+
+2025年3月24日の運営告知でMonaKeyは廃止され、これらのヘッダは不要とされた。
+
+`X-Ronin-Sid`は同告知時点では利用可能とされたが、将来廃止される可能性が明記され、Cookieへ`sid`を設定する方式が推奨された。UPLIFTの現行認証仕様は、UPLIFTが提示する最新の手順に従う。
+
+### 6.5 旧投稿確認方式
+
+2025年3月24日以前には、書き込み確認画面を経由しなくてもCookieが発行される方式や、固定的な再POST手順を前提にした専用ブラウザが存在した。
+
+現行方式では、新しいCookieが必要な場合に確認ページが表示されるため、旧来の固定的な確認手順を使用しない。
+
+### 6.6 旧どんぐりURL
+
+2026年3月のドメイン移行前は、次のURLが使用された。
+
+```text
+https://donguri.5ch.net/
+```
+
+現行URL:
+
+```text
+https://donguri.5ch.io/
+```
+
+---
+
+## 付録A エンドポイント一覧
+
+| 目的 | メソッド | エンドポイント |
+| --- | --- | --- |
+| 板メニュー | GET | `https://menu.5ch.io/bbsmenu.html` |
+| 板トップ | GET | `https://<server>.5ch.io/<board>/` |
+| スレッド一覧 | GET | `https://<server>.5ch.io/<board>/subject.txt` |
+| 板設定 | GET | `https://<server>.5ch.io/<board>/SETTING.TXT` |
+| スレッドHTML | GET | `https://<server>.5ch.io/test/read.cgi/<board>/<threadKey>/[option]` |
+| 現行dat | GET | `https://<server>.5ch.io/<board>/dat/<threadKey>.dat` |
+| oyster過去ログ | GET | `https://<server>.5ch.io/<board>/oyster/<prefix>/<threadKey>.dat` |
+| レス投稿 | POST | `https://<server>.5ch.io/test/bbs.cgi` |
+| スレッド作成 | POST | `https://<server>.5ch.io/test/bbs.cgi` |
+
+## 付録B 投稿フォーム比較
+
+| 項目 | レス投稿 | スレッド作成 |
+| --- | --- | --- |
+| `bbs` | 必要 | 必要 |
+| `key` | 必要 | なし |
+| `subject` | なし | 必要 |
+| `time` | フォーム値を使用 | フォーム値を使用 |
+| `site` | フォームにある場合 | フォームにある場合 |
+| `cert` | フォームにある場合 | フォームにある場合 |
+| `FROM` | 名前 | 名前 |
+| `mail` | メール欄 | メール欄 |
+| `MESSAGE` | 本文 | 1番レス本文 |
+| `submit` | 通常`書き込む` | 通常`新規スレッド作成` |
+
+## 付録C 主な出典
+
+| 種別 | 出典 | 確認内容 |
+| --- | --- | --- |
+| 現行公式 | <https://agree.5ch.io/test/read.cgi/sec2chd/9240230711/> | API・dat再公開、MonaKey廃止、Acorn Gate、5ch.io移行 |
+| 現行公開形式 | <https://agree.5ch.io/operate/> | 板トップ、レス投稿フォーム、スレッド作成フォーム |
+| 現行公開形式 | <https://agree.5ch.io/test/read.cgi/sec2chd/9240230711/> | read.cgi、レス投稿フォーム |
+| 現行公開形式 | <https://menu.5ch.io/bbsmenu.html> | 板メニューと現行ホスト |
+| 現行通信観測 | 2026-08-21 `eagle.5ch.io` | レス投稿成功応答、独自ヘッダ、datへの反映、Range差分取得 |
+| 現行公式 | <https://donguri.5ch.io/faq> | どんぐりレベルと投稿制限 |
+| 公式Wiki | <https://info.5ch.io/index.php/SETTING.TXT> | 板設定キー |
+| 参考仕様 | <https://info.5ch.io/index.php/Monazilla/develop/access> | HTTPキャッシュとRange取得 |
+
+出典の内容と本書の基準日が異なる場合は、より新しい運営告知および現行公開ページを優先する。
