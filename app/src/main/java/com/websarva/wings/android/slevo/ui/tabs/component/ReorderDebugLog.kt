@@ -8,6 +8,10 @@ private const val REORDER_LOG_TAG = "TabReorder"
 /** Debug buildでだけタブ並び替えのgesture診断メッセージをLogcatへ出力する。 */
 internal fun logTabReorder(message: () -> String) {
     if (BuildConfig.DEBUG) {
-        Log.d(REORDER_LOG_TAG, message())
+        try {
+            Log.d(REORDER_LOG_TAG, message())
+        } catch (_: RuntimeException) {
+            // JVM unit testのAndroid SDK stubではLog.dが未実装のため、診断ログだけ無視する。
+        }
     }
 }
