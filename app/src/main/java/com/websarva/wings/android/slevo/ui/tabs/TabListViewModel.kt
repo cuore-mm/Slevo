@@ -288,10 +288,17 @@ class TabListViewModel @Inject constructor(
         uiStateMutable.update { it.copy(threadReorderDraft = null) }
     }
 
-    /** pointer cancel または画面終了時に未確定の順序を破棄する。 */
+    /** pointer cancel または画面終了時に未確定の順序と長押しプレビューを破棄する。 */
     fun cancelReorder() {
         uiStateMutable.update { state ->
-            state.copy(boardReorderDraft = null, threadReorderDraft = null)
+            state.copy(
+                boardReorderDraft = null,
+                threadReorderDraft = null,
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
+            )
         }
     }
 

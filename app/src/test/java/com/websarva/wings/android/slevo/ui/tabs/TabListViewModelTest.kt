@@ -174,6 +174,20 @@ class TabListViewModelTest {
         verify(exactly = 0) { tabSessionStore.reorderThreadTabs(any()) }
     }
 
+    /** 長押し後のpointer cancelでPreview選択とアンカーも残さないことを確認する。 */
+    @Test
+    fun cancelReorder_clearsLongPressPreview() = runTest {
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        viewModel.onBoardTabLongPressed(tab, IntRect(0, 0, 100, 100))
+
+        viewModel.cancelReorder()
+
+        val state = viewModel.uiState.first()
+        assertNull(state.selectedBoardTab)
+        assertNull(state.selectedTabBounds)
+        assertEquals(TabActionMenuMode.None, state.tabActionMenuMode)
+    }
+
     /** 上下移動は境界で失敗し、可能な移動だけ通常のreorder facadeへ渡すことを確認する。 */
     @Test
     fun accessibilityMove_ignoresBoundaryAndDelegatesValidMove() {
