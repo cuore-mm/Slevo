@@ -1,11 +1,11 @@
-## 1. 依存追加とジェスチャーPoC
+## 1. 依存追加とジェスチャー競合修正
 
 - [x] 1.1 `gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加し、CIでAndroid variantの依存解決とコンパイルを確認する。
-- [ ] 1.2 `app/src/androidTest/.../ui/tabs/`へPoC用Compose testを追加し、`clickable`と`draggableHandle(custom DragGestureDetector)`の同居状態で通常tap、長押し検出、同一pointer sequenceのdrag開始を確認する。
-- [ ] 1.3 PoCへ既存の横スワイプ削除と`LazyColumn`縦スクロールを組み込み、長押し成立前は両操作へ入力を譲り、長押し成立後はreorderが所有できることを確認する。
-- [ ] 1.4 PoCで長押し後のupを`PointerEventPass.Initial`でconsumeし、MenuOpen分岐で通常`onClick`が発火しないことを確認する。失敗した場合だけModifier内のpointer sequence限定抑止フラグを試す。
-- [ ] 1.5 PoCで非focusable Popupを長押し途中に表示し、Preview→OpenとPreview→dragでPointerEvent、表示位置、Popup properties更新が途切れないことを実機でも確認する。
-- [ ] 1.6 1.2〜1.5の合格条件を満たさない場合は本実装へ進まず、失敗条件と端末・Composeバージョンを`design.md`へ追記してfallback設計を更新する。満たした場合はPoC専用コードを本実装へ統合できる形に整理する。
+- [ ] 1.2 `app/src/androidTest/.../ui/tabs/`へ実際の`TabListCard`と`RemovableTabList`を使うCompose UI testを追加し、現行実装でDOWN→長押し→追加slop超過がreorder開始へ到達しない現象を再現する。修正前の失敗callbackまたは未移動状態をtest結果として確認する。
+- [ ] 1.3 `SlevoTabDragGestureDetector.detect`の長押し後にある`awaitTouchSlopOrCancellation`を、既定の`PointerEventPass.Main`で対象pointerのdeltaを取得して即consumeする局所ループへ置き換える。slop未満はPreviewを維持し、超過時は`onDragStart`を1回呼んで超過分だけを最初の`onDrag`へ渡し、UPはMenuOpen、pointer消失・system cancel・予期しない事前consumeはcancelへ収束するunitまたはCompose UI testを追加する。
+- [ ] 1.4 `TabListCard.kt`の横スワイプDetectorを、対象changeが`isConsumed`ならgestureから撤退する構成へ変更し、`canHandleSwipeGesture`へ`!isDragging`を追加する。reorderの長押し成立後とdrag中にswipe offsetまたは`onSwipeDelete`が発生しないCompose UI testを追加する。
+- [ ] 1.5 Compose UI testで通常tap、Preview→Open、Preview→drag、長押し前の横スワイプ、長押し前の縦スクロール、close領域除外、Main passのUP consumeによる通常`onClick`抑止、非focusable Popup表示後のpointer継続を個別に確認する。Main passでも通常clickが発火する場合だけUP取得をInitial passへ変更して再検証する。
+- [ ] 1.6 1.2〜1.5を接続端末またはemulatorで実行し、端末名、API level、Compose UI 1.10.3、実行command、結果をこのファイルへ記録する。全条件が成功するまでgesture修正を完了扱いにせず、失敗条件が残る場合は実装を拡張する前に`design.md`を再更新する。
 
 ## 2. メニュー状態とPopup再利用
 
@@ -58,5 +58,5 @@
 - [x] 8.1 新規・変更したclass、interface、non-trivial functionへ必須KDocを追加し、長いfunctionのセクションコメント、データ変換の順序不変条件を確認する。
 - [x] 8.2 CIでunit testを含むAndroid CIを成功させる。
 - [x] 8.3 CIでアプリbuildを成功させる。
-- [ ] 8.4 関連instrumented testを接続端末またはemulatorで実行し、PoCジェスチャー、Room再採番、アクセシビリティ、1,252件性能が成功することを記録する。
+- [ ] 8.4 関連instrumented testを接続端末またはemulatorで実行し、gesture統合、Room再採番、アクセシビリティ、1,252件性能が成功することを端末名、API level、実行commandとともに記録する。`testCiUnitTest assembleCi`の成功だけではこの項目を完了扱いにしない。
 - [x] 8.5 `openspec validate add-drag-reorder-tabs --strict`を実行し、計画成果物の整合性を確認する。

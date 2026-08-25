@@ -6,6 +6,8 @@
 
 Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layoutの完成した公式reorder APIはないため、Calvin-LL Reorderable 3.1.0のカスタム`DragGestureDetector`拡張点を利用する。
 
+初回実装の`SlevoTabDragGestureDetector.detect`は、長押し成立後に`awaitTouchSlopOrCancellation`でもう一度slopを待つ。この待機中はposition changeを所有しないため、DOWNから移動量を蓄積している外側の横スワイプDetectorまたは`LazyColumn`が先にconsumeすると、Previewからdragへ移行できない。また、`TabListCard`の横スワイプDetectorはconsume済みchangeを確認せず、drag開始時に`cancelTabSelection()`で長押し選択を解除するとスワイプが再有効になる。今回の修正はこのgesture所有権だけを対象とし、Reorderableの位置計算や他のpointer処理は統合しない。
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -25,11 +27,11 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 ## Decisions
 
-### 1. 最初にジェスチャーPoCを行う
+### 1. ジェスチャー統合テストを修正ゲートにする
 
-本実装前に、`clickable`、既存スワイプ、カスタム`DragGestureDetector`、Reorderableを同じカードで共存させるPoCをinstrumented Compose testと実機で確認する。合格条件は、通常タップ、PreviewからOpen、Previewからdrag、長押し前の横スワイプと縦スクロール、close領域除外が同時に成立することである。
+初回実装では、`clickable`、既存スワイプ、カスタム`DragGestureDetector`、Reorderableを同じカードで共存させるPoCを完了しないまま永続化層まで実装したため、buildとunit testが成功してもPreviewからdragへ移行できない不具合を検出できなかった。修正前に実際の`TabListCard`と`RemovableTabList`を使うinstrumented Compose testで現象を再現し、修正後に同じtestを合格させる。
 
-第一案が成立した場合、タップを含む完全統合pointer detectorとinlineメニュープレビューは実装しない。第一案が成立しない場合は実装を続行せず、このdesignを更新してfallbackを具体化する。
+合格条件は、通常タップ、PreviewからOpen、Previewからdrag、長押し前の横スワイプと縦スクロール、drag中のスワイプ抑止、close領域除外が同時に成立することである。タップ、横スワイプ、縦スクロールを一つの巨大なpointer detectorへ統合せず、長押し成立後からReorderableへ渡すまでの区間だけを`SlevoTabDragGestureDetector`が所有する。接続端末またはemulatorでこのtestを実行するまでgesture修正を完了扱いにしない。
 
 ### 2. Calvin-LL Reorderable 3.1.0へreorder機構を委譲する
 
@@ -37,11 +39,17 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 ライブラリはdrag offset、移動先、`onMove`、placement animation、エッジ自動スクロールを所有する。Slevoは長押し待機、メニュー状態、追加touch slop、順序draft、永続化だけを所有する。標準`longPressDraggableHandle`は長押し成立時点でdragを開始するため使用しない。
 
-### 3. `combinedClickable.onLongClick`をカスタムDetectorへ移す
+### 3. 長押し後だけカスタムDetectorがMain passで所有する
 
 `combinedClickable`の長押し経路は成立後のpointer sequenceを消費するため撤去し、通常タップには可能な限り`clickable`を残す。カスタムDetectorは`awaitFirstDown(requireUnconsumed = false)`でdownを監視し、長押し前の移動を消費しない。
 
-長押し成立後に追加touch slopを超えた場合はposition changeを消費してReorderableの`onDragStart`を呼ぶ。動かさず離した場合はupを`PointerEventPass.Initial`で消費し、`clickable.onClick`の誤発火を防ぐ。PoCでInitial passによる抑止が不安定な場合のみ、Modifier内の1 pointer sequenceに限定した抑止フラグを追加する。このフラグをViewModelへ置かない。
+`awaitLongPressOrCancellation`で長押しが成立した後は`awaitTouchSlopOrCancellation`を使わず、`SlevoTabDragGestureDetector.detect`内の小さなループで既定の`PointerEventPass.Main`から対象pointerの各eventを受け取る。現在のModifier階層では内側のreorderHandleがMain passで外側の`clickable`、横スワイプDetector、`LazyColumn`より先に処理できるため、deltaを取得してから同じchangeを即時consumeする。長押し後に取得時点で既にconsume済みのchangeが現れた場合は、別handlerから所有権を奪い返さずdrag cancelへ収束させる。
+
+長押し成立位置からの移動量をDetector内だけで累積し、追加touch slop未満ではPreviewを維持する。slopを超えたeventでReorderableの`onDragStart`を1回呼び、累積移動全体ではなくslop超過分だけを最初の`onDrag`へ渡してカードのジャンプを防ぐ。以後のdrag offset、移動先、エッジスクロールはReorderableへ委譲する。
+
+追加touch slop前に対象pointerがUPした場合はMain passでUPをconsumeして`onLongPressReleased`を1回呼び、通常`clickable.onClick`を抑止する。pointer消失、system cancel、別handlerによる予期しないconsumeでは`onDragCancelled`へ収束させる。Main passのUP consumeでも通常clickが発火することをtestで確認した場合だけ、UP取得を`PointerEventPass.Initial`へ限定して変更する。pointer sequence限定の抑止フラグはその方法でも解消しない場合の最終手段とし、ViewModelへ置かない。
+
+`TabListCard`の横スワイプDetectorは、各eventの処理前に対象changeの`isConsumed`を確認し、trueならそのgestureから撤退する。さらに`canHandleSwipeGesture`へ`!isDragging`を加え、Reorderableがdragging itemを所有している間は横スワイプ用`pointerInput`を無効にする。`isConsumed`確認が所有権調停の本体で、`!isDragging`はdrag開始後に`cancelTabSelection()`でスワイプ有効条件が戻ることへの防御とする。
 
 ### 4. Card内のBoxで操作領域とcloseボタンを分離する
 
@@ -93,7 +101,7 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 
 ## Implementation Contract
 
-1. PoCが合格するまでRoom、Repository、Coordinatorの実装へ進まない。
+1. 現行の失敗を再現するgesture統合testを追加してからDetectorを修正し、同じtestを接続端末またはemulatorで合格させるまでgesture修正を完了扱いにしない。
 2. `TabListCard`のclose/pin trailing領域へreorderまたはswipe detectorを付けない。
 3. pointer ID、座標、経過時間、touch slop、drag offsetを`TabListUiState`へ保存しない。
 4. `ReorderDraft`はstable keyだけを保持し、drag中の`onMove`からDB writeを呼ばない。
@@ -103,6 +111,9 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 8. 既存`boardUrl`と`ThreadId.value`のstable key契約を変更しない。
 9. 新規class、interface、non-trivial functionにはリポジトリのKDoc規則を適用し、30行を超えるfunctionはセクションコメントで分割する。
 10. 実装完了時にapp buildとunit testを必ず成功させ、関連instrumented testも実行する。
+11. 長押し前のpointer changeをreorder側でconsumeせず、長押し成立後はMain passでdelta取得後に即consumeする。
+12. 横スワイプDetectorはconsume済みchangeを処理せず、`isDragging`中は起動しない。
+13. post-long-pressのpointer ID、累積移動量、slop判定はDetector内に閉じ、`TabListUiState`またはViewModelへ追加しない。
 
 ## Error Cases and Compatibility
 
@@ -115,7 +126,8 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 
 ## Testing Strategy
 
-- Compose UI/実機PoC: tap、Preview→Open、Preview→drag、横スワイプ、縦スクロール、close除外、up時click抑止、Popup properties更新。
+- Compose UI/実機PoC: 実際の`TabListCard`と`RemovableTabList`へ`performTouchInput`でDOWN、長押し時刻、slop未満MOVE、slop超過MOVE、UPを送る。tap、Preview→Open、Preview→drag、長押し前の横スワイプと縦スクロール、drag中のスワイプ不発火、close除外、UP時click抑止、Popup properties更新を個別に確認する。
+- Gesture callback順序: Previewでは`onLongPress`だけ、slop超過では`onDragStart`を1回、正常終了では`onDragEnd`と`onDragFinished`を各1回、cancelでは`onDragCancel`と`onDragCancelled`を各1回通知する。MenuOpen経路ではreorder callbackと通常`onClick`を通知しない。
 - Unit: key順move、Store最新情報とのmerge、cancel rollback、ViewModelからCoordinatorへのhandoff、Board/Threadのpending projection、confirmation、Failure、連続reorder、add/delete競合。
 - Room instrumented: `sortOrder`以外が不変、全key連番、DBのみkey維持、削除済みkey無視、transaction rollback、1,252件性能。
 - Accessibility: 上下移動action、境界、TalkBackの通常タップとメニュー、Preview項目の非操作性。
@@ -123,8 +135,9 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 
 ## Risks / Trade-offs
 
-- [複数gesture detectorがPointerEventを競合する] → PoCを実装ゲートにし、長押し前は消費せず、長押し後だけ所有権を取得する。
-- [長押し後のupで通常clickが誤発火する] → Initial passでupを消費し、失敗時だけ局所抑止フラグを追加する。
+- [複数gesture detectorがPointerEventを競合する] → 長押し前は消費せず、成立後は内側reorderHandleがMain passで各changeを即consumeする。外側スワイプは`isConsumed`で撤退し、drag中は無効化する。
+- [長押し後のupで通常clickが誤発火する] → まずMain passでUPをconsumeし、実機testで誤発火した場合だけUP取得をInitial passへ変更する。それでも失敗する場合だけ局所抑止フラグを追加する。
+- [slop超過時にカードがジャンプする] → 最初の`onDrag`へ累積量ではなくslop超過分だけを渡す。
 - [Popup更新でpointerまたは表示が途切れる] → 同じPopupを維持してpropertiesだけ更新し、端末差が出た場合にinline fallbackを計画し直す。
 - [ViewModel draftとCoordinator projectionのhandoffで一瞬戻る] → pending登録後にdraftを破棄し、同じstable key順を双方で共有する。
 - [全件再採番が大規模一覧で遅い] → 1,252件のinstrumented performance testを必須とし、不合格時だけchunk方式を採用する。
@@ -132,10 +145,10 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 
 ## Migration Plan
 
-1. 依存追加とジェスチャーPoCを実装し、合格条件を確認する。
-2. UI状態、Popup再利用、Card領域分離、Reorderable表示を実装する。
-3. key順draftとCoordinator handoffを実装する。
-4. DAO/Repositoryの順序列専用transactionを実装する。
-5. unit、instrumented、accessibility、回帰テストを追加し、build/testを完了する。
+1. 現行実装でPreviewからdragへ移行できないgesture統合testを追加し、修正前に失敗を確認する。
+2. `SlevoTabDragGestureDetector`のpost-long-press区間をMain pass所有ループへ置き換え、横スワイプDetectorへconsume尊重とdrag中無効化を追加する。
+3. 同じgesture統合testを接続端末またはemulatorで実行し、tap、menu、reorder、swipe、scroll、closeの全経路を確認する。
+4. 既存のUI状態、Coordinator handoff、Room永続化、アクセシビリティの未完了testを実行する。
+5. unit testとapp buildをCIで再確認し、instrumented testの端末・API level・結果を`tasks.md`へ記録する。
 
 問題が発生した場合は依存追加とreorder導線を戻せば、既存`sortOrder`およびRoom schemaに影響を残さずロールバックできる。
