@@ -3,12 +3,8 @@ package com.websarva.wings.android.slevo.ui.tabs.component
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import kotlinx.coroutines.CancellationException
 import sh.calvin.reorderable.DragGestureDetector
@@ -24,8 +20,8 @@ internal class SlevoTabDragGestureDetector(
     private val onDragCancelled: () -> Unit,
 ) : DragGestureDetector {
     /**
-     * Pointer sequenceを長押し、追加slop、dragの順に処理する。
-     * 長押し成立前は親のgestureへ譲り、成立後はMain passで移動を所有する。
+     * Pointer sequenceを長押し、追加slop、drag、終了の順に処理する。
+     * 長押し成立前は親のgestureへ譲り、成立後はUPまたはcancelまでMain passで所有する。
      */
     override suspend fun PointerInputScope.detect(
         onDragStart: (Offset) -> Unit,
@@ -47,7 +43,7 @@ internal class SlevoTabDragGestureDetector(
 
                 // --- Post-long-press ownership ---
                 var accumulatedMovement = Offset.Zero
-                var dragChange: PointerInputChange? = null
+                var dragStarted = false
                 val touchSlop = viewConfiguration.touchSlop
 
                 while (true) {
@@ -60,51 +56,36 @@ internal class SlevoTabDragGestureDetector(
                         longPressStarted = false
                         return@awaitEachGesture
                     }
-                    if (change.isConsumed) {
-                        // Main passで他handlerが先に所有した場合は奪い返さない。
-                        onDragCancel()
-                        onDragCancelled()
-                        longPressStarted = false
-                        return@awaitEachGesture
-                    }
 
                     if (!change.pressed) {
-                        // Main passでUPを消費し、通常clickへ同じsequenceを渡さない。
+                        // Main passでUPを消費し、drag前はMenuOpen、drag後は正常終了にする。
                         change.consume()
-                        onLongPressReleased()
+                        if (dragStarted) {
+                            onDragEnd()
+                            onDragFinished()
+                        } else {
+                            onLongPressReleased()
+                        }
                         longPressStarted = false
                         return@awaitEachGesture
                     }
 
                     val delta = change.positionChangeIgnoreConsumed()
                     change.consume()
-                    accumulatedMovement += delta
+                    if (dragStarted) {
+                        // LongPress成立後は他handlerのconsume状態に関係なくreorderを継続する。
+                        onDrag(change, delta)
+                        continue
+                    }
 
+                    accumulatedMovement += delta
                     val distance = accumulatedMovement.getDistance()
                     if (distance > touchSlop) {
                         val overSlop = accumulatedMovement * ((distance - touchSlop) / distance)
-                        dragChange = change
+                        dragStarted = true
                         onDragStart(change.position)
                         onDrag(change, overSlop)
-                        break
                     }
-                }
-
-                val startedChange = checkNotNull(dragChange)
-                val completed = drag(startedChange.id) { change ->
-                    onDrag(change, change.positionChange())
-                    change.consume()
-                }
-                longPressStarted = false
-                if (completed) {
-                    currentEvent.changes.forEach { change ->
-                        if (change.changedToUp()) change.consume()
-                    }
-                    onDragEnd()
-                    onDragFinished()
-                } else {
-                    onDragCancel()
-                    onDragCancelled()
                 }
             }
         } catch (cancellation: CancellationException) {

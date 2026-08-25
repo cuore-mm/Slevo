@@ -39,6 +39,10 @@ data class TabListUiState(
 
     val isInLongPressSelectionMode: Boolean
         get() = selectedBoardTab != null || selectedThreadTab != null
+
+    /** 長押しPreviewまたはreorder draft中に、親scrollと横スワイプを止めるかを表す。 */
+    val isTabGestureLocked: Boolean
+        get() = isInLongPressSelectionMode || boardReorderDraft != null || threadReorderDraft != null
 }
 
 /**

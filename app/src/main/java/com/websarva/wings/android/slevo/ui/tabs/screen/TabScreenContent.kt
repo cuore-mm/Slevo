@@ -282,7 +282,7 @@ fun TabScreenContent(
                         removingBoardTabKeys = listUiState.removingBoardTabKeys,
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,
                         tabSessionStore = tabSessionStore,
-                        isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
+                         isInLongPressSelectionMode = listUiState.isTabGestureLocked,
                         currentScreenRoute = currentScreenRoute,
                     )
                 }

@@ -139,6 +139,7 @@ class TabListViewModelTest {
         viewModel.startBoardReorder()
         viewModel.moveBoardReorder(first, third)
 
+        assertTrue(viewModel.uiState.first().isTabGestureLocked)
         assertEquals(
             listOf(first.boardUrl, second.boardUrl, third.boardUrl),
             viewModel.uiState.first().boardReorderDraft?.originalOrder,
@@ -157,6 +158,7 @@ class TabListViewModelTest {
             )
         }
         assertNull(viewModel.uiState.first().boardReorderDraft)
+        assertFalse(viewModel.uiState.first().isTabGestureLocked)
     }
 
     /** cancelはStoreを呼ばず、board/thread双方の未確定draftを破棄することを確認する。 */

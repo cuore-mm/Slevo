@@ -233,9 +233,16 @@ class TabListViewModel @Inject constructor(
     fun startBoardReorder() {
         val keys = tabSessionStore.openBoardTabs.value.map(BoardTabInfo::boardUrl)
         if (keys.isEmpty() || uiState.value.isSearchMode) return
-        cancelTabSelection()
         uiStateMutable.update { state ->
-            state.copy(boardReorderDraft = ReorderDraft(keys, keys))
+            state.copy(
+                boardReorderDraft = ReorderDraft(keys, keys),
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
+                showBoardInfoBottomSheet = false,
+                showThreadInfoBottomSheet = false,
+            )
         }
     }
 
@@ -243,9 +250,16 @@ class TabListViewModel @Inject constructor(
     fun startThreadReorder() {
         val keys = tabSessionStore.openThreadTabs.value.map { it.id.value }
         if (keys.isEmpty() || uiState.value.isSearchMode) return
-        cancelTabSelection()
         uiStateMutable.update { state ->
-            state.copy(threadReorderDraft = ReorderDraft(keys, keys))
+            state.copy(
+                threadReorderDraft = ReorderDraft(keys, keys),
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
+                showBoardInfoBottomSheet = false,
+                showThreadInfoBottomSheet = false,
+            )
         }
     }
 
