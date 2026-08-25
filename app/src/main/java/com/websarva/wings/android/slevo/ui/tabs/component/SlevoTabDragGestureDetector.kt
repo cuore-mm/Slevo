@@ -34,11 +34,17 @@ internal class SlevoTabDragGestureDetector(
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val longPress = awaitLongPressOrCancellation(down.id)
-                    ?: return@awaitEachGesture
+                    ?: run {
+                        logTabReorder { "LONG_PRESS_ABORT id=${down.id}" }
+                        return@awaitEachGesture
+                    }
 
                 // 長押し成立後はカードメニューを表示し、通常clickをキャンセルする。
                 longPress.consume()
                 longPressStarted = true
+                logTabReorder {
+                    "LONG_PRESS id=${longPress.id} pos=${longPress.position}"
+                }
                 onLongPress()
 
                 // --- Post-long-press ownership ---
@@ -51,6 +57,7 @@ internal class SlevoTabDragGestureDetector(
                     val change = event.changes.find { it.id == longPress.id }
                     if (change == null) {
                         // Pointer消失は通常のUPとは区別し、reorderをキャンセルする。
+                        logTabReorder { "POINTER_MISSING id=${longPress.id}" }
                         onDragCancel()
                         onDragCancelled()
                         longPressStarted = false
@@ -59,11 +66,14 @@ internal class SlevoTabDragGestureDetector(
 
                     if (!change.pressed) {
                         // Main passでUPを消費し、drag前はMenuOpen、drag後は正常終了にする。
+                        logTabReorder { "UP id=${change.id} dragStarted=$dragStarted" }
                         change.consume()
                         if (dragStarted) {
+                            logTabReorder { "DRAG_END id=${change.id}" }
                             onDragEnd()
                             onDragFinished()
                         } else {
+                            logTabReorder { "MENU_OPEN id=${change.id}" }
                             onLongPressReleased()
                         }
                         longPressStarted = false
@@ -71,18 +81,32 @@ internal class SlevoTabDragGestureDetector(
                     }
 
                     val delta = change.positionChangeIgnoreConsumed()
+                    val wasConsumed = change.isConsumed
+                    logTabReorder {
+                        "MOVE id=${change.id} pressed=${change.pressed} " +
+                            "consumed=$wasConsumed delta=$delta " +
+                            "dragStarted=$dragStarted"
+                    }
                     change.consume()
                     if (dragStarted) {
                         // LongPress成立後は他handlerのconsume状態に関係なくreorderを継続する。
+                        logTabReorder { "DRAG_MOVE id=${change.id} delta=$delta" }
                         onDrag(change, delta)
                         continue
                     }
 
                     accumulatedMovement += delta
                     val distance = accumulatedMovement.getDistance()
+                    logTabReorder {
+                        "SLOP accumulated=$accumulatedMovement distance=$distance " +
+                            "threshold=$touchSlop"
+                    }
                     if (distance > touchSlop) {
                         val overSlop = accumulatedMovement * ((distance - touchSlop) / distance)
                         dragStarted = true
+                        logTabReorder {
+                            "DRAG_START id=${change.id} pos=${change.position} overSlop=$overSlop"
+                        }
                         onDragStart(change.position)
                         onDrag(change, overSlop)
                     }
@@ -91,6 +115,7 @@ internal class SlevoTabDragGestureDetector(
         } catch (cancellation: CancellationException) {
             if (longPressStarted) {
                 // Composition破棄中も保持中のPreview/draftを残さず、Reorderableへcancelを通知する。
+                logTabReorder { "COROUTINE_CANCEL longPressStarted=$longPressStarted" }
                 onDragCancel()
                 onDragCancelled()
             }

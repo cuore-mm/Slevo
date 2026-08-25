@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
+import com.websarva.wings.android.slevo.ui.tabs.component.logTabReorder
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -187,6 +188,7 @@ class TabListViewModel @Inject constructor(
     // --- Long-press selection ---
 
     fun onBoardTabLongPressed(tab: BoardTabInfo, bounds: IntRect) {
+        logTabReorder { "BOARD_LONG_PRESS_VM key=${tab.boardUrl}" }
         cancelTabSelection()
         uiStateMutable.update { state ->
             state.copy(
@@ -199,6 +201,7 @@ class TabListViewModel @Inject constructor(
     }
 
     fun onThreadTabLongPressed(tab: ThreadTabInfo, bounds: IntRect) {
+        logTabReorder { "THREAD_LONG_PRESS_VM key=${tab.id.value}" }
         cancelTabSelection()
         uiStateMutable.update { state ->
             state.copy(
@@ -232,7 +235,14 @@ class TabListViewModel @Inject constructor(
     /** 板タブの並び替えを開始し、現在のstable key順をdraftへ保存する。 */
     fun startBoardReorder() {
         val keys = tabSessionStore.openBoardTabs.value.map(BoardTabInfo::boardUrl)
-        if (keys.isEmpty() || uiState.value.isSearchMode) return
+        val isSearchMode = uiState.value.isSearchMode
+        if (keys.isEmpty() || isSearchMode) {
+            logTabReorder {
+                "BOARD_REORDER_START_REJECT keyCount=${keys.size} isSearchMode=$isSearchMode"
+            }
+            return
+        }
+        logTabReorder { "BOARD_REORDER_START keyCount=${keys.size}" }
         uiStateMutable.update { state ->
             state.copy(
                 boardReorderDraft = ReorderDraft(keys, keys),
@@ -249,7 +259,14 @@ class TabListViewModel @Inject constructor(
     /** スレッドタブの並び替えを開始し、現在のstable key順をdraftへ保存する。 */
     fun startThreadReorder() {
         val keys = tabSessionStore.openThreadTabs.value.map { it.id.value }
-        if (keys.isEmpty() || uiState.value.isSearchMode) return
+        val isSearchMode = uiState.value.isSearchMode
+        if (keys.isEmpty() || isSearchMode) {
+            logTabReorder {
+                "THREAD_REORDER_START_REJECT keyCount=${keys.size} isSearchMode=$isSearchMode"
+            }
+            return
+        }
+        logTabReorder { "THREAD_REORDER_START keyCount=${keys.size}" }
         uiStateMutable.update { state ->
             state.copy(
                 threadReorderDraft = ReorderDraft(keys, keys),
@@ -265,6 +282,7 @@ class TabListViewModel @Inject constructor(
 
     /** 板タブの移動イベントをdraftへ反映し、永続化はドロップまで遅延する。 */
     fun moveBoardReorder(from: BoardTabInfo, to: BoardTabInfo) {
+        logTabReorder { "BOARD_DRAFT_MOVE from=${from.boardUrl} to=${to.boardUrl}" }
         uiStateMutable.update { state ->
             val draft = state.boardReorderDraft ?: return@update state
             state.copy(
@@ -281,6 +299,7 @@ class TabListViewModel @Inject constructor(
 
     /** スレッドタブの移動イベントをdraftへ反映し、永続化はドロップまで遅延する。 */
     fun moveThreadReorder(from: ThreadTabInfo, to: ThreadTabInfo) {
+        logTabReorder { "THREAD_DRAFT_MOVE from=${from.id.value} to=${to.id.value}" }
         uiStateMutable.update { state ->
             val draft = state.threadReorderDraft ?: return@update state
             state.copy(
@@ -297,20 +316,38 @@ class TabListViewModel @Inject constructor(
 
     /** 板タブのドロップをCoordinatorへ渡し、draftを破棄する。 */
     fun finishBoardReorder() {
-        val draft = uiState.value.boardReorderDraft ?: return
-        tabSessionStore.reorderBoardTabs(draft.currentOrder)
+        val draft = uiState.value.boardReorderDraft
+        if (draft == null) {
+            logTabReorder { "BOARD_DRAFT_FINISH_NO_DRAFT" }
+            return
+        }
+        val accepted = tabSessionStore.reorderBoardTabs(draft.currentOrder)
+        logTabReorder {
+            "BOARD_DRAFT_FINISH accepted=$accepted keyCount=${draft.currentOrder.size}"
+        }
         uiStateMutable.update { it.copy(boardReorderDraft = null) }
     }
 
     /** スレッドタブのドロップをCoordinatorへ渡し、draftを破棄する。 */
     fun finishThreadReorder() {
-        val draft = uiState.value.threadReorderDraft ?: return
-        tabSessionStore.reorderThreadTabs(draft.currentOrder)
+        val draft = uiState.value.threadReorderDraft
+        if (draft == null) {
+            logTabReorder { "THREAD_DRAFT_FINISH_NO_DRAFT" }
+            return
+        }
+        val accepted = tabSessionStore.reorderThreadTabs(draft.currentOrder)
+        logTabReorder {
+            "THREAD_DRAFT_FINISH accepted=$accepted keyCount=${draft.currentOrder.size}"
+        }
         uiStateMutable.update { it.copy(threadReorderDraft = null) }
     }
 
     /** pointer cancel または画面終了時に未確定の順序と長押しプレビューを破棄する。 */
     fun cancelReorder() {
+        logTabReorder {
+            "DRAFT_CANCEL board=${uiState.value.boardReorderDraft != null} " +
+                "thread=${uiState.value.threadReorderDraft != null}"
+        }
         uiStateMutable.update { state ->
             state.copy(
                 boardReorderDraft = null,
