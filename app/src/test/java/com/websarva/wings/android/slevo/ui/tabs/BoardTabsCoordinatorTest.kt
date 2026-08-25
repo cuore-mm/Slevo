@@ -901,6 +901,40 @@ class BoardTabsCoordinatorTest {
         coordinator.close()
     }
 
+    /** reorderのpending projectionを即時公開し、Room確認後もRepositoryを一度だけ呼ぶことを確認する。 */
+    @Test
+    fun boundReorder_projectsRequestedOrderUntilCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("reorder-first")
+        val second = testBoardTab("reorder-second")
+        val third = testBoardTab("reorder-third")
+        val requestedOrder = listOf(third.boardUrl, first.boardUrl, second.boardUrl)
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.reorderOpenBoardTabs(requestedOrder) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, second, third))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        assertTrue(coordinator.reorderBoardTabs(requestedOrder))
+        assertEquals(
+            requestedOrder,
+            coordinator.openBoardTabs.value.map { it.boardUrl },
+        )
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.reorderOpenBoardTabs(requestedOrder) }
+
+        databaseFlow.emit(listOf(third, first, second))
+        runCurrent()
+
+        assertEquals(requestedOrder, coordinator.openBoardTabs.value.map { it.boardUrl })
+        coordinator.close()
+    }
+
     /**
      * セッション状態更新が永続タブ保存を呼ばないことを確認する。
      */

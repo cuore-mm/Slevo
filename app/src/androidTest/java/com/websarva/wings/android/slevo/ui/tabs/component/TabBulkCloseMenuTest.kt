@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -137,6 +138,60 @@ class TabBulkCloseMenuTest {
 
         assertEquals(1, closeAllClickCount)
         composeRule.onNodeWithText("全てのタブを閉じる").assertDoesNotExist()
+    }
+
+    /** Preview表示では項目を描画したままclick、ripple、accessibility操作を無効化することを確認する。 */
+    @Test
+    fun tabMenu_previewIsVisibleButDisabled() {
+        var detailClickCount = 0
+        var pinClickCount = 0
+        var closeClickCount = 0
+        composeRule.setContent {
+            SlevoTheme {
+                AnchoredTabActionMenu(
+                    expanded = true,
+                    anchorBoundsInWindow = IntRect(0, 0, 100, 100),
+                    hazeState = null,
+                    isPinned = false,
+                    interactive = false,
+                    onDismissRequest = {},
+                    onDetailClick = { detailClickCount += 1 },
+                    onPinClick = { pinClickCount += 1 },
+                    onCloseClick = { closeClickCount += 1 },
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("詳細").assertHasNoClickAction()
+        composeRule.onNodeWithText("タブを固定").assertHasNoClickAction()
+        composeRule.onNodeWithText("タブを閉じる").assertHasNoClickAction()
+        assertEquals(0, detailClickCount + pinClickCount + closeClickCount)
+    }
+
+    /** close buttonはContentAreaのclickやlong-press経路から分離されていることを確認する。 */
+    @Test
+    fun tabCard_closeButtonDoesNotTriggerCardClick() {
+        var cardClickCount = 0
+        var closeClickCount = 0
+        composeRule.setContent {
+            SlevoTheme {
+                TabListCard(
+                    bookmarkColor = null,
+                    onClick = { cardClickCount += 1 },
+                    headerTitle = "example.com",
+                    bodyTitle = "Thread title",
+                    onCloseClick = { closeClickCount += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Thread title").performClick()
+        composeRule.onNodeWithContentDescription("閉じる").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, cardClickCount)
+        assertEquals(1, closeClickCount)
     }
 
     /** Back操作で一括クローズを実行せずメニューだけを閉じることを確認する。 */

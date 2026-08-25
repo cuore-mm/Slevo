@@ -20,11 +20,25 @@ class TabControllerPrimitivesTest {
     @Test
     fun reorderPrimitives_moveAndMergeKeysWithoutDuplicates() {
         assertEquals(listOf("b", "c", "a"), moveKeyBeforeTarget(listOf("a", "b", "c"), "a", "c"))
+        assertEquals(listOf("a", "b", "c"), moveKeyBeforeTarget(listOf("a", "b", "c"), "b", "b"))
         assertEquals(
             listOf("c", "a", "b", "new"),
             reorderTabs(
                 tabs = listOf("a", "b", "c", "new"),
                 requestedKeys = listOf("c", "a", "missing", "c"),
+                keyOf = { it },
+            ),
+        )
+    }
+
+    /** reorder projectionが削除済みkeyを除外し、DB側だけのkeyを既存相対順で末尾へ残すことを確認する。 */
+    @Test
+    fun reorderTabs_mergesDeletedAndNewKeysWithoutChangingRelativeOrder() {
+        assertEquals(
+            listOf("c", "a", "new-1", "new-2"),
+            reorderTabs(
+                tabs = listOf("a", "new-1", "c", "new-2"),
+                requestedKeys = listOf("c", "deleted", "a"),
                 keyOf = { it },
             ),
         )

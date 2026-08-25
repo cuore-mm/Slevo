@@ -229,6 +229,19 @@ class TabSessionStoreTest {
         verify { boardCoordinator.closeBoardTab(tab) }
     }
 
+    /** 板・スレッドのreorder facadeが対応するCoordinatorへkey順をそのまま委譲することを確認する。 */
+    @Test
+    fun reorderTabs_delegatesToMatchingCoordinator() {
+        val boardKeys = listOf("https://example.com/a/", "https://example.com/b/")
+        val threadKeys = listOf("host/board/a", "host/board/b")
+
+        store.reorderBoardTabs(boardKeys)
+        store.reorderThreadTabs(threadKeys)
+
+        verify { boardCoordinator.reorderBoardTabs(boardKeys) }
+        verify { threadCoordinator.reorderThreadTabs(threadKeys) }
+    }
+
     /** 板ページの一括 close が未固定タブだけを表示順に委譲することを確認する。 */
     @Test
     fun closeAllUnpinnedTabs_forBoard_closesOnlyUnpinnedBoardTabs() {

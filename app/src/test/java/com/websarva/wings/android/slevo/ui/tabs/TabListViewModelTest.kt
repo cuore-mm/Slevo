@@ -107,6 +107,89 @@ class TabListViewModelTest {
         assertTrue(state.isInLongPressSelectionMode)
     }
 
+    /** Previewで止まったメニューを指離れでOpenへ進め、cancelで初期状態へ戻すことを確認する。 */
+    @Test
+    fun selectedTabMenu_transitionsFromPreviewToOpenAndBackToNone() = runTest {
+        viewModel.onBoardTabLongPressed(
+            BoardTabInfo(
+                boardId = 1,
+                boardName = "Test",
+                boardUrl = "https://example.com/test/",
+                serviceName = "example.com",
+            ),
+            IntRect(0, 0, 100, 100),
+        )
+        assertEquals(TabActionMenuMode.Preview, viewModel.uiState.first().tabActionMenuMode)
+
+        viewModel.openSelectedTabMenu()
+        assertEquals(TabActionMenuMode.Open, viewModel.uiState.first().tabActionMenuMode)
+
+        viewModel.cancelTabSelection()
+        assertEquals(TabActionMenuMode.None, viewModel.uiState.first().tabActionMenuMode)
+    }
+
+    /** draft移動は表示状態だけを更新し、drop時に一度だけ並び順をStoreへ渡すことを確認する。 */
+    @Test
+    fun boardReorder_updatesDraftUntilDrop() = runTest {
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        val third = BoardTabInfo(3, "C", "https://example.com/c/", "example.com")
+        openBoardTabs.value = listOf(first, second, third)
+
+        viewModel.startBoardReorder()
+        viewModel.moveBoardReorder(first, third)
+
+        assertEquals(
+            listOf(first.boardUrl, second.boardUrl, third.boardUrl),
+            viewModel.uiState.first().boardReorderDraft?.originalOrder,
+        )
+        assertEquals(
+            listOf(second.boardUrl, third.boardUrl, first.boardUrl),
+            viewModel.uiState.first().boardReorderDraft?.currentOrder,
+        )
+        verify(exactly = 0) { tabSessionStore.reorderBoardTabs(any()) }
+
+        viewModel.finishBoardReorder()
+
+        verify(exactly = 1) {
+            tabSessionStore.reorderBoardTabs(
+                listOf(second.boardUrl, third.boardUrl, first.boardUrl),
+            )
+        }
+        assertNull(viewModel.uiState.first().boardReorderDraft)
+    }
+
+    /** cancelはStoreを呼ばず、board/thread双方の未確定draftを破棄することを確認する。 */
+    @Test
+    fun cancelReorder_discardsDraftWithoutPersisting() = runTest {
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        openBoardTabs.value = listOf(tab)
+
+        viewModel.startBoardReorder()
+        viewModel.cancelReorder()
+
+        assertNull(viewModel.uiState.first().boardReorderDraft)
+        assertNull(viewModel.uiState.first().threadReorderDraft)
+        verify(exactly = 0) { tabSessionStore.reorderBoardTabs(any()) }
+        verify(exactly = 0) { tabSessionStore.reorderThreadTabs(any()) }
+    }
+
+    /** 上下移動は境界で失敗し、可能な移動だけ通常のreorder facadeへ渡すことを確認する。 */
+    @Test
+    fun accessibilityMove_ignoresBoundaryAndDelegatesValidMove() {
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        val third = BoardTabInfo(3, "C", "https://example.com/c/", "example.com")
+        openBoardTabs.value = listOf(first, second, third)
+
+        assertFalse(viewModel.moveBoardTabByOffset(first.boardUrl, -1))
+        assertTrue(viewModel.moveBoardTabByOffset(second.boardUrl, -1))
+
+        verify(exactly = 1) {
+            tabSessionStore.reorderBoardTabs(listOf(second.boardUrl, first.boardUrl, third.boardUrl))
+        }
+    }
+
     /**
      * 選択解除時にすべての選択状態と BottomSheet フラグがクリアされることを確認する。
      */
