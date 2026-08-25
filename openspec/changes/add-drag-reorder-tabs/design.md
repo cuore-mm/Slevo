@@ -49,7 +49,9 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 追加touch slop前に対象pointerがUPした場合はMain passでUPをconsumeして`onLongPressReleased`を1回呼び、通常`clickable.onClick`を抑止する。pointer消失、system cancel、別handlerによる予期しないconsumeでは`onDragCancelled`へ収束させる。Main passのUP consumeでも通常clickが発火することをtestで確認した場合だけ、UP取得を`PointerEventPass.Initial`へ限定して変更する。pointer sequence限定の抑止フラグはその方法でも解消しない場合の最終手段とし、ViewModelへ置かない。
 
-`TabListCard`の横スワイプDetectorは、各eventの処理前に対象changeの`isConsumed`を確認し、trueならそのgestureから撤退する。さらに`canHandleSwipeGesture`へ`!isDragging`を加え、Reorderableがdragging itemを所有している間は横スワイプ用`pointerInput`を無効にする。`isConsumed`確認が所有権調停の本体で、`!isDragging`はdrag開始後に`cancelTabSelection()`でスワイプ有効条件が戻ることへの防御とする。
+`TabListCard`の横スワイプDetectorは、各eventの処理前に対象changeの`isConsumed`を確認し、trueならそのgestureから撤退する。横スワイプ用`pointerInput` Modifier自体は常に同じカードへ付け、`canHandleSwipeGesture`、`canDeleteBySwipe`、`isFlyingOut`、`cardWidthPx`は`rememberUpdatedState`でDetector内から読む。状態変化でpointer nodeをdetachさせず、無効化を検出したactive swipeはoffsetを0へspring-backして終了する。`!isDragging`は内部ゲートとして維持し、Reorderableがdragging itemを所有している間は横スワイプ処理を開始しない。`isConsumed`確認がpointer所有権調停の本体で、常設Modifierが長押し時の親node detachによる子reorder cancelを防ぐ。
+
+`RemovableTabList`の`LazyColumn.userScrollEnabled`は、長押し選択やreorder draftで切り替えず常にtrueを渡す。長押し成立後とdrag中は内側のreorder DetectorがMain passでposition changeをconsumeするため、LazyColumnはユーザーの縦スクロールを開始しない。Reorderableのedge autoscrollはprogrammatic scrollであり、この値の固定によって禁止しない。
 
 ### 4. Card内のBoxで操作領域とcloseボタンを分離する
 
@@ -112,8 +114,10 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 9. 新規class、interface、non-trivial functionにはリポジトリのKDoc規則を適用し、30行を超えるfunctionはセクションコメントで分割する。
 10. 実装完了時にapp buildとunit testを必ず成功させ、関連instrumented testも実行する。
 11. 長押し前のpointer changeをreorder側でconsumeせず、長押し成立後はMain passでdelta取得後に即consumeする。
-12. 横スワイプDetectorはconsume済みchangeを処理せず、`isDragging`中は起動しない。
-13. post-long-pressのpointer ID、累積移動量、slop判定はDetector内に閉じ、`TabListUiState`またはViewModelへ追加しない。
+12. Swipe用`pointerInput` Modifierをactive gesture中に付け外しせず、状態ゲートは`rememberUpdatedState`でDetector内から読む。無効化時はoffsetを復帰して撤退する。
+13. 横スワイプDetectorはconsume済みchangeを処理せず、`isDragging`中は起動しない。
+14. `LazyColumn.userScrollEnabled`をgesture stateで切り替えず、reorder側のconsumeでユーザーscrollと調停する。edge autoscrollは継続する。
+15. post-long-pressのpointer ID、累積移動量、slop判定はDetector内に閉じ、`TabListUiState`またはViewModelへ追加しない。
 
 ## Error Cases and Compatibility
 
@@ -135,7 +139,8 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 
 ## Risks / Trade-offs
 
-- [複数gesture detectorがPointerEventを競合する] → 長押し前は消費せず、成立後は内側reorderHandleがMain passで各changeを即consumeする。外側スワイプは`isConsumed`で撤退し、drag中は無効化する。
+- [複数gesture detectorがPointerEventを競合する] → 長押し前は消費せず、成立後は内側reorderHandleがMain passで各changeを即consumeする。外側スワイプは常設pointer nodeの内部ゲートと`isConsumed`で撤退し、drag中は無効化する。LazyColumnのuser scrollは値を切り替えずreorder consumeで調停する。
+- [長押し成立時にSwipe親nodeをdetachしてreorder子nodeへcancelが伝播する] → Swipe pointerInputを常設し、状態変化ではDetector内ゲートだけを更新する。active swipeを無効化する場合はoffsetをspring-backして通常終了する。
 - [長押し後のupで通常clickが誤発火する] → まずMain passでUPをconsumeし、実機testで誤発火した場合だけUP取得をInitial passへ変更する。それでも失敗する場合だけ局所抑止フラグを追加する。
 - [slop超過時にカードがジャンプする] → 最初の`onDrag`へ累積量ではなくslop超過分だけを渡す。
 - [Popup更新でpointerまたは表示が途切れる] → 同じPopupを維持してpropertiesだけ更新し、端末差が出た場合にinline fallbackを計画し直す。
@@ -146,8 +151,8 @@ Reorderableのplacement animationは並び替え中だけ有効にし、`Removab
 ## Migration Plan
 
 1. 現行実装でPreviewからdragへ移行できないgesture統合testを追加し、修正前に失敗を確認する。
-2. `SlevoTabDragGestureDetector`のpost-long-press区間をMain pass所有ループへ置き換え、横スワイプDetectorへconsume尊重とdrag中無効化を追加する。
-3. 同じgesture統合testを接続端末またはemulatorで実行し、tap、menu、reorder、swipe、scroll、closeの全経路を確認する。
+2. `SlevoTabDragGestureDetector`のpost-long-press区間をMain pass所有ループへ置き換え、横スワイプDetectorを常設pointer nodeの内部ゲートへ変更し、drag中無効化とoffset復帰を追加する。
+3. `RemovableTabList`の`userScrollEnabled`を固定し、長押し後はreorder consumeでscrollと調停する。同じgesture統合testを接続端末またはemulatorで実行し、tap、menu、reorder、swipe、scroll、closeの全経路を確認する。
 4. 既存のUI状態、Coordinator handoff、Room永続化、アクセシビリティの未完了testを実行する。
 5. unit testとapp buildをCIで再確認し、instrumented testの端末・API level・結果を`tasks.md`へ記録する。
 

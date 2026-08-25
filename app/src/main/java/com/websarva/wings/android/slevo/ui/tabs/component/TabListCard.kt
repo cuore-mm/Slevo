@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -183,107 +184,109 @@ internal fun TabListCard(
     )
     val swipeResistanceLimitPx = with(density) { 56.dp.toPx() }
 
-    val swipeGestureModifier = if (canHandleSwipeGesture && !isFlyingOut) {
-        Modifier.pointerInput(canHandleSwipeGesture, canDeleteBySwipe, isFlyingOut, cardWidthPx) {
-            // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                var dragMode = DragMode.Undecided
-                val touchSlop = viewConfiguration.touchSlop
-                var totalDx = 0f
-                var totalDy = 0f
-                var trackedPosition = Offset.Zero
-                var latestOffset = offsetX.value
-                var offsetUpdateJob: Job? = null
+    // Keep this pointer node attached while the card is pressed. State changes are read through
+    // rememberUpdatedState so long-press recomposition cannot cancel the nested reorder handler.
+    val currentCanHandleSwipeGesture = rememberUpdatedState(canHandleSwipeGesture && !isFlyingOut)
+    val currentCanDeleteBySwipe = rememberUpdatedState(canDeleteBySwipe)
+    val currentSwipeThreshold = rememberUpdatedState(swipeThreshold)
+    val currentCardWidthPx = rememberUpdatedState(cardWidthPx)
+    val currentOnSwipeDelete = rememberUpdatedState(onSwipeDelete)
+    val swipeGestureModifier = Modifier.pointerInput(Unit) {
+        // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            if (!currentCanHandleSwipeGesture.value) return@awaitEachGesture
 
-                velocityTracker.resetTracking()
+            var dragMode = DragMode.Undecided
+            val touchSlop = viewConfiguration.touchSlop
+            var totalDx = 0f
+            var totalDy = 0f
+            var trackedPosition = Offset.Zero
+            var latestOffset = offsetX.value
+            var offsetUpdateJob: Job? = null
 
-                // --- Direction disambiguation loop ---
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.find { it.id == down.id } ?: break
-                        if (change.isConsumed) {
-                            // Reorderableまたは親scrollが所有したsequenceからは撤退する。
+            velocityTracker.resetTracking()
+
+            fun restoreOffset() {
+                latestOffset = 0f
+                offsetUpdateJob?.cancel()
+                coroutineScope.launch {
+                    offsetX.animateTo(0f, animationSpec = springBackSpec)
+                }
+            }
+
+            // --- Direction disambiguation loop ---
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.find { it.id == down.id }
+                    ?: return@awaitEachGesture
+                if (!currentCanHandleSwipeGesture.value || change.isConsumed) {
+                    // Reorderableが所有したsequence、または無効化されたsequenceから撤退する。
+                    restoreOffset()
+                    return@awaitEachGesture
+                }
+                if (!change.pressed) break
+
+                val delta = change.positionChange()
+                totalDx += delta.x
+                totalDy += delta.y
+
+                if (dragMode == DragMode.Undecided) {
+                    if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
+                        if (abs(totalDx) > abs(totalDy)) {
+                            dragMode = DragMode.HorizontalSwipe
+                            velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
+                        } else {
+                            dragMode = DragMode.VerticalScroll
+                            if (offsetX.value != 0f) restoreOffset()
                             return@awaitEachGesture
-                        }
-                        if (!change.pressed) break
-
-                    val delta = change.positionChange()
-                    totalDx += delta.x
-                    totalDy += delta.y
-
-                    if (dragMode == DragMode.Undecided) {
-                        if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
-                            if (abs(totalDx) > abs(totalDy)) {
-                                dragMode = DragMode.HorizontalSwipe
-                                velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                            } else {
-                                dragMode = DragMode.VerticalScroll
-                                if (offsetX.value != 0f) {
-                                    latestOffset = 0f
-                                    offsetUpdateJob?.cancel()
-                                    coroutineScope.launch {
-                                        offsetX.animateTo(0f, animationSpec = springBackSpec)
-                                    }
-                                }
-                                return@awaitEachGesture
-                            }
-                        }
-                    }
-
-                    if (dragMode == DragMode.HorizontalSwipe) {
-                        change.consume()
-                        val newOffset = when {
-                            // 削除可能時の左方向は従来どおり削除判定に使える移動量を保持する。
-                            canDeleteBySwipe && totalDx <= 0f -> totalDx.coerceIn(-cardWidthPx, 0f)
-                            // 右方向または削除不可タブでは抵抗感をつけて追従させる。
-                            else -> applyRubberBandOffset(totalDx, swipeResistanceLimitPx)
-                        }
-                        latestOffset = newOffset
-                        trackedPosition += Offset(delta.x, 0f)
-                        velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                        offsetUpdateJob?.cancel()
-                        offsetUpdateJob = coroutineScope.launch {
-                            offsetX.snapTo(newOffset)
                         }
                     }
                 }
 
-                // --- On finger release ---
                 if (dragMode == DragMode.HorizontalSwipe) {
-                    val velocity = velocityTracker.calculateVelocity()
-                    val distanceMet = latestOffset < -swipeThreshold
-                    val velocityMet =
-                        velocity.x < -velocityThreshold && -latestOffset > minVelocityDistance
-
-                    if (canDeleteBySwipe && (distanceMet || velocityMet)) {
-                        isFlyingOut = true
-                        coroutineScope.launch {
-                            offsetUpdateJob?.cancelAndJoin()
-                            offsetX.animateTo(
-                                targetValue = -cardWidthPx * 1.2f,
-                                animationSpec = tween(durationMillis = 140)
-                            )
-                            onSwipeDelete()
-                        }
-                    } else {
-                        latestOffset = 0f
-                        coroutineScope.launch {
-                            offsetUpdateJob?.cancelAndJoin()
-                            offsetX.animateTo(0f, animationSpec = springBackSpec)
-                        }
+                    change.consume()
+                    val newOffset = when {
+                        // 削除可能時の左方向は従来どおり削除判定に使える移動量を保持する。
+                        currentCanDeleteBySwipe.value && totalDx <= 0f ->
+                            totalDx.coerceIn(-currentCardWidthPx.value, 0f)
+                        // 右方向または削除不可タブでは抵抗感をつけて追従させる。
+                        else -> applyRubberBandOffset(totalDx, swipeResistanceLimitPx)
                     }
-                } else if (latestOffset != 0f) {
-                    latestOffset = 0f
-                    coroutineScope.launch {
-                        offsetUpdateJob?.cancelAndJoin()
-                        offsetX.animateTo(0f, animationSpec = springBackSpec)
+                    latestOffset = newOffset
+                    trackedPosition += Offset(delta.x, 0f)
+                    velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
+                    offsetUpdateJob?.cancel()
+                    offsetUpdateJob = coroutineScope.launch {
+                        offsetX.snapTo(newOffset)
                     }
                 }
             }
+
+            // --- On finger release ---
+            if (dragMode == DragMode.HorizontalSwipe) {
+                val velocity = velocityTracker.calculateVelocity()
+                val distanceMet = latestOffset < -currentSwipeThreshold.value
+                val velocityMet =
+                    velocity.x < -velocityThreshold && -latestOffset > minVelocityDistance
+
+                if (currentCanDeleteBySwipe.value && (distanceMet || velocityMet)) {
+                    isFlyingOut = true
+                    coroutineScope.launch {
+                        offsetUpdateJob?.cancelAndJoin()
+                        offsetX.animateTo(
+                            targetValue = -currentCardWidthPx.value * 1.2f,
+                            animationSpec = tween(durationMillis = 140)
+                        )
+                        currentOnSwipeDelete.value?.invoke()
+                    }
+                } else {
+                    restoreOffset()
+                }
+            } else if (latestOffset != 0f) {
+                restoreOffset()
+            }
         }
-    } else {
-        Modifier
     }
 
     Box(

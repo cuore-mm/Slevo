@@ -61,7 +61,7 @@ fun OpenBoardsList(
         listState = listState,
         removingKeys = removingKeys,
         onRemoveConfirmed = { onCloseClick(it) },
-        userScrollEnabled = !isInLongPressSelectionMode,
+        userScrollEnabled = true,
         reorderEnabled = isReorderEnabled,
         onReorderStarted = onReorderStarted,
         onReorderMoved = onReorderMoved,
