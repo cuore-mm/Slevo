@@ -304,6 +304,33 @@ class TabBulkCloseMenuTest {
         assertEquals(0, reorderStartedCount)
     }
 
+    /** Reorderableがdrag中のカードでは既存の横スワイプDetectorを起動しないことを確認する。 */
+    @Test
+    fun tabCard_draggingDisablesSwipeGesture() {
+        var swipeDeleteCount = 0
+        composeRule.setContent {
+            SlevoTheme {
+                TabListCard(
+                    bookmarkColor = null,
+                    onClick = {},
+                    headerTitle = "example.com",
+                    bodyTitle = "Dragging tab",
+                    onCloseClick = {},
+                    onSwipeDelete = { swipeDeleteCount += 1 },
+                    isSwipeDeleteEnabled = true,
+                    isDragging = true,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Dragging tab").performTouchInput {
+            swipeLeft()
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(0, swipeDeleteCount)
+    }
+
     /** Back操作で一括クローズを実行せずメニューだけを閉じることを確認する。 */
     @Test
     fun bulkMenu_backDismissesWithoutClosingTabs() {

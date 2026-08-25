@@ -51,11 +51,13 @@ internal class SlevoTabDragGestureDetector(
                 val change = event.changes.find { it.id == longPress.id }
                 if (change == null) {
                     // Pointer消失は通常のUPとは区別し、reorderをキャンセルする。
+                    onDragCancel()
                     onDragCancelled()
                     return@awaitEachGesture
                 }
                 if (change.isConsumed) {
                     // Main passで他handlerが先に所有した場合は奪い返さない。
+                    onDragCancel()
                     onDragCancelled()
                     return@awaitEachGesture
                 }
