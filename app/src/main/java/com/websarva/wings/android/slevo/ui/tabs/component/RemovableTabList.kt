@@ -3,7 +3,10 @@ package com.websarva.wings.android.slevo.ui.tabs.component
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
@@ -21,6 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
 import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.ReorderableItem
@@ -73,6 +77,16 @@ internal fun <T> RemovableTabList(
             onReorderMoved(fromItem, toItem)
         }
     }
+    val reorderPlacementSpec: FiniteAnimationSpec<IntOffset>? = if (
+        reorderEnabled && removingKeys.isEmpty()
+    ) {
+        spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        )
+    } else {
+        null
+    }
 
     // --- List ---
     Box {
@@ -106,16 +120,17 @@ internal fun <T> RemovableTabList(
                         ),
                     ) {
                         Box(
-                            modifier = Modifier.animateItem(
-                                fadeInSpec = tween(removalDurationMillis),
-                                fadeOutSpec = null,
-                                placementSpec = null,
-                            )
+                            modifier = Modifier
                         ) {
                             ReorderableItem(
                                 state = reorderableState,
                                 key = itemKey,
                                 enabled = reorderEnabled && !isRemoving,
+                                animateItemModifier = Modifier.animateItem(
+                                    fadeInSpec = tween(removalDurationMillis),
+                                    fadeOutSpec = null,
+                                    placementSpec = reorderPlacementSpec,
+                                ),
                             ) { isDragging ->
                                 val reorderHandle: (DragGestureDetector) -> Modifier = { detector ->
                                     Modifier.draggableHandle(
