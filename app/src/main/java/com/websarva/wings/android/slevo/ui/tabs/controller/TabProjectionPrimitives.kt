@@ -11,8 +11,8 @@ data class IndexedTabOperation<Tab : Any, Key : Any>(
     val key: Key,
     val remove: Boolean = false,
     val removeKeys: Set<Key> = emptySet(),
-    val transform: (Tab?) -> Tab?,
     val reorderKeys: List<Key>? = null,
+    val transform: (Tab?) -> Tab?,
 )
 
 /**

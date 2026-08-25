@@ -63,7 +63,11 @@ internal fun <T> RemovableTabList(
     ) -> Unit,
 ) {
     val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
-        onReorderMoved(from.data, to.data)
+        val fromItem = tabItems.getOrNull(from.index)
+        val toItem = tabItems.getOrNull(to.index)
+        if (fromItem != null && toItem != null) {
+            onReorderMoved(fromItem, toItem)
+        }
     }
 
     // --- List ---
