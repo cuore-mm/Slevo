@@ -100,48 +100,50 @@ internal fun <T> RemovableTabList(
                 val itemKey = keyOf(item)
                 val isRemoving = itemKey in removingKeys
 
-                // --- Removal animation ---
-                Column {
-                    AnimatedVisibility(
-                        visible = !isRemoving,
-                        enter = EnterTransition.None,
-                        exit = fadeOut(
-                            animationSpec = tween(
-                                durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
-                                easing = LinearEasing,
-                            ),
-                        ) + shrinkVertically(
-                            animationSpec = tween(
-                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
-                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
-                                easing = FastOutLinearInEasing,
-                            ),
-                            shrinkTowards = Alignment.CenterVertically,
-                        ),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                        ) {
-                            ReorderableItem(
-                                state = reorderableState,
-                                key = itemKey,
-                                enabled = reorderEnabled && !isRemoving,
-                                animateItemModifier = Modifier.animateItem(
-                                    fadeInSpec = tween(removalDurationMillis),
-                                    fadeOutSpec = null,
-                                    placementSpec = reorderPlacementSpec,
+                val hasVisibleItemAfter = tabItems
+                    .drop(index + 1)
+                    .any { keyOf(it) !in removingKeys }
+                ReorderableItem(
+                    state = reorderableState,
+                    key = itemKey,
+                    enabled = reorderEnabled && !isRemoving,
+                    animateItemModifier = Modifier.animateItem(
+                        fadeInSpec = tween(removalDurationMillis),
+                        fadeOutSpec = null,
+                        placementSpec = reorderPlacementSpec,
+                    ),
+                ) { isDragging ->
+                    val reorderHandle: (DragGestureDetector) -> Modifier = { detector ->
+                        Modifier.draggableHandle(
+                            enabled = reorderEnabled && !isRemoving,
+                            dragGestureDetector = detector,
+                            onDragStarted = {
+                                logTabReorder { "REORDERABLE_STARTED key=$itemKey" }
+                                onReorderStarted(item)
+                            },
+                        )
+                    }
+
+                    // --- Item content and removal animation ---
+                    Column {
+                        AnimatedVisibility(
+                            visible = !isRemoving,
+                            enter = EnterTransition.None,
+                            exit = fadeOut(
+                                animationSpec = tween(
+                                    durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
+                                    easing = LinearEasing,
                                 ),
-                            ) { isDragging ->
-                                val reorderHandle: (DragGestureDetector) -> Modifier = { detector ->
-                                    Modifier.draggableHandle(
-                                        enabled = reorderEnabled && !isRemoving,
-                                        dragGestureDetector = detector,
-                                        onDragStarted = {
-                                            logTabReorder { "REORDERABLE_STARTED key=$itemKey" }
-                                            onReorderStarted(item)
-                                        },
-                                    )
-                                }
+                            ) + shrinkVertically(
+                                animationSpec = tween(
+                                    durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
+                                    delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
+                                    easing = FastOutLinearInEasing,
+                                ),
+                                shrinkTowards = Alignment.CenterVertically,
+                            ),
+                        ) {
+                            Box {
                                 itemContent(item, isRemoving, {
                                     if (!isRemoving) {
                                         onRemoveConfirmed(item)
@@ -155,24 +157,21 @@ internal fun <T> RemovableTabList(
                                 })
                             }
                         }
-                    }
 
-                    val hasVisibleItemAfter = tabItems
-                        .drop(index + 1)
-                        .any { keyOf(it) !in removingKeys }
-                    AnimatedVisibility(
-                        visible = !isRemoving && hasVisibleItemAfter,
-                        enter = EnterTransition.None,
-                        exit = shrinkVertically(
-                            animationSpec = tween(
-                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
-                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
-                                easing = FastOutLinearInEasing,
+                        AnimatedVisibility(
+                            visible = !isRemoving && hasVisibleItemAfter,
+                            enter = EnterTransition.None,
+                            exit = shrinkVertically(
+                                animationSpec = tween(
+                                    durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
+                                    delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
+                                    easing = FastOutLinearInEasing,
+                                ),
+                                shrinkTowards = Alignment.CenterVertically,
                             ),
-                            shrinkTowards = Alignment.CenterVertically,
-                        ),
-                    ) {
-                        Spacer(modifier = Modifier.height(verticalSpacing))
+                        ) {
+                            Spacer(modifier = Modifier.height(verticalSpacing))
+                        }
                     }
                 }
             }
