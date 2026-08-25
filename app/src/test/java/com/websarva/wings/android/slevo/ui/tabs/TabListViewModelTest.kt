@@ -727,6 +727,11 @@ class TabListViewModelTest {
     fun resetSearchState_clearsAllSearchState() = runTest {
         viewModel.enterSearchMode()
         viewModel.updateSearchQuery("query", currentPage = 0)
+        openBoardTabs.value = listOf(
+            BoardTabInfo(1, "A", "https://example.com/a/", "example.com"),
+        )
+        viewModel.closeSearchMode()
+        viewModel.startBoardReorder()
 
         viewModel.resetSearchState()
 
@@ -735,6 +740,8 @@ class TabListViewModelTest {
         assertEquals("", state.searchQuery)
         assertNull(state.pendingScrollToTopRequest)
         assertNull(state.pendingSearchFocusRequestId)
+        assertNull(state.boardReorderDraft)
+        assertEquals(TabActionMenuMode.None, state.tabActionMenuMode)
     }
 
     /**

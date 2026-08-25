@@ -165,6 +165,7 @@ class TabListViewModel @Inject constructor(
      *
      * 検索モード、検索クエリ、未消費の検索結果先頭表示要求をすべてクリアする。
      * BottomSheet dismiss 時など、表示コンテキストを終了するときに使用する。
+     * 画面が破棄されても残る ViewModel の未確定 reorder draft と長押し選択も同時に破棄する。
      */
     fun resetSearchState() {
         uiStateMutable.update { state ->
@@ -173,6 +174,12 @@ class TabListViewModel @Inject constructor(
                 searchInputValue = TextFieldValue(""),
                 pendingSearchFocusRequestId = null,
                 pendingScrollToTopRequest = null,
+                boardReorderDraft = null,
+                threadReorderDraft = null,
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
             )
         }
     }
