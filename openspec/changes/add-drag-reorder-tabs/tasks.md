@@ -21,7 +21,7 @@
 - [ ] 3.2 通常`clickable`、既存スワイプDetector、カスタム`SlevoTabDragGestureDetector`をContentAreaだけへ付け、close領域のtap・長押し・dragがカードtap、swipe、reorderを開始しないCompose UI testを追加する。
 - [x] 3.3 `RemovableTabList.kt`でstable keyを変えずに`itemsIndexed`のcontent直下へ`ReorderableItem`を適用し、`OpenBoardsList.kt`と`OpenThreadsList.kt`から板・スレッドそれぞれのmove/start/stop/cancel callbackを配線する。
 - [x] 3.4 削除中、飛び出し中、検索結果表示中はreorderを無効化し、通常表示へ戻ると再度有効になる状態を実装する。
-- [x] 3.5 `itemsIndexed`のcontent直下に置いた`ReorderableItem`へplacement animationを渡し、content内の`AnimatedVisibility`削除アニメーションと同じitemへ重複適用しないmodifier構成にする。
+- [x] 3.5 `itemsIndexed`のcontent直下に置いた`ReorderableItem`へplacement animationを渡し、直下の`AnimatedVisibility`内でカードとspacingを一体化して削除アニメーションを行うmodifier構成にする。
 
 ## 4. ドラッグ中のkey順序draft
 

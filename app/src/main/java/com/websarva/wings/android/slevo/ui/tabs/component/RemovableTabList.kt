@@ -125,52 +125,38 @@ internal fun <T> RemovableTabList(
                     }
 
                     // --- Item content and removal animation ---
-                    Column {
-                        AnimatedVisibility(
-                            visible = !isRemoving,
-                            enter = EnterTransition.None,
-                            exit = fadeOut(
-                                animationSpec = tween(
-                                    durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
-                                    easing = LinearEasing,
-                                ),
-                            ) + shrinkVertically(
-                                animationSpec = tween(
-                                    durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
-                                    delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
-                                    easing = FastOutLinearInEasing,
-                                ),
-                                shrinkTowards = Alignment.CenterVertically,
+                    AnimatedVisibility(
+                        visible = !isRemoving,
+                        enter = EnterTransition.None,
+                        exit = fadeOut(
+                            animationSpec = tween(
+                                durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
+                                easing = LinearEasing,
                             ),
-                        ) {
-                            Box {
-                                itemContent(item, isRemoving, {
-                                    if (!isRemoving) {
-                                        onRemoveConfirmed(item)
-                                    }
-                                }, isDragging, reorderHandle, {
-                                    logTabReorder { "REORDERABLE_FINISHED key=$itemKey" }
-                                    onReorderFinished(item)
-                                }, {
-                                    logTabReorder { "REORDERABLE_CANCELLED key=$itemKey" }
-                                    onReorderCancelled(item)
-                                })
+                        ) + shrinkVertically(
+                            animationSpec = tween(
+                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
+                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
+                                easing = FastOutLinearInEasing,
+                            ),
+                            shrinkTowards = Alignment.CenterVertically,
+                        ),
+                    ) {
+                        Column {
+                            itemContent(item, isRemoving, {
+                                if (!isRemoving) {
+                                    onRemoveConfirmed(item)
+                                }
+                            }, isDragging, reorderHandle, {
+                                logTabReorder { "REORDERABLE_FINISHED key=$itemKey" }
+                                onReorderFinished(item)
+                            }, {
+                                logTabReorder { "REORDERABLE_CANCELLED key=$itemKey" }
+                                onReorderCancelled(item)
+                            })
+                            if (hasVisibleItemAfter) {
+                                Spacer(modifier = Modifier.height(verticalSpacing))
                             }
-                        }
-
-                        AnimatedVisibility(
-                            visible = !isRemoving && hasVisibleItemAfter,
-                            enter = EnterTransition.None,
-                            exit = shrinkVertically(
-                                animationSpec = tween(
-                                    durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
-                                    delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
-                                    easing = FastOutLinearInEasing,
-                                ),
-                                shrinkTowards = Alignment.CenterVertically,
-                            ),
-                        ) {
-                            Spacer(modifier = Modifier.height(verticalSpacing))
                         }
                     }
                 }

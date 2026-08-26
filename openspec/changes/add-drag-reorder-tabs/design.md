@@ -35,7 +35,7 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 ### 2. Calvin-LL Reorderable 3.1.0へreorder機構を委譲する
 
-`gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加する。`RemovableTabList`はstable keyを維持したまま、`itemsIndexed`のcontent直下を`ReorderableItem`にして各itemを包む。`ReorderableItem`のcontent内に削除用`AnimatedVisibility`と後続item用のspacing `Spacer`を含む`Column`を置き、`animateItemModifier`をLazy item直下のreorder wrapperへ渡すことで、Lazy layoutがplacement animationを観測できる構造にする。カードのContentAreaへ`draggableHandle(dragGestureDetector = ...)`を付ける。
+`gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加する。`RemovableTabList`はstable keyを維持したまま、`itemsIndexed`のcontent直下を`ReorderableItem`にして各itemを包む。`ReorderableItem`直下には削除用`AnimatedVisibility`だけを置き、そのcontent内の`Column`へカードと、後続itemがある場合だけ表示するspacing `Spacer`を兄弟として配置する。`animateItemModifier`はLazy item直下のreorder wrapperへ渡し、Lazy layoutがplacement animationを観測できる構造にする。カードのContentAreaへ`draggableHandle(dragGestureDetector = ...)`を付ける。
 
 ライブラリはdrag offset、移動先、`onMove`、placement animation、エッジ自動スクロールを所有する。Slevoは長押し待機、メニュー状態、追加touch slop、順序draft、永続化だけを所有する。標準`longPressDraggableHandle`は長押し成立時点でdragを開始するため使用しない。
 
@@ -97,7 +97,7 @@ repositoryは`DatabaseWriteGate`と`db.withTransaction`内でDBの現在key順�
 
 ### 9. アニメーションとアクセシビリティを既存契約へ統合する
 
-Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ適用し、並び替え中のLazy item位置変更を補間する。`RemovableTabList`の削除`AnimatedVisibility`と同じitemへ重複適用せず、削除用表示とspacingは`ReorderableItem`のcontent内に置く。削除中key、飛び出し中カード、検索結果ではreorderを無効にする。
+Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ適用し、並び替え中のLazy item位置変更を補間する。`ReorderableItem`直下の削除`AnimatedVisibility`内でカードとspacingを一体として表示・縮小し、placement animationと削除アニメーションを別のitemへ重複適用しない。削除中key、飛び出し中カード、検索結果ではreorderを無効にする。
 
 カードには「上へ移動」「下へ移動」のcustom accessibility actionを追加し、境界で不可能な方向を成功扱いにしない。通常タップのfocus、keyboard/DPAD、ripple、TalkBack semanticsは`clickable`で維持する。
 
