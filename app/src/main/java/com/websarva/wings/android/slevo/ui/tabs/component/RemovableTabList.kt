@@ -144,7 +144,6 @@ internal fun <T> RemovableTabList(
                     state = reorderableState,
                     key = itemKey,
                     enabled = reorderEnabled && !isRemoving,
-                    modifier = removalModifier,
                     animateItemModifier = Modifier.animateItem(
                         fadeInSpec = tween(removalDurationMillis),
                         fadeOutSpec = null,
@@ -163,7 +162,7 @@ internal fun <T> RemovableTabList(
                     }
 
                     // --- Item content ---
-                    Column {
+                    Column(modifier = removalModifier) {
                         itemContent(item, isRemoving, {
                             if (!isRemoving) {
                                 onRemoveConfirmed(item)
