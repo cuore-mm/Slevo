@@ -9,7 +9,7 @@ import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import kotlinx.coroutines.CancellationException
 import sh.calvin.reorderable.DragGestureDetector
 
-private const val REORDER_TOUCH_SLOP_MULTIPLIER = 1.5f
+private const val REORDER_TOUCH_SLOP_MULTIPLIER = 3.0f
 private const val PREVIEW_MOVEMENT_RESISTANCE = 0.25f
 
 /**

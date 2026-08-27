@@ -58,5 +58,5 @@ internal object TabListAnimationDefaults {
     const val ITEM_COLLAPSE_DELAY_MILLIS: Int = 40
     const val ITEM_COLLAPSE_MILLIS: Int = 160
     const val ITEM_REMOVAL_MILLIS: Int = ITEM_COLLAPSE_DELAY_MILLIS + ITEM_COLLAPSE_MILLIS
-    const val DRAG_HANDOFF_MILLIS: Int = 120
+    const val DRAG_HANDOFF_MILLIS: Int = 200
 }
