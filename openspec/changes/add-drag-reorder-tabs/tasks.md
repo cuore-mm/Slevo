@@ -17,7 +17,7 @@
 
 ## 3. カード領域分離とReorderable UI
 
-- [x] 3.1 `TabListCard.kt`のCard直下をBox構成へ整理し、ContentAreaとCloseIconButtonまたはpin表示を兄弟として配置する。既存レイアウト、カード全体bounds、スワイプoffset、選択scale/alphaを維持する。
+- [x] 3.1 `TabListCard.kt`のCard直下をBox構成へ整理し、ContentAreaとCloseIconButtonまたはpin表示を兄弟として配置する。ContentAreaのinteraction sourceをカード全体のindicationへ共有し、close/pinの操作領域を拡張せずにカード全体へ押下リップルを表示する。既存レイアウト、カード全体bounds、スワイプoffset、選択scale/alphaを維持する。
 - [ ] 3.2 通常`clickable`、既存スワイプDetector、カスタム`SlevoTabDragGestureDetector`をContentAreaだけへ付け、close領域のtap・長押し・dragがカードtap、swipe、reorderを開始しないCompose UI testを追加する。
 - [x] 3.3 `RemovableTabList.kt`でstable keyを変えずに`itemsIndexed`のcontent直下へ`ReorderableItem`を適用し、`OpenBoardsList.kt`と`OpenThreadsList.kt`から板・スレッドそれぞれのmove/start/stop/cancel callbackを配線する。
 - [x] 3.4 削除中、飛び出し中、検索結果表示中はreorderを無効化し、通常表示へ戻ると再度有効になる状態を実装する。

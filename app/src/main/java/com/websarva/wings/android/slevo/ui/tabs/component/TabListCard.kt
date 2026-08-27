@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -179,6 +180,7 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = if (isScaled) 220 else 180),
         label = "tabSelectionScale",
     )
+    val cardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Swipe-to-delete state ---
     val canHandleSwipeGesture =
@@ -341,7 +343,15 @@ internal fun TabListCard(
                 defaultElevation = 1.dp,
             ),
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
+            // ContentAreaの操作sourceを共有し、close/pinを含むカード全体へ押下表示を描画する。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .indication(
+                        interactionSource = cardInteractionSource,
+                        indication = LocalIndication.current,
+                    ),
+            ) {
                 val detector = reorderHandle?.let {
                     SlevoTabDragGestureDetector(
                         onLongPress = { onLongPress(cardBounds) },
@@ -366,8 +376,8 @@ internal fun TabListCard(
                     Modifier
                         .clickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = LocalIndication.current,
+                            interactionSource = cardInteractionSource,
+                            indication = null,
                             onClick = onClick,
                         )
                         .then(reorderHandle(detector))
@@ -376,8 +386,8 @@ internal fun TabListCard(
                     Modifier
                         .combinedClickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = LocalIndication.current,
+                            interactionSource = cardInteractionSource,
+                            indication = null,
                             onClick = onClick,
                             onLongClick = { onLongPress(cardBounds) },
                         )
