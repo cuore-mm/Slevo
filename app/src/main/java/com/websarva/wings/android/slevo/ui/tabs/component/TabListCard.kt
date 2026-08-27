@@ -55,12 +55,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -123,8 +125,8 @@ private object TabListCardDefaults {
 
     val headerEndPadding: Dp
         get() = trailingActionEndPadding +
-            trailingActionSize +
-            trailingActionContentSpacing
+                trailingActionSize +
+                trailingActionContentSpacing
 }
 
 /**
@@ -352,9 +354,13 @@ internal fun TabListCard(
                         indication = LocalIndication.current,
                     ),
             ) {
+                val hapticFeedback = LocalHapticFeedback.current
                 val detector = reorderHandle?.let {
                     SlevoTabDragGestureDetector(
-                        onLongPress = { onLongPress(cardBounds) },
+                        onLongPress = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongPress(cardBounds)
+                        },
                         onLongPressReleased = onLongPressReleased,
                         onDragFinished = onReorderFinished,
                         onDragCancelled = onReorderCancelled,
