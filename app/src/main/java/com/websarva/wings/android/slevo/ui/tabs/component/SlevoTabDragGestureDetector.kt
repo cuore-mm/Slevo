@@ -116,7 +116,8 @@ internal class SlevoTabDragGestureDetector(
                         }
                         onDragThresholdActivated()
                         onDragStart(change.position)
-                        onDrag(change, previewOffset + overSlop)
+                        // 閾値到達時は抵抗分を含む累積量全体を渡し、指の位置へ一気に追従させる。
+                        onDrag(change, accumulatedMovement)
                     } else {
                         // 閾値までは移動量を圧縮し、メニュープレビューへだけ反映する。
                         onLongPressMoved(accumulatedMovement * PREVIEW_MOVEMENT_RESISTANCE)

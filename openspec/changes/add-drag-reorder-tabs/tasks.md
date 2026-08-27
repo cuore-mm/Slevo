@@ -2,7 +2,7 @@
 
 - [x] 1.1 `gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加し、CIでAndroid variantの依存解決とコンパイルを確認する。
 - [ ] 1.2 `app/src/androidTest/.../ui/tabs/`へ実際の`TabListCard`と`RemovableTabList`を使うCompose UI testを追加し、現行実装でDOWN→長押し→追加slop超過がreorder開始へ到達しない現象を再現する。修正前の失敗callbackまたは未移動状態をtest結果として確認する。
-- [x] 1.3 `SlevoTabDragGestureDetector.detect`の長押し後にある`awaitTouchSlopOrCancellation`を、既定の`PointerEventPass.Main`で対象pointerのdeltaを取得して即consumeする局所ループへ置き換える。追加touch slopの1.5倍未満は累積移動量の25%をPreviewへ渡し、超過時は`onDragStart`を1回呼んでPreview offsetと超過分を最初の`onDrag`へ渡す。閾値超過時の触覚を1回だけ発生させ、UPはMenuOpen、pointer消失・system cancel・予期しない事前consumeはcancelへ収束するunitまたはCompose UI testを追加する。
+- [x] 1.3 `SlevoTabDragGestureDetector.detect`の長押し後にある`awaitTouchSlopOrCancellation`を、既定の`PointerEventPass.Main`で対象pointerのdeltaを取得して即consumeする局所ループへ置き換える。追加touch slopの1.5倍未満は累積移動量の25%をPreviewへ渡し、超過時は`onDragStart`を1回呼んで累積移動量全体を最初の`onDrag`へ渡す。閾値超過時の触覚を1回だけ発生させ、UPはMenuOpen、pointer消失・system cancel・予期しない事前consumeはcancelへ収束するunitまたはCompose UI testを追加する。
 - [ ] 1.4 `TabListCard.kt`の横スワイプDetectorを常設pointerInput Modifierへ変更し、`rememberUpdatedState`で最新の`canHandleSwipeGesture`、`canDeleteBySwipe`、`isFlyingOut`、`cardWidthPx`を内部参照する。対象changeが`isConsumed`なら撤退し、無効化時はoffsetをspring-backし、`isDragging`中は処理しないCompose UI testを追加する。
 - [ ] 1.5 `RemovableTabList.kt`の`LazyColumn.userScrollEnabled`を固定し、reorder側のconsumeで長押し後のscrollと調停する。Compose UI testで通常tap、Preview→Open、Preview→drag、長押し前の横スワイプ、長押し前の縦スクロール、drag中のscroll/swipe抑止、close領域除外、Main passのUP consumeによる通常`onClick`抑止、非focusable Popup表示後のpointer継続を個別に確認する。
 - [ ] 1.6 1.2〜1.5を接続端末またはemulatorで実行し、端末名、API level、Compose UI 1.10.3、実行command、結果をこのファイルへ記録する。全条件が成功するまでgesture修正を完了扱いにせず、失敗条件が残る場合は実装を拡張する前に`design.md`を再更新する。
