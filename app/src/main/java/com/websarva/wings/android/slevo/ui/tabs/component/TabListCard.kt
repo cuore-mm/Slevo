@@ -372,8 +372,7 @@ internal fun TabListCard(
                     Row(
                         modifier = gestureModifier
                             .fillMaxWidth()
-                            .height(IntrinsicSize.Min)
-                            .padding(end = 40.dp),
+                            .height(IntrinsicSize.Min),
                     ) {
                         // --- Card body ---
                         Column(
@@ -384,7 +383,8 @@ internal fun TabListCard(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 8.dp, end = 8.dp),
+                                    .heightIn(min = 24.dp)
+                                    .padding(start = 8.dp, end = 40.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
