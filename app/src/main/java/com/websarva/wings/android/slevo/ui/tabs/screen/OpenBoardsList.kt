@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ fun OpenBoardsList(
     selectedBoardTab: BoardTabInfo? = null,
     removingKeys: Set<String> = emptySet(),
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
+    onBoardTabLongPressMoved: (Offset) -> Unit = {},
     onBoardTabLongPressReleased: () -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
@@ -93,6 +95,7 @@ fun OpenBoardsList(
                 if (isRemoving) return@OpenBoardCard
                 onBoardTabLongPressed(tab, bounds)
             },
+            onLongPressMoved = onBoardTabLongPressMoved,
             onLongPressReleased = onBoardTabLongPressReleased,
             reorderHandle = reorderHandle.takeIf { isReorderEnabled },
             onReorderFinished = reorderFinished,
@@ -127,6 +130,7 @@ private fun OpenBoardCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
+    onLongPressMoved: (Offset) -> Unit = {},
     onLongPressReleased: () -> Unit = {},
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
@@ -148,6 +152,7 @@ private fun OpenBoardCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
+        onLongPressMoved = onLongPressMoved,
         onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,

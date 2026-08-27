@@ -9,12 +9,17 @@ import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import kotlinx.coroutines.CancellationException
 import sh.calvin.reorderable.DragGestureDetector
 
+private const val REORDER_TOUCH_SLOP_MULTIPLIER = 1.5f
+private const val PREVIEW_MOVEMENT_RESISTANCE = 0.25f
+
 /**
  * 長押し時にメニューを表示し、追加の touch slop 後に reorder drag へ移行する検出器。
  * 長押し前の移動は消費せず、親のスクロールまたは既存の横スワイプ判定へ委譲する。
  */
 internal class SlevoTabDragGestureDetector(
     private val onLongPress: () -> Unit,
+    private val onLongPressMoved: (Offset) -> Unit,
+    private val onDragThresholdActivated: () -> Unit,
     private val onLongPressReleased: () -> Unit,
     private val onDragFinished: () -> Unit,
     private val onDragCancelled: () -> Unit,
@@ -50,7 +55,7 @@ internal class SlevoTabDragGestureDetector(
                 // --- Post-long-press ownership ---
                 var accumulatedMovement = Offset.Zero
                 var dragStarted = false
-                val touchSlop = viewConfiguration.touchSlop
+                val touchSlop = viewConfiguration.touchSlop * REORDER_TOUCH_SLOP_MULTIPLIER
 
                 while (true) {
                     val event = awaitPointerEvent()
@@ -103,12 +108,18 @@ internal class SlevoTabDragGestureDetector(
                     }
                     if (distance > touchSlop) {
                         val overSlop = accumulatedMovement * ((distance - touchSlop) / distance)
+                        val previewOffset = accumulatedMovement * PREVIEW_MOVEMENT_RESISTANCE
                         dragStarted = true
                         logTabReorder {
-                            "DRAG_START id=${change.id} pos=${change.position} overSlop=$overSlop"
+                            "DRAG_START id=${change.id} pos=${change.position} " +
+                                "overSlop=$overSlop previewOffset=$previewOffset"
                         }
+                        onDragThresholdActivated()
                         onDragStart(change.position)
-                        onDrag(change, overSlop)
+                        onDrag(change, previewOffset + overSlop)
+                    } else {
+                        // 閾値までは移動量を圧縮し、メニュープレビューへだけ反映する。
+                        onLongPressMoved(accumulatedMovement * PREVIEW_MOVEMENT_RESISTANCE)
                     }
                 }
             }

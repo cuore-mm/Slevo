@@ -156,6 +156,7 @@ internal fun TabListCard(
     bookmarkColor: Color?,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit = {},
+    onLongPressMoved: (Offset) -> Unit = {},
     onLongPressReleased: () -> Unit = {},
     isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
@@ -360,6 +361,12 @@ internal fun TabListCard(
                         onLongPress = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                             onLongPress(cardBounds)
+                        },
+                        onLongPressMoved = onLongPressMoved,
+                        onDragThresholdActivated = {
+                            hapticFeedback.performHapticFeedback(
+                                HapticFeedbackType.GestureThresholdActivate,
+                            )
                         },
                         onLongPressReleased = onLongPressReleased,
                         onDragFinished = onReorderFinished,

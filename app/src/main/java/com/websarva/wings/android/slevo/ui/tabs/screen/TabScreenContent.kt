@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -71,6 +72,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * タブ一覧とURL入力ダイアログを統合した画面を提供する。
@@ -100,6 +102,8 @@ fun TabScreenContent(
     val listUiState by tabListViewModel.uiState.collectAsStateWithLifecycle()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
+    // --- Long-press preview state ---
+    var longPressPreviewOffset by remember { mutableStateOf(Offset.Zero) }
 
     // --- Haze state ---
     val hazeState = rememberHazeState()
@@ -128,6 +132,12 @@ fun TabScreenContent(
     LaunchedEffect(openThreadTabs, listUiState.removingThreadTabKeys) {
         val activeKeys = openThreadTabs.map { it.id.value }.toSet()
         tabListViewModel.clearThreadRemovalKeys(listUiState.removingThreadTabKeys - activeKeys)
+    }
+    // --- Preview offset cleanup ---
+    LaunchedEffect(listUiState.isInLongPressSelectionMode) {
+        if (!listUiState.isInLongPressSelectionMode) {
+            longPressPreviewOffset = Offset.Zero
+        }
     }
 
     /**
@@ -256,25 +266,51 @@ fun TabScreenContent(
                         onCloseThreadTab = { tabListViewModel.startThreadTabRemoval(it) },
                         onSwipeDeleteBoardTab = { tabSessionStore.closeBoardTab(it) },
                         onSwipeDeleteThreadTab = createThreadTabCloseHandler(tabSessionStore),
-                         onBoardTabLongPressed = { tab, bounds ->
-                             tabListViewModel.onBoardTabLongPressed(tab, bounds)
-                         },
-                         onBoardTabLongPressReleased = { tabListViewModel.openSelectedTabMenu() },
-                         onThreadTabLongPressed = { tab, bounds ->
-                             tabListViewModel.onThreadTabLongPressed(tab, bounds)
-                         },
-                         onThreadTabLongPressReleased = { tabListViewModel.openSelectedTabMenu() },
-                         onBoardTabReorderStarted = { tabListViewModel.startBoardReorder() },
+                          onBoardTabLongPressed = { tab, bounds ->
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.onBoardTabLongPressed(tab, bounds)
+                          },
+                          onBoardTabLongPressMoved = { offset ->
+                              longPressPreviewOffset = offset
+                          },
+                          onBoardTabLongPressReleased = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.openSelectedTabMenu()
+                          },
+                          onThreadTabLongPressed = { tab, bounds ->
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.onThreadTabLongPressed(tab, bounds)
+                          },
+                          onThreadTabLongPressMoved = { offset ->
+                              longPressPreviewOffset = offset
+                          },
+                          onThreadTabLongPressReleased = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.openSelectedTabMenu()
+                          },
+                          onBoardTabReorderStarted = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.startBoardReorder()
+                          },
                          onBoardTabReorderMoved = { from, to -> tabListViewModel.moveBoardReorder(from, to) },
                          onBoardTabReorderFinished = { tabListViewModel.finishBoardReorder() },
-                         onBoardTabReorderCancelled = { tabListViewModel.cancelReorder() },
+                          onBoardTabReorderCancelled = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.cancelReorder()
+                          },
                          onBoardTabReorderAccessibilityMove = { tab, offset ->
                              tabListViewModel.moveBoardTabByOffset(tab.boardUrl, offset)
                          },
-                         onThreadTabReorderStarted = { tabListViewModel.startThreadReorder() },
+                          onThreadTabReorderStarted = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.startThreadReorder()
+                          },
                          onThreadTabReorderMoved = { from, to -> tabListViewModel.moveThreadReorder(from, to) },
                          onThreadTabReorderFinished = { tabListViewModel.finishThreadReorder() },
-                         onThreadTabReorderCancelled = { tabListViewModel.cancelReorder() },
+                          onThreadTabReorderCancelled = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.cancelReorder()
+                          },
                          onThreadTabReorderAccessibilityMove = { tab, offset ->
                              tabListViewModel.moveThreadTabByOffset(tab.id.value, offset)
                          },
@@ -342,11 +378,15 @@ fun TabScreenContent(
                 uiState = listUiState,
                 newResCounts = newResCounts,
                 hazeState = hazeState,
-                onCancelSelection = { tabListViewModel.cancelTabSelection() },
+                onCancelSelection = {
+                    longPressPreviewOffset = Offset.Zero
+                    tabListViewModel.cancelTabSelection()
+                },
                 onDetailClick = { tabListViewModel.openSelectedTabDetail() },
                 onPinClick = { tabListViewModel.toggleSelectedTabPin() },
-                 onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
-                 isBackHandlerEnabled = !isSearchMode,
+                onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
+                isBackHandlerEnabled = !isSearchMode,
+                previewOffset = longPressPreviewOffset,
             )
 
             // --- Bottom sheets ---
@@ -481,6 +521,7 @@ private fun TabLongPressOverlayLayer(
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
     isBackHandlerEnabled: Boolean,
+    previewOffset: Offset,
 ) {
     // --- Floating card animation state (Compose-local) ---
     val floatingScale = remember { Animatable(1f) }
@@ -500,6 +541,10 @@ private fun TabLongPressOverlayLayer(
     val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
     val boundsForFloating = uiState.selectedTabBounds
     val hasFloatingBounds = boundsForFloating != null
+    val previewOffsetInPixels = IntOffset(
+        previewOffset.x.roundToInt(),
+        previewOffset.y.roundToInt(),
+    )
 
     Box(
         modifier = Modifier
@@ -544,7 +589,12 @@ private fun TabLongPressOverlayLayer(
                 Box(
                     modifier = Modifier
                         .width(with(density) { cardWidthPx.toDp() })
-                        .offset { IntOffset(localLeft, localTop) }
+                        .offset {
+                            IntOffset(
+                                localLeft + previewOffsetInPixels.x,
+                                localTop + previewOffsetInPixels.y,
+                            )
+                        }
                         .graphicsLayer {
                             scaleX = floatingScale.value
                             scaleY = floatingScale.value
@@ -564,7 +614,12 @@ private fun TabLongPressOverlayLayer(
                 Box(
                     modifier = Modifier
                         .width(with(density) { cardWidthPx.toDp() })
-                        .offset { IntOffset(localLeft, localTop) }
+                        .offset {
+                            IntOffset(
+                                localLeft + previewOffsetInPixels.x,
+                                localTop + previewOffsetInPixels.y,
+                            )
+                        }
                         .graphicsLayer {
                             scaleX = floatingScale.value
                             scaleY = floatingScale.value

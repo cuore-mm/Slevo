@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -76,8 +77,10 @@ fun TabsPagerContent(
     onSwipeDeleteBoardTab: (BoardTabInfo) -> Unit,
     onSwipeDeleteThreadTab: (ThreadTabInfo) -> Unit,
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit,
+    onBoardTabLongPressMoved: (Offset) -> Unit,
     onBoardTabLongPressReleased: () -> Unit,
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit,
+    onThreadTabLongPressMoved: (Offset) -> Unit,
     onThreadTabLongPressReleased: () -> Unit,
     onBoardTabReorderStarted: (BoardTabInfo) -> Unit,
     onBoardTabReorderMoved: (BoardTabInfo, BoardTabInfo) -> Unit,
@@ -117,6 +120,7 @@ fun TabsPagerContent(
                         selectedBoardTab = selectedBoardTab,
                         removingKeys = removingBoardTabKeys,
                         onBoardTabLongPressed = onBoardTabLongPressed,
+                        onBoardTabLongPressMoved = onBoardTabLongPressMoved,
                         onBoardTabLongPressReleased = onBoardTabLongPressReleased,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
@@ -171,6 +175,7 @@ fun TabsPagerContent(
                         selectedThreadTab = selectedThreadTab,
                         removingKeys = removingThreadTabKeys,
                         onThreadTabLongPressed = onThreadTabLongPressed,
+                        onThreadTabLongPressMoved = onThreadTabLongPressMoved,
                         onThreadTabLongPressReleased = onThreadTabLongPressReleased,
                         onClearNewResCount = onClearNewResCount,
                         tabSessionStore = tabSessionStore,

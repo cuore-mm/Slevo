@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ fun OpenThreadsList(
     selectedThreadTab: ThreadTabInfo? = null,
     removingKeys: Set<String> = emptySet(),
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
+    onThreadTabLongPressMoved: (Offset) -> Unit = {},
     onThreadTabLongPressReleased: () -> Unit = {},
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
@@ -103,6 +105,7 @@ fun OpenThreadsList(
                 if (isRemoving) return@OpenThreadCard
                 onThreadTabLongPressed(tab, bounds)
             },
+            onLongPressMoved = onThreadTabLongPressMoved,
             onLongPressReleased = onThreadTabLongPressReleased,
             reorderHandle = reorderHandle.takeIf { isReorderEnabled },
             onReorderFinished = reorderFinished,
@@ -138,6 +141,7 @@ private fun OpenThreadCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
+    onLongPressMoved: (Offset) -> Unit = {},
     onLongPressReleased: () -> Unit = {},
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
@@ -158,6 +162,7 @@ private fun OpenThreadCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
+        onLongPressMoved = onLongPressMoved,
         onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
