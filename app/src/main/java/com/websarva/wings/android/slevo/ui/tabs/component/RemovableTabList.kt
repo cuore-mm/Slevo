@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
@@ -129,9 +130,9 @@ internal fun <T> RemovableTabList(
                     .layout { measurable, constraints ->
                         val placeable = measurable.measure(constraints)
                         // LazyColumnの主軸constraintは無限になり得るため、実測高を縮小する。
-                        val animatedHeight = constraints.constrainHeight(
-                            (placeable.height * removalHeightFraction).roundToInt(),
-                        )
+                        val animatedHeight = (placeable.height * removalHeightFraction)
+                            .roundToInt()
+                            .coerceIn(constraints.minHeight, constraints.maxHeight)
                         layout(placeable.width, animatedHeight) {
                             placeable.placeRelative(
                                 x = 0,
