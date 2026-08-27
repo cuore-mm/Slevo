@@ -23,6 +23,7 @@
 - [x] 3.4 削除中、飛び出し中、検索結果表示中はreorderを無効化し、通常表示へ戻ると再度有効になる状態を実装する。
 - [x] 3.5 `itemsIndexed`のcontent直下に置いた`ReorderableItem`へplacement animationを渡し、Calvinのdrag modifierを外側に保ったまま、content内Columnへ`AnimatedVisibility`を使わない実測高`layout`とalphaの削除animationを構成する。
 - [x] 3.6 `SlevoTabDragGestureDetector`の閾値コールバックで累積移動量との差分handoff offsetを渡し、`TabListCard`のCompose-local `Animatable`を初期offsetへ`snapTo`して120msで0へ補間する。描画offsetはCalvinのdrag translationへ加算し、reorder終了・cancel時は即時0へ戻す。
+- [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを0.5へ120msで補間し、`isHiddenForSelection`のalpha=0と削除中alpha animationを維持する。
 
 ## 4. ドラッグ中のkey順序draft
 

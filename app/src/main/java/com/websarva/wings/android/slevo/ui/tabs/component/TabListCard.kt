@@ -114,6 +114,8 @@ private enum class DragMode {
     VerticalScroll,
 }
 
+private const val DRAGGING_CARD_ALPHA = 0.5f
+
 /** タブカード内部で共有するレイアウト寸法を提供する。 */
 private object TabListCardDefaults {
     val trailingActionSize = 24.dp
@@ -185,6 +187,11 @@ internal fun TabListCard(
         targetValue = if (isScaled) 1.04f else 1f,
         animationSpec = tween(durationMillis = if (isScaled) 220 else 180),
         label = "tabSelectionScale",
+    )
+    val draggingAlpha by animateFloatAsState(
+        targetValue = if (isDragging) DRAGGING_CARD_ALPHA else 1f,
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.DRAGGING_ALPHA_MILLIS),
+        label = "tabDraggingAlpha",
     )
     val cardInteractionSource = remember { MutableInteractionSource() }
 
@@ -371,7 +378,8 @@ internal fun TabListCard(
                     translationY = dragHandoffOffset.value.y
                     scaleX = selectionScale
                     scaleY = selectionScale
-                    alpha = if (isHiddenForSelection) 0f else 1f
+                    // Previewでは元カードを隠し、reorder中は対象カードだけを半透明にする。
+                    alpha = if (isHiddenForSelection) 0f else draggingAlpha
                     transformOrigin = TransformOrigin.Center
                 },
             shape = MaterialTheme.shapes.largeIncreased,
