@@ -45,9 +45,11 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 `awaitLongPressOrCancellation`で長押しが成立した後は`awaitTouchSlopOrCancellation`を使わず、`SlevoTabDragGestureDetector.detect`内の小さなループで既定の`PointerEventPass.Main`から対象pointerの各eventを受け取る。現在のModifier階層では内側のreorderHandleがMain passで外側の`clickable`、横スワイプDetector、`LazyColumn`より先に処理できるため、deltaを取得してから同じchangeを即時consumeする。長押し後に取得時点で既にconsume済みのchangeが現れた場合は、別handlerから所有権を奪い返さずdrag cancelへ収束させる。
 
-長押し成立位置からの移動量をDetector内だけで累積し、追加touch slopの1.5倍未満では累積量の25%だけを`onLongPressMoved`へ渡してPreviewのfloating cardを抵抗付きで追従させる。1.5倍の閾値を超えたeventでは`onDragStart`を1回呼び、累積移動量全体を最初の`onDrag`へ渡してPreview位置から指の位置へ一気に追従させる。閾値超過後のdrag offset、移動先、エッジスクロールはReorderableへ委譲する。
+長押し成立位置からの移動量をDetector内だけで累積し、追加touch slopの1.5倍未満では累積量の25%だけを`onLongPressMoved`へ渡してPreviewのfloating cardを抵抗付きで追従させる。1.5倍の閾値を超えたeventでは`onDragStart`を1回呼び、累積移動量全体を最初の`onDrag`へ渡す。Reorderableの論理drag offsetは最初から指の位置へ更新するが、`TabListCard`はCompose-localなhandoff offsetを初期表示へ重ね、抵抗位置から指の位置へ120msで補間する。閾値超過後のdrag offset、移動先、エッジスクロールはReorderableへ委譲する。
 
 追加touch slopの閾値を超えた瞬間だけ、`HapticFeedbackType.GestureThresholdActivate`を1回発生させる。既存の長押し成立時の`LongPress`触覚とは別の遷移として扱い、drag中に再発生させない。
+
+閾値超過時のhandoff量はDetectorが`-accumulatedMovement * (1 - 0.25)`として計算し、閾値コールバックでカードへ渡す。`TabListCard`はこのoffsetを`Animatable<Offset, AnimationVector2D>`へ`snapTo`してから`Offset.Zero`へtweenし、Calvinのdrag translationへ加算して描画する。handoffは`TabListUiState`やViewModelへ保存せず、drag終了またはcancel時にアニメーションをキャンセルして0へ戻す。
 
 追加touch slop前に対象pointerがUPした場合はMain passでUPをconsumeして`onLongPressReleased`を1回呼び、通常`clickable.onClick`を抑止する。pointer消失、system cancel、別handlerによる予期しないconsumeでは`onDragCancelled`へ収束させる。Main passのUP consumeでも通常clickが発火することをtestで確認した場合だけ、UP取得を`PointerEventPass.Initial`へ限定して変更する。pointer sequence限定の抑止フラグはその方法でも解消しない場合の最終手段とし、ViewModelへ置かない。
 
@@ -120,8 +122,9 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 13. 横スワイプDetectorはconsume済みchangeを処理せず、`isDragging`中は起動しない。
 14. `LazyColumn.userScrollEnabled`をgesture stateで切り替えず、reorder側のconsumeでユーザーscrollと調停する。edge autoscrollは継続する。
 15. post-long-pressのpointer ID、累積移動量、slop判定はDetector内に閉じ、`TabListUiState`またはViewModelへ追加しない。
-16. 追加touch slopの1.5倍未満では累積移動量の25%だけをPreviewへ反映し、閾値超過時は累積移動量全体を最初のdragへ渡して抵抗位置から指の位置へ一度に追従させる。抵抗用の移動量はDetectorとCompose-local stateの範囲に閉じる。
-17. `HapticFeedbackType.GestureThresholdActivate`は追加touch slopの閾値超過時に1 gestureあたり1回だけ発生させ、既存の長押し成立時`LongPress`触覚とは別に扱う。
+16. 追加touch slopの1.5倍未満では累積移動量の25%だけをPreviewへ反映し、閾値超過時は累積移動量全体を最初のdragへ渡す。抵抗位置から指の位置への視覚handoffは120msのCompose-local animationで行い、Reorderableの論理offsetや移動判定を遅延させない。
+17. handoff offsetは`TabListCard`、pointer ID・累積移動量・slop判定はDetectorのCompose-local stateに閉じ、`TabListUiState`またはViewModelへ追加しない。drag終了またはcancel時はhandoff animationを停止してoffsetを0へ戻す。
+18. `HapticFeedbackType.GestureThresholdActivate`は追加touch slopの閾値超過時に1 gestureあたり1回だけ発生させ、既存の長押し成立時`LongPress`触覚とは別に扱う。
 
 ## Error Cases and Compatibility
 
@@ -134,7 +137,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 
 ## Testing Strategy
 
-- Compose UI/実機PoC: 実際の`TabListCard`と`RemovableTabList`へ`performTouchInput`でDOWN、長押し時刻、slop未満MOVE、slop超過MOVE、UPを送る。tap、Preview→Open、Preview→drag、長押し前の横スワイプと縦スクロール、drag中のスワイプ不発火、close除外、UP時click抑止、Popup properties更新を個別に確認する。
+- Compose UI/実機PoC: 実際の`TabListCard`と`RemovableTabList`へ`performTouchInput`でDOWN、長押し時刻、slop未満MOVE、slop超過MOVE、UPを送る。tap、Preview→Open、Preview→drag、閾値超過直後の抵抗位置から指位置へのhandoff animation、長押し前の横スワイプと縦スクロール、drag中のスワイプ不発火、close除外、UP時click抑止、Popup properties更新を個別に確認する。
 - Gesture callback順序: Previewでは`onLongPress`だけ、slop超過では`onDragStart`を1回、正常終了では`onDragEnd`と`onDragFinished`を各1回、cancelでは`onDragCancel`と`onDragCancelled`を各1回通知する。MenuOpen経路ではreorder callbackと通常`onClick`を通知しない。
 - Unit: key順move、Store最新情報とのmerge、cancel rollback、ViewModelからCoordinatorへのhandoff、Board/Threadのpending projection、confirmation、Failure、連続reorder、add/delete競合。
 - Room instrumented: `sortOrder`以外が不変、全key連番、DBのみkey維持、削除済みkey無視、transaction rollback、1,252件性能。
@@ -146,8 +149,8 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 - [複数gesture detectorがPointerEventを競合する] → 長押し前は消費せず、成立後は内側reorderHandleがMain passで各changeを即consumeする。外側スワイプは常設pointer nodeの内部ゲートと`isConsumed`で撤退し、drag中は無効化する。LazyColumnのuser scrollは値を切り替えずreorder consumeで調停する。
 - [長押し成立時にSwipe親nodeをdetachしてreorder子nodeへcancelが伝播する] → Swipe pointerInputを常設し、状態変化ではDetector内ゲートだけを更新する。active swipeを無効化する場合はoffsetをspring-backして通常終了する。
 - [長押し後のupで通常clickが誤発火する] → まずMain passでUPをconsumeし、実機testで誤発火した場合だけUP取得をInitial passへ変更する。それでも失敗する場合だけ局所抑止フラグを追加する。
-- [slop超過時にカードが飛び出さない] → 閾値超過時の最初の`onDrag`へ累積移動量全体を渡し、抵抗付きPreview位置から指の位置へ一度に追従させる。
-- [抵抗付きPreviewの座標が業務状態へ漏れる] → 移動量と25%変換はDetector内、表示offsetは`TabScreenContent`のCompose-local stateに閉じる。
+- [slop超過時にカードが飛び出さない] → 閾値超過時の最初の`onDrag`へ累積移動量全体を渡し、カードのCompose-local handoff offsetを抵抗位置から0へ120msで補間する。
+- [抵抗付きPreviewの座標が業務状態へ漏れる] → 移動量と25%変換はDetector内、handoff表示offsetは`TabListCard`のCompose-local stateに閉じる。
 - [Popup更新でpointerまたは表示が途切れる] → 同じPopupを維持してpropertiesだけ更新し、端末差が出た場合にinline fallbackを計画し直す。
 - [ViewModel draftとCoordinator projectionのhandoffで一瞬戻る] → pending登録後にdraftを破棄し、同じstable key順を双方で共有する。
 - [全件再採番が大規模一覧で遅い] → 1,252件のinstrumented performance testを必須とし、不合格時だけchunk方式を採用する。
@@ -156,7 +159,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 ## Migration Plan
 
 1. 現行実装でPreviewからdragへ移行できないgesture統合testを追加し、修正前に失敗を確認する。
-2. `SlevoTabDragGestureDetector`のpost-long-press区間をMain pass所有ループへ置き換え、横スワイプDetectorを常設pointer nodeの内部ゲートへ変更し、drag中無効化とoffset復帰を追加する。
+2. `SlevoTabDragGestureDetector`のpost-long-press区間をMain pass所有ループへ置き換え、横スワイプDetectorを常設pointer nodeの内部ゲートへ変更し、drag中無効化とoffset復帰を追加する。閾値超過時はhandoff offsetをカードへ渡し、抵抗位置から指位置までを描画アニメーションする。
 3. `RemovableTabList`の`userScrollEnabled`を固定し、長押し後はreorder consumeでscrollと調停する。同じgesture統合testを接続端末またはemulatorで実行し、tap、menu、reorder、swipe、scroll、closeの全経路を確認する。
 4. 既存のUI状態、Coordinator handoff、Room永続化、アクセシビリティの未完了testを実行する。
 5. unit testとapp buildをCIで再確認し、instrumented testの端末・API level・結果を`tasks.md`へ記録する。

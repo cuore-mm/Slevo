@@ -19,10 +19,10 @@ private const val PREVIEW_MOVEMENT_RESISTANCE = 0.25f
 internal class SlevoTabDragGestureDetector(
     private val onLongPress: () -> Unit,
     private val onLongPressMoved: (Offset) -> Unit,
-    private val onDragThresholdActivated: () -> Unit,
+    private val onDragThresholdActivated: suspend (Offset) -> Unit,
     private val onLongPressReleased: () -> Unit,
-    private val onDragFinished: () -> Unit,
-    private val onDragCancelled: () -> Unit,
+    private val onDragFinished: suspend () -> Unit,
+    private val onDragCancelled: suspend () -> Unit,
 ) : DragGestureDetector {
     /**
      * Pointer sequenceを長押し、追加slop、drag、終了の順に処理する。
@@ -114,9 +114,12 @@ internal class SlevoTabDragGestureDetector(
                             "DRAG_START id=${change.id} pos=${change.position} " +
                                 "overSlop=$overSlop previewOffset=$previewOffset"
                         }
-                        onDragThresholdActivated()
+                        // 論理dragは全量をReorderableへ渡し、描画側だけhandoffで補間する。
+                        val handoffOffset = accumulatedMovement *
+                                (PREVIEW_MOVEMENT_RESISTANCE - 1f)
+                        onDragThresholdActivated(handoffOffset)
                         onDragStart(change.position)
-                        // 閾値到達時は抵抗分を含む累積量全体を渡し、指の位置へ一気に追従させる。
+                        // 閾値到達時は累積量全体を渡し、描画側のhandoffで抵抗位置から連続的に追従させる。
                         onDrag(change, accumulatedMovement)
                     } else {
                         // 閾値までは移動量を圧縮し、メニュープレビューへだけ反映する。

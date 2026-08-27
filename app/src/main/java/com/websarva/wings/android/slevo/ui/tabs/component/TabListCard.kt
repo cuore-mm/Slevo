@@ -1,7 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -75,8 +77,10 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.DragGestureDetector
 import java.net.URI
 import kotlin.math.abs
@@ -196,6 +200,36 @@ internal fun TabListCard(
     var isFlyingOut by remember { mutableStateOf(false) }
     val velocityTracker = remember { VelocityTracker() }
     val density = LocalDensity.current
+    val dragHandoffOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+    var dragHandoffAnimationJob by remember { mutableStateOf<Job?>(null) }
+
+    /**
+     * 抵抗付きPreviewの残差を設定し、カードの描画位置だけを指へ補間する。
+     */
+    suspend fun animateDragHandoff(handoffOffset: Offset) {
+        dragHandoffAnimationJob?.cancel()
+        dragHandoffOffset.snapTo(handoffOffset)
+        dragHandoffAnimationJob = coroutineScope.launch {
+            dragHandoffOffset.animateTo(
+                targetValue = Offset.Zero,
+                animationSpec = tween(
+                    durationMillis = TabListAnimationDefaults.DRAG_HANDOFF_MILLIS,
+                    easing = LinearOutSlowInEasing,
+                ),
+            )
+        }
+    }
+
+    /**
+     * drag終了時の描画handoffを停止し、Calvinのsettle animationと重ならないよう0へ戻す。
+     */
+    suspend fun resetDragHandoff() {
+        dragHandoffAnimationJob?.cancel()
+        withContext(NonCancellable) {
+            dragHandoffOffset.snapTo(Offset.Zero)
+        }
+    }
+
     // 距離による削除しきい値はカード幅の55%。
     val swipeThreshold = remember(cardWidthPx) {
         if (cardWidthPx > 0f) cardWidthPx * 0.55f else with(density) { 100.dp.toPx() }
@@ -333,6 +367,9 @@ internal fun TabListCard(
                     )
                 }
                 .graphicsLayer {
+                    // Calvinの論理drag offsetへ、抵抗位置からのhandoff残差を重ねる。
+                    translationX = dragHandoffOffset.value.x
+                    translationY = dragHandoffOffset.value.y
                     scaleX = selectionScale
                     scaleY = selectionScale
                     alpha = if (isHiddenForSelection) 0f else 1f
@@ -363,14 +400,21 @@ internal fun TabListCard(
                             onLongPress(cardBounds)
                         },
                         onLongPressMoved = onLongPressMoved,
-                        onDragThresholdActivated = {
+                        onDragThresholdActivated = { handoffOffset ->
                             hapticFeedback.performHapticFeedback(
                                 HapticFeedbackType.GestureThresholdActivate,
                             )
+                            animateDragHandoff(handoffOffset)
                         },
                         onLongPressReleased = onLongPressReleased,
-                        onDragFinished = onReorderFinished,
-                        onDragCancelled = onReorderCancelled,
+                        onDragFinished = {
+                            resetDragHandoff()
+                            onReorderFinished()
+                        },
+                        onDragCancelled = {
+                            resetDragHandoff()
+                            onReorderCancelled()
+                        },
                     )
                 }
                 val moveUpLabel = stringResource(R.string.tab_move_up)
