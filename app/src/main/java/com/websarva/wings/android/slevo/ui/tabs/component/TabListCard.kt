@@ -66,6 +66,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
@@ -105,6 +106,24 @@ private enum class DragMode {
     Undecided,
     HorizontalSwipe,
     VerticalScroll,
+}
+
+/** タブカード内部で共有するレイアウト寸法を提供する。 */
+private object TabListCardDefaults {
+    val trailingActionSize = 24.dp
+    val trailingActionIconSize = 16.dp
+
+    val trailingActionTopPadding = 2.dp
+    val trailingActionEndPadding = 8.dp
+    val trailingActionContentSpacing = 8.dp
+
+    val headerMinHeight: Dp
+        get() = trailingActionSize
+
+    val headerEndPadding: Dp
+        get() = trailingActionEndPadding +
+            trailingActionSize +
+            trailingActionContentSpacing
 }
 
 /**
@@ -383,8 +402,11 @@ internal fun TabListCard(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(min = 24.dp)
-                                    .padding(start = 8.dp, end = 40.dp),
+                                    .heightIn(min = TabListCardDefaults.headerMinHeight)
+                                    .padding(
+                                        start = 8.dp,
+                                        end = TabListCardDefaults.headerEndPadding,
+                                    ),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
@@ -493,8 +515,11 @@ internal fun TabListCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 2.dp, end = 8.dp)
-                        .size(24.dp),
+                        .padding(
+                            top = TabListCardDefaults.trailingActionTopPadding,
+                            end = TabListCardDefaults.trailingActionEndPadding,
+                        )
+                        .size(TabListCardDefaults.trailingActionSize),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isPinned) {
@@ -502,7 +527,7 @@ internal fun TabListCard(
                             imageVector = Icons.Default.PushPin,
                             contentDescription = stringResource(R.string.pinned),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
                         )
                     } else {
                         IconButton(
@@ -517,14 +542,14 @@ internal fun TabListCard(
                                     color = MaterialTheme.colorScheme.surfaceVariant,
                                     shape = CircleShape,
                                 )
-                                .size(24.dp),
+                                .size(TabListCardDefaults.trailingActionSize),
                             onClick = {
                                 // タブクローズ操作は一覧遷移より優先して処理する。
                                 onCloseClick()
                             },
                         ) {
                             Icon(
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.close),
                             )
