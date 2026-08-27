@@ -73,9 +73,9 @@ import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlin.math.abs
-import java.net.URI
 import sh.calvin.reorderable.DragGestureDetector
+import java.net.URI
+import kotlin.math.abs
 
 /**
  * タブ一覧カードのヘッダー右側に表示する内容を表す型。
@@ -153,17 +153,18 @@ internal fun TabListCard(
     onMoveDown: (() -> Boolean)? = null,
 ) {
     // --- Selection animation ---
-    // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
+    // 長押し選択中とドラッグ中は拡大状態を維持し、操作終了時に元サイズへ縮小復帰する。
+    val isScaled = isHiddenForSelection || isDragging
     val selectionScale by animateFloatAsState(
-        targetValue = if (isHiddenForSelection) 1.04f else 1f,
-        animationSpec = tween(durationMillis = if (isHiddenForSelection) 220 else 180),
+        targetValue = if (isScaled) 1.04f else 1f,
+        animationSpec = tween(durationMillis = if (isScaled) 220 else 180),
         label = "tabSelectionScale",
     )
 
     // --- Swipe-to-delete state ---
     val canHandleSwipeGesture =
         isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
-    val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
+    val canDeleteBySwipe = canHandleSwipeGesture && !isPinned
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableFloatStateOf(0f) }
@@ -342,7 +343,7 @@ internal fun TabListCard(
                 } else {
                     Modifier
                 }
-                val gestureModifier = if (detector != null && reorderHandle != null) {
+                val gestureModifier = if (detector != null) {
                     Modifier
                         .clickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
@@ -353,13 +354,15 @@ internal fun TabListCard(
                         .then(reorderHandle(detector))
                         .then(accessibilityModifier)
                 } else {
-                    Modifier.combinedClickable(
-                        enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = LocalIndication.current,
-                        onClick = onClick,
-                        onLongClick = { onLongPress(cardBounds) },
-                    ).then(accessibilityModifier)
+                    Modifier
+                        .combinedClickable(
+                            enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = LocalIndication.current,
+                            onClick = onClick,
+                            onLongClick = { onLongPress(cardBounds) },
+                        )
+                        .then(accessibilityModifier)
                 }
                 Box(
                     modifier = Modifier
@@ -372,111 +375,117 @@ internal fun TabListCard(
                             .height(IntrinsicSize.Min)
                             .padding(end = 40.dp),
                     ) {
-                // --- Card body ---
-                Column(
-                    modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    // --- Header ---
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp, end = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
+                        // --- Card body ---
+                        Column(
+                            modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            if (bookmarkColor != null) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.StarBorder,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Filled.Star,
-                                        contentDescription = null,
-                                        tint = bookmarkColor,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                            } else {
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(
-                                text = headerTitle,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            when (headerTrailingContent) {
-                                is TabHeaderTrailingContent.ThreadResCount -> {
-                                    Text(
-                                        text = headerTrailingContent.resCount.toString(),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    if (headerTrailingContent.newResCount > 0) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "+${headerTrailingContent.newResCount}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    shape = RoundedCornerShape(999.dp),
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        )
-                                    }
-                                }
-
-                                TabHeaderTrailingContent.None -> Unit
-                            }
-                        }
-                    }
-                    // --- Body ---
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 2.dp),
-                        shape = MaterialTheme.shapes.largeIncreased,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        ),
-                    ) {
-                        val bodyStyle = MaterialTheme.typography.bodyMedium
-                        val density = LocalDensity.current
-                        val verticalPadding = 8.dp
-                        val textMinHeight =
-                            with(density) { (bodyStyle.lineHeight * bodyMaxLines).toDp() } +
-                                    verticalPadding * 2
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = textMinHeight),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Text(
-                                text = bodyTitle,
+                            // --- Header ---
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = verticalPadding),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = bodyMaxLines,
-                                style = bodyStyle,
-                            )
+                                    .padding(start = 8.dp, end = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (bookmarkColor != null) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.StarBorder,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.Star,
+                                                contentDescription = null,
+                                                tint = bookmarkColor,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                    } else {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text(
+                                        text = headerTitle,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    when (headerTrailingContent) {
+                                        is TabHeaderTrailingContent.ThreadResCount -> {
+                                            Text(
+                                                text = headerTrailingContent.resCount.toString(),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            if (headerTrailingContent.newResCount > 0) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "+${headerTrailingContent.newResCount}",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier
+                                                        .background(
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            shape = RoundedCornerShape(999.dp),
+                                                        )
+                                                        .padding(
+                                                            horizontal = 6.dp,
+                                                            vertical = 2.dp
+                                                        ),
+                                                )
+                                            }
+                                        }
+
+                                        TabHeaderTrailingContent.None -> Unit
+                                    }
+                                }
+                            }
+                            // --- Body ---
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 2.dp),
+                                shape = MaterialTheme.shapes.largeIncreased,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                ),
+                            ) {
+                                val bodyStyle = MaterialTheme.typography.bodyMedium
+                                val density = LocalDensity.current
+                                val verticalPadding = 8.dp
+                                val textMinHeight =
+                                    with(density) { (bodyStyle.lineHeight * bodyMaxLines).toDp() } +
+                                            verticalPadding * 2
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = textMinHeight),
+                                    contentAlignment = Alignment.CenterStart,
+                                ) {
+                                    Text(
+                                        text = bodyTitle,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(
+                                                horizontal = 12.dp,
+                                                vertical = verticalPadding
+                                            ),
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = bodyMaxLines,
+                                        style = bodyStyle,
+                                    )
+                                }
+                            }
                         }
-                    }
-                }
                     }
                 }
 
