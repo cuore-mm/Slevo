@@ -19,10 +19,10 @@ private const val PREVIEW_MOVEMENT_RESISTANCE = 0.25f
 internal class SlevoTabDragGestureDetector(
     private val onLongPress: () -> Unit,
     private val onLongPressMoved: (Offset) -> Unit,
-    private val onDragThresholdActivated: suspend (Offset) -> Unit,
+    private val onDragThresholdActivated: (Offset) -> Unit,
     private val onLongPressReleased: () -> Unit,
-    private val onDragFinished: suspend () -> Unit,
-    private val onDragCancelled: suspend () -> Unit,
+    private val onDragFinished: () -> Unit,
+    private val onDragCancelled: () -> Unit,
 ) : DragGestureDetector {
     /**
      * Pointer sequenceを長押し、追加slop、drag、終了の順に処理する。

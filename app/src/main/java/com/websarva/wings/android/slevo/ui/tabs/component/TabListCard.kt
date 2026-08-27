@@ -76,11 +76,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.DragGestureDetector
 import java.net.URI
 import kotlin.math.abs
@@ -206,10 +205,10 @@ internal fun TabListCard(
     /**
      * 抵抗付きPreviewの残差を設定し、カードの描画位置だけを指へ補間する。
      */
-    suspend fun animateDragHandoff(handoffOffset: Offset) {
+    fun animateDragHandoff(handoffOffset: Offset) {
         dragHandoffAnimationJob?.cancel()
-        dragHandoffOffset.snapTo(handoffOffset)
-        dragHandoffAnimationJob = coroutineScope.launch {
+        dragHandoffAnimationJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            dragHandoffOffset.snapTo(handoffOffset)
             dragHandoffOffset.animateTo(
                 targetValue = Offset.Zero,
                 animationSpec = tween(
@@ -223,9 +222,9 @@ internal fun TabListCard(
     /**
      * drag終了時の描画handoffを停止し、Calvinのsettle animationと重ならないよう0へ戻す。
      */
-    suspend fun resetDragHandoff() {
+    fun resetDragHandoff() {
         dragHandoffAnimationJob?.cancel()
-        withContext(NonCancellable) {
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             dragHandoffOffset.snapTo(Offset.Zero)
         }
     }
