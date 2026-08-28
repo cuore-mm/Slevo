@@ -52,7 +52,7 @@ class AndroidReplyNotificationPublisherTest {
 
         val posted = shadowOf(notificationManager).allNotifications.single()
         assertEquals("Thread title", posted.extras.getString(Notification.EXTRA_TITLE))
-        assertEquals("レス 3", posted.extras.getString(Notification.EXTRA_TEXT))
+        assertEquals("レス 3 から返信があります", posted.extras.getString(Notification.EXTRA_TEXT))
         assertTrue(posted.flags and Notification.FLAG_AUTO_CANCEL != 0)
         assertEquals(NotificationChannels.REPLY_NOTIFICATION_CHANNEL_ID, posted.channelId)
 
