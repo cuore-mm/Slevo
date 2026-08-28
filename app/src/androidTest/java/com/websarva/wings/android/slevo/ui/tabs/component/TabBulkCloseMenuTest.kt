@@ -252,6 +252,66 @@ class TabBulkCloseMenuTest {
         assertEquals(1, reorderFinishedCount)
     }
 
+    /** 固定状態が再コンポーズされた後も、reorder detectorが最新のタブ状態を渡すことを確認する。 */
+    @Test
+    fun removableTabList_longPressUsesLatestPinnedState() {
+        // --- Test state ---
+        var isPinned by mutableStateOf(false)
+        val observedPinnedStates = mutableListOf<Boolean>()
+        val tabs = listOf("first", "second")
+
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    onRemoveConfirmed = {},
+                    reorderEnabled = true,
+                    itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
+                        reorderFinished, reorderCancelled ->
+                        val pinnedAtComposition = isPinned
+                        TabListCard(
+                            bookmarkColor = null,
+                            onClick = {},
+                            onLongPress = { observedPinnedStates += pinnedAtComposition },
+                            isPinned = pinnedAtComposition,
+                            isRemoving = isRemoving,
+                            headerTitle = "example.com",
+                            bodyTitle = item,
+                            onCloseClick = requestRemove,
+                            reorderHandle = reorderHandle,
+                            onReorderFinished = reorderFinished,
+                            onReorderCancelled = reorderCancelled,
+                            isDragging = isDragging,
+                        )
+                    },
+                )
+            }
+        }
+
+        /** 先頭カードを長押しして指を離し、最新の固定状態をcallbackへ通知させる。 */
+        fun longPressFirstCard() {
+            composeRule.onNodeWithText("first").performTouchInput {
+                down(center)
+                advanceEventTime(600L)
+                up()
+            }
+            composeRule.waitForIdle()
+        }
+
+        // --- Initial long press ---
+        longPressFirstCard()
+
+        // --- State refresh and second long press ---
+        isPinned = true
+        composeRule.waitForIdle()
+        longPressFirstCard()
+
+        // --- Verification ---
+        assertEquals(listOf(false, true), observedPinnedStates)
+    }
+
     /** 実際のreorderable listで追加移動なしの長押しをMenuOpenへ遷移させることを確認する。 */
     @Test
     fun removableTabList_longPressThenReleaseOpensMenuWithoutReorder() {
@@ -447,6 +507,13 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithText("タブの固定を解除").assertExists()
         composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
 
+        // 退出完了前に新しいメニューセッションを開始しても、固定状態を再同期する。
+        expanded = true
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("タブを固定").assertExists()
+        composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
+
+        expanded = false
         composeRule.mainClock.advanceTimeBy(140)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()

@@ -56,6 +56,7 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 追加touch slop前に対象pointerがUPした場合はMain passでUPをconsumeして`onLongPressReleased`を1回呼び、通常`clickable.onClick`を抑止する。pointer消失、system cancel、別handlerによる予期しないconsumeでは`onDragCancelled`へ収束させる。Main passのUP consumeでも通常clickが発火することをtestで確認した場合だけ、UP取得を`PointerEventPass.Initial`へ限定して変更する。pointer sequence限定の抑止フラグはその方法でも解消しない場合の最終手段とし、ViewModelへ置かない。
 
 `TabListCard`の横スワイプDetectorは、各eventの処理前に対象changeの`isConsumed`を確認し、trueならそのgestureから撤退する。横スワイプ用`pointerInput` Modifier自体は常に同じカードへ付け、`canHandleSwipeGesture`、`canDeleteBySwipe`、`isFlyingOut`、`cardWidthPx`は`rememberUpdatedState`でDetector内から読む。状態変化でpointer nodeをdetachさせず、無効化を検出したactive swipeはoffsetを0へspring-backして終了する。`!isDragging`は内部ゲートとして維持し、Reorderableがdragging itemを所有している間は横スワイプ処理を開始しない。`isConsumed`確認がpointer所有権調停の本体で、常設Modifierが長押し時の親node detachによる子reorder cancelを防ぐ。
+`TabListCard`のreorder Detectorも、pointer nodeが保持する長押しcallbackを固定値にしない。`onLongPress`、`onLongPressMoved`、`onLongPressReleased`、reorder終了・cancel callback、カードboundsは`rememberUpdatedState`でラップし、長押し時に最新のタブ情報とboundsを参照する。これによりstable keyのitemが同じまま固定状態だけが更新されても、pointer sequence再起動に依存せず最新値をViewModelへ渡す。
 
 `RemovableTabList`の`LazyColumn.userScrollEnabled`は、長押し選択やreorder draftで切り替えず常にtrueを渡す。長押し成立後とdrag中は内側のreorder DetectorがMain passでposition changeをconsumeするため、LazyColumnはユーザーの縦スクロールを開始しない。Reorderableのedge autoscrollはprogrammatic scrollであり、この値の固定によって禁止しない。
 
@@ -73,6 +74,8 @@ CloseIconButtonは`Alignment.TopEnd`と必要な`zIndex`で配置し、独立し
 - Open: 現行どおりfocusableで、back/outside dismissと項目操作あり。
 
 AndroidはACTION_DOWN時にtouch対象windowを決めるため、長押し途中で非focusable Popupを追加しても進行中のMOVE/UPは元カード側へ継続する。PoCで端末差が確認された場合だけinline Previewを再検討する。メニュー項目の見た目と文言は共通Composableへ抽出し、二重実装しない。
+
+`AnchoredTabActionMenu`の表示中固定状態は、退出animation中のラベル安定性を保つためCompose-local stateへ保持する。ただし`expanded`がfalseになったときは値を上書きせず、次に`expanded=true`へ遷移した新しいメニューセッション開始時だけ現在の`isPinned`で再同期する。
 
 ### 6. ドラッグ中だけViewModelがkey順序draftを持つ
 
@@ -130,6 +133,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 19. ドラッグ対象カードのalphaは0.80とし、`isDragging`の変化に対して120msで補間する。`isHiddenForSelection`のPreview alpha=0および削除用alpha animationを上書きしない。
 20. `scrollThreshold`は`TabListLayoutDefaults.reorderAutoScrollThreshold`へ集約し、`scrollThresholdPadding`の上下値は`contentPadding`から閾値を引いて0dp以上に丸める。判定帯の変更でCalvinのdrag offset、移動先、edge scrollの実行処理を再実装しない。
 21. `RemovableTabList`の`clipToBounds`は削除中だけ有効にし、`TabListCard`ではtranslation・scaleを外側graphics layer、alphaを内側graphics layerへ分離する。削除アニメーション、CalvinのzIndex・translation・settle、カードの半透明表示を同時に維持する。
+22. stable keyのreorder pointer nodeが保持するタブ操作callbackは`rememberUpdatedState`で最新化し、`AnchoredTabActionMenu`の固定状態は退出中だけ保持して新しいexpandedセッション開始時に再同期する。固定切替後の再長押しで古いタブsnapshotを表示しない。
 
 ## Error Cases and Compatibility
 
@@ -143,6 +147,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 ## Testing Strategy
 
 - Compose UI/実機PoC: 実際の`TabListCard`と`RemovableTabList`へ`performTouchInput`でDOWN、長押し時刻、slop未満MOVE、slop超過MOVE、UPを送る。tap、Preview→Open、Preview→drag、閾値超過直後の抵抗位置から指位置へのhandoff animation、長押し前の横スワイプと縦スクロール、drag中のスワイプ不発火、close除外、UP時click抑止、Popup properties更新を個別に確認する。
+- 固定状態回帰: 固定・固定解除の直後に同一stable keyを再長押しし、元カード、floating card、メニューの固定状態表示が一致することを確認する。Popup退出中に新しいexpandedセッションを開始した場合も現在値を表示する。
 - Gesture callback順序: Previewでは`onLongPress`だけ、slop超過では`onDragStart`を1回、正常終了では`onDragEnd`と`onDragFinished`を各1回、cancelでは`onDragCancel`と`onDragCancelled`を各1回通知する。MenuOpen経路ではreorder callbackと通常`onClick`を通知しない。
 - Unit: key順move、Store最新情報とのmerge、cancel rollback、ViewModelからCoordinatorへのhandoff、Board/Threadのpending projection、confirmation、Failure、連続reorder、add/delete競合。
 - Room instrumented: `sortOrder`以外が不変、全key連番、DBのみkey維持、削除済みkey無視、transaction rollback、1,252件性能。
@@ -158,6 +163,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 - [slop超過時にカードが飛び出さない] → 閾値超過時の最初の`onDrag`へ累積移動量全体を渡し、カードのCompose-local handoff offsetを抵抗位置から0へ120msで補間する。
 - [抵抗付きPreviewの座標が業務状態へ漏れる] → 移動量と25%変換はDetector内、handoff表示offsetは`TabListCard`のCompose-local stateに閉じる。
 - [ドラッグ中のカード拡大がalpha layerまたは削除用clipで切れる] → `clipToBounds`を削除中だけに限定し、translation・scaleとalphaを別graphics layerへ分離する。
+- [固定切替後の再長押しで古い固定状態が表示される] → 長寿命pointer nodeのcallbackを`rememberUpdatedState`で最新化し、メニューの表示固定値は新しいexpandedセッション開始時に再同期する。
 - [Popup更新でpointerまたは表示が途切れる] → 同じPopupを維持してpropertiesだけ更新し、端末差が出た場合にinline fallbackを計画し直す。
 - [ViewModel draftとCoordinator projectionのhandoffで一瞬戻る] → pending登録後にdraftを破棄し、同じstable key順を双方で共有する。
 - [全件再採番が大規模一覧で遅い] → 1,252件のinstrumented performance testを必須とし、不合格時だけchunk方式を採用する。

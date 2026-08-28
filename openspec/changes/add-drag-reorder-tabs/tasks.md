@@ -26,6 +26,7 @@
 - [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを0.80へ120msで補間し、`isHiddenForSelection`のalpha=0と削除中alpha animationを維持する。
 - [x] 3.8 `RemovableTabList.kt`で`contentPadding`の上下値から共有の48dp閾値を引いた`scrollThresholdPadding`を計算し、`rememberReorderableLazyListState`へ閾値とともに渡す。負値を0dpへ丸め、上下操作UI・hazeに隠れたviewport端ではなく表示領域境界から自動スクロールを判定する。
 - [x] 3.9 `RemovableTabList.kt`の`clipToBounds`を削除中だけへ限定し、`TabListCard.kt`の外側graphics layerへhandoff translation・selection scale、内側graphics layerへalphaだけを配置する。ドラッグ中の拡大と半透明表示、削除中のfade・高さ縮小を両立する。
+- [x] 3.10 `TabListCard.kt`の長寿命reorder detectorへ`rememberUpdatedState`で最新の長押しcallback・bounds・reorder callbackを渡し、`AnchoredTabActionMenu.kt`は退出中の固定状態を保持しながら新しいexpandedセッション開始時に再同期する。固定切替後の再長押しで最新状態を表示する回帰確認を追加する。
 
 ## 4. ドラッグ中のkey順序draft
 

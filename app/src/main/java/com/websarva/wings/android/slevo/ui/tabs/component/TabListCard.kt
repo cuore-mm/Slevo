@@ -256,6 +256,13 @@ internal fun TabListCard(
     val currentSwipeThreshold = rememberUpdatedState(swipeThreshold)
     val currentCardWidthPx = rememberUpdatedState(cardWidthPx)
     val currentOnSwipeDelete = rememberUpdatedState(onSwipeDelete)
+    val currentOnLongPress = rememberUpdatedState(onLongPress)
+    val currentOnLongPressMoved = rememberUpdatedState(onLongPressMoved)
+    val currentOnLongPressReleased = rememberUpdatedState(onLongPressReleased)
+    val currentOnReorderFinished = rememberUpdatedState(onReorderFinished)
+    val currentOnReorderCancelled = rememberUpdatedState(onReorderCancelled)
+    val currentCardBounds = rememberUpdatedState(cardBounds)
+    // 長寿命のreorder pointer nodeから、再コンポーズ後の最新callbackを参照する。
     val swipeGestureModifier = Modifier.pointerInput(Unit) {
         // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
         awaitEachGesture {
@@ -406,23 +413,23 @@ internal fun TabListCard(
                     SlevoTabDragGestureDetector(
                         onLongPress = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onLongPress(cardBounds)
+                            currentOnLongPress.value(currentCardBounds.value)
                         },
-                        onLongPressMoved = onLongPressMoved,
+                        onLongPressMoved = { offset -> currentOnLongPressMoved.value(offset) },
                         onDragThresholdActivated = { handoffOffset ->
                             hapticFeedback.performHapticFeedback(
                                 HapticFeedbackType.GestureThresholdActivate,
                             )
                             animateDragHandoff(handoffOffset)
                         },
-                        onLongPressReleased = onLongPressReleased,
+                        onLongPressReleased = { currentOnLongPressReleased.value() },
                         onDragFinished = {
                             resetDragHandoff()
-                            onReorderFinished()
+                            currentOnReorderFinished.value()
                         },
                         onDragCancelled = {
                             resetDragHandoff()
-                            onReorderCancelled()
+                            currentOnReorderCancelled.value()
                         },
                     )
                 }
