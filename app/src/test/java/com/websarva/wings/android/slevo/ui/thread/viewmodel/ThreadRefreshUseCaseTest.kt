@@ -29,8 +29,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
@@ -311,7 +311,7 @@ class ThreadRefreshUseCaseTest {
             threadRefreshUseCase = refreshUseCase,
         )
         tabs.emit(listOf(testTab()))
-        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)))
         runCurrent()
 
         // --- Refresh order ---
