@@ -143,14 +143,14 @@ class ThreadRefreshUseCaseTest {
     }
 
     private fun dependencies() = Dependencies(
-        datRepository = mockk(),
-        threadStateRepository = mockk(),
-        threadHistoryRepository = mockk(),
-        postHistoryRepository = mockk(),
+        datRepository = mockk(relaxed = true),
+        threadStateRepository = mockk(relaxed = true),
+        threadHistoryRepository = mockk(relaxed = true),
+        postHistoryRepository = mockk(relaxed = true),
         ownPostReconciliationUseCase = mockk(relaxed = true),
-        settingsRepository = mockk(),
-        replyNotificationRepository = mockk(),
-        publisher = mockk(),
+        settingsRepository = mockk(relaxed = true),
+        replyNotificationRepository = mockk(relaxed = true),
+        publisher = mockk(relaxed = true),
         logger = mockk(relaxed = true),
     )
 
