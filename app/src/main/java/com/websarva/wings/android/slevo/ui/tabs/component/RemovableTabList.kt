@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
@@ -67,7 +68,25 @@ internal fun <T> RemovableTabList(
         onReorderCancelled: () -> Unit,
     ) -> Unit,
 ) {
-    val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
+    val reorderAutoScrollThreshold = TabListLayoutDefaults.reorderAutoScrollThreshold
+    val contentPaddingTop = contentPadding.calculateTopPadding()
+    val contentPaddingBottom = contentPadding.calculateBottomPadding()
+    val reorderScrollThresholdPadding = remember(
+        contentPaddingTop,
+        contentPaddingBottom,
+        reorderAutoScrollThreshold,
+    ) {
+        PaddingValues(
+            // 判定帯の内側境界を、実際にカードが表示される領域の境界へ合わせる。
+            top = (contentPaddingTop - reorderAutoScrollThreshold).coerceAtLeast(0.dp),
+            bottom = (contentPaddingBottom - reorderAutoScrollThreshold).coerceAtLeast(0.dp),
+        )
+    }
+    val reorderableState = rememberReorderableLazyListState(
+        lazyListState = listState,
+        scrollThresholdPadding = reorderScrollThresholdPadding,
+        scrollThreshold = reorderAutoScrollThreshold,
+    ) { from, to ->
         val fromItem = tabItems.getOrNull(from.index)
         val toItem = tabItems.getOrNull(to.index)
         logTabReorder {

@@ -24,6 +24,7 @@
 - [x] 3.5 `itemsIndexed`のcontent直下に置いた`ReorderableItem`へplacement animationを渡し、Calvinのdrag modifierを外側に保ったまま、content内Columnへ`AnimatedVisibility`を使わない実測高`layout`とalphaの削除animationを構成する。
 - [x] 3.6 `SlevoTabDragGestureDetector`の閾値コールバックで累積移動量との差分handoff offsetを渡し、`TabListCard`のCompose-local `Animatable`を初期offsetへ`snapTo`して120msで0へ補間する。描画offsetはCalvinのdrag translationへ加算し、reorder終了・cancel時は即時0へ戻す。
 - [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを0.5へ120msで補間し、`isHiddenForSelection`のalpha=0と削除中alpha animationを維持する。
+- [x] 3.8 `RemovableTabList.kt`で`contentPadding`の上下値から共有の48dp閾値を引いた`scrollThresholdPadding`を計算し、`rememberReorderableLazyListState`へ閾値とともに渡す。負値を0dpへ丸め、上下操作UI・hazeに隠れたviewport端ではなく表示領域境界から自動スクロールを判定する。
 
 ## 4. ドラッグ中のkey順序draft
 

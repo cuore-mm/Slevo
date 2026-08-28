@@ -25,6 +25,7 @@ internal object TabListLayoutDefaults {
     val bottomPadding: Dp = 16.dp
     val bottomActionIconSize: Dp = 28.dp
     val scrollbarBottomInset: Dp = 24.dp
+    val reorderAutoScrollThreshold: Dp = 48.dp
     val emptyStateHorizontalPadding: Dp = 16.dp
     val emptyStateVerticalPadding: Dp = 40.dp
 

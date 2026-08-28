@@ -37,7 +37,9 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 `gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加する。`RemovableTabList`はstable keyを維持したまま、`itemsIndexed`のcontent直下を`ReorderableItem`にして各itemを包む。`ReorderableItem`のcontentは、削除用`removalModifier`を付けたColumnとし、カードと後続itemがある場合だけ表示するspacing `Spacer`を兄弟に持つ。削除時のfadeと高さ縮小は`AnimatedVisibility`ではなくColumnの`modifier`で行い、実測したcontent高さを`layout`で0へ縮め、`graphicsLayer`のalphaを0へ遷移させる。削除用modifierは`ReorderableItem`自体には付けず、CalvinのzIndex・drag translation・drop settleがLazy item全体へ適用される状態を維持する。`animateItemModifier`はLazy item直下のreorder wrapperへ渡し、Calvinのplacement animationの切り替えを維持する。カードのContentAreaへ`draggableHandle(dragGestureDetector = ...)`を付ける。
 
-ライブラリはdrag offset、移動先、`onMove`、placement animation、エッジ自動スクロールを所有する。Slevoは長押し待機、メニュー状態、追加touch slop、順序draft、永続化だけを所有する。標準`longPressDraggableHandle`は長押し成立時点でdragを開始するため使用しない。
+ライブラリはdrag offset、移動先、`onMove`、placement animation、エッジ自動スクロールの実行を所有する。Slevoは長押し待機、メニュー状態、追加touch slop、順序draft、永続化と、エッジ判定の基準を表示領域へ合わせるための入力値を所有する。標準`longPressDraggableHandle`は長押し成立時点でdragを開始するため使用しない。
+
+`RemovableTabList`は`TabListLayoutDefaults.reorderAutoScrollThreshold`をCalvinの`scrollThreshold`へ渡し、`contentPadding`の上下値から同じ閾値を引いた`scrollThresholdPadding`を作る。これによりCalvinの判定帯の内側境界がカードの表示領域境界と一致し、上部検索領域と下部操作・haze領域に覆われたviewport端へ判定帯がずれない。計算結果は上下それぞれ0dp以上に丸め、`contentPadding`の値が変わったときだけ`remember`で再計算する。
 
 ### 3. 長押し後だけカスタムDetectorがMain passで所有する
 
@@ -126,6 +128,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 17. handoff offsetは`TabListCard`、pointer ID・累積移動量・slop判定はDetectorのCompose-local stateに閉じ、`TabListUiState`またはViewModelへ追加しない。drag終了またはcancel時はhandoff animationを停止してoffsetを0へ戻す。
 18. `HapticFeedbackType.GestureThresholdActivate`は追加touch slopの閾値超過時に1 gestureあたり1回だけ発生させ、既存の長押し成立時`LongPress`触覚とは別に扱う。
 19. ドラッグ対象カードのalphaは0.5とし、`isDragging`の変化に対して120msで補間する。`isHiddenForSelection`のPreview alpha=0および削除用alpha animationを上書きしない。
+20. `scrollThreshold`は`TabListLayoutDefaults.reorderAutoScrollThreshold`へ集約し、`scrollThresholdPadding`の上下値は`contentPadding`から閾値を引いて0dp以上に丸める。判定帯の変更でCalvinのdrag offset、移動先、edge scrollの実行処理を再実装しない。
 
 ## Error Cases and Compatibility
 
@@ -144,6 +147,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 - Room instrumented: `sortOrder`以外が不変、全key連番、DBのみkey維持、削除済みkey無視、transaction rollback、1,252件性能。
 - Accessibility: 上下移動action、境界、TalkBackの通常タップとメニュー、Preview項目の非操作性。
 - 回帰: 既存の削除アニメーション、ドラッグ対象カードのalpha 0.5、スワイプしきい値、固定タブ、検索、bulk close、選択維持。
+- エッジ自動スクロール: 上下の`contentPadding`境界から48dpの判定帯、haze・操作UIに隠れたviewport端での誤発火なし、`contentPadding`変更時の再計算。
 
 ## Risks / Trade-offs
 
