@@ -114,7 +114,7 @@ private enum class DragMode {
     VerticalScroll,
 }
 
-private const val DRAGGING_CARD_ALPHA = 0.5f
+private const val DRAGGING_CARD_ALPHA = 0.80f
 
 /** タブカード内部で共有するレイアウト寸法を提供する。 */
 private object TabListCardDefaults {
