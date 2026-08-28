@@ -14,6 +14,7 @@ import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.BoardTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
 import com.websarva.wings.android.slevo.ui.tabs.controller.TabCommandResult
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
@@ -191,8 +192,7 @@ class TabSessionStoreTest {
     ): ThreadTabsCoordinator = ThreadTabsCoordinator(
         tabsRepository = tabsRepository,
         threadBookmarkRepository = bookmarkRepository,
-        datRepository = mockk<DatRepository>(relaxed = true),
-        threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
+        threadRefreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true),
     )
 
     /** 正規 snapshot と close 要求が同じ識別子を共有するテストタブを作る。 */

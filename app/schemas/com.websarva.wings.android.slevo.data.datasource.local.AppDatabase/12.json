@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 12,
+    "identityHash": "902708629a870f89302b08555a69e407",
+    "entities": [
+      {
+        "tableName": "reply_notifications",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`threadId` TEXT NOT NULL, `replyResNo` INTEGER NOT NULL, `targetOwnResNumbers` TEXT NOT NULL, `boardUrl` TEXT NOT NULL, `threadKey` TEXT NOT NULL, `threadTitle` TEXT NOT NULL, `messagePreview` TEXT NOT NULL, `detectedAt` INTEGER NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`threadId`, `replyResNo`))",
+        "fields": [
+          {"fieldPath": "threadId", "columnName": "threadId", "affinity": "TEXT", "notNull": true},
+          {"fieldPath": "replyResNo", "columnName": "replyResNo", "affinity": "INTEGER", "notNull": true},
+          {"fieldPath": "targetOwnResNumbers", "columnName": "targetOwnResNumbers", "affinity": "TEXT", "notNull": true},
+          {"fieldPath": "boardUrl", "columnName": "boardUrl", "affinity": "TEXT", "notNull": true},
+          {"fieldPath": "threadKey", "columnName": "threadKey", "affinity": "TEXT", "notNull": true},
+          {"fieldPath": "threadTitle", "columnName": "threadTitle", "affinity": "TEXT", "notNull": true},
+          {"fieldPath": "messagePreview", "columnName": "messagePreview", "affinity": "TEXT", "notNull": true},
+          {"fieldPath": "detectedAt", "columnName": "detectedAt", "affinity": "INTEGER", "notNull": true},
+          {"fieldPath": "status", "columnName": "status", "affinity": "TEXT", "notNull": true}
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": ["threadId", "replyResNo"]
+        },
+        "indices": [
+          {
+            "name": "index_reply_notifications_threadId_status",
+            "unique": false,
+            "columnNames": ["threadId", "status"],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reply_notifications_threadId_status` ON `${TABLE_NAME}` (`threadId`, `status`)"
+          },
+          {
+            "name": "index_reply_notifications_detectedAt",
+            "unique": false,
+            "columnNames": ["detectedAt"],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reply_notifications_detectedAt` ON `${TABLE_NAME}` (`detectedAt`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '902708629a870f89302b08555a69e407')"
+    ]
+  }
+}

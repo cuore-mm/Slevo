@@ -1,5 +1,9 @@
 package com.websarva.wings.android.slevo.ui.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,10 +28,31 @@ import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 fun SettingsGeneralScreen(
     themeMode: ThemeMode,
     isRedirect5chNetToIoEnabled: Boolean,
+    isReplyNotificationEnabled: Boolean = false,
     onSelectThemeMode: (ThemeMode) -> Unit,
     onToggleRedirect5chNetToIoEnabled: (Boolean) -> Unit,
+    onToggleReplyNotification: (Boolean) -> Unit = {},
     onNavigateUp: () -> Unit,
 ) {
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            onToggleReplyNotification(true)
+        }
+    }
+
+    /** 返信通知を有効化し、必要なOS権限があれば先に要求する。 */
+    fun toggleReplyNotification(enabled: Boolean) {
+        if (!enabled) {
+            onToggleReplyNotification(false)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onToggleReplyNotification(true)
+        }
+    }
+
     val themeOptions = listOf(
         SelectionMenuOption(ThemeMode.LIGHT, stringResource(R.string.theme_mode_light)),
         SelectionMenuOption(ThemeMode.DARK, stringResource(R.string.theme_mode_dark)),
@@ -56,6 +81,24 @@ fun SettingsGeneralScreen(
                             selectedValue = themeMode,
                             options = themeOptions,
                             onSelect = onSelectThemeMode,
+                        )
+                    )
+                )
+            }
+            item {
+                SettingsCardWithListItems(
+                    items = listOf(
+                        listItemSpecOfBasic(
+                            headlineText = stringResource(R.string.reply_notification_setting_title),
+                            supportingText = stringResource(R.string.reply_notification_setting_description),
+                            supportingTextRole = SupportingTextRole.Description,
+                            switchSpec = SwitchSpec(
+                                checked = isReplyNotificationEnabled,
+                                onCheckedChange = ::toggleReplyNotification,
+                            ),
+                            onClick = {
+                                toggleReplyNotification(!isReplyNotificationEnabled)
+                            },
                         )
                     )
                 )
@@ -101,8 +144,10 @@ private fun SettingsGeneralScreenPreview() {
         SettingsGeneralScreen(
             themeMode = ThemeMode.SYSTEM,
             isRedirect5chNetToIoEnabled = true,
+            isReplyNotificationEnabled = false,
             onSelectThemeMode = {},
             onToggleRedirect5chNetToIoEnabled = {},
+            onToggleReplyNotification = {},
             onNavigateUp = {},
         )
     }

@@ -80,7 +80,6 @@ class ThreadRouteViewModel @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val threadReadStateRepository: ThreadReadStateRepository,
     private val threadContentLoadUseCase: ThreadContentLoadUseCase,
-    private val ownPostReconciliationUseCase: OwnPostReconciliationUseCase,
     private val threadVisiblePostsUseCase: ThreadVisiblePostsUseCase,
     private val logger: AppLogger,
 ) : ViewModel() {
@@ -786,9 +785,16 @@ class ThreadRouteViewModel @Inject constructor(
         )
         try {
             // --- Load ---
-            val derived = threadContentLoadUseCase.load(tab.boardUrl, tab.threadKey) { progress ->
-                updateThreadSessionState(tabKey) { it.copy(loadProgress = progress) }
-            }
+            val derived = threadContentLoadUseCase.load(
+                boardUrl = tab.boardUrl,
+                threadKey = tab.threadKey,
+                onProgress = { progress ->
+                    updateThreadSessionState(tabKey) { it.copy(loadProgress = progress) }
+                },
+                boardId = content.boardInfo.boardId,
+                boardName = content.boardInfo.name,
+                threadTitle = content.threadInfo.title,
+            )
             if (derived == null) {
                 handleLoadFailure(tabKey, tab.boardUrl, tab.threadKey)
                 return
@@ -804,49 +810,9 @@ class ThreadRouteViewModel @Inject constructor(
                 resCount = derived.uiPosts.size,
             )
             collectMyPostNumbers(tabKey, historyId)
-            // 投稿先URLが照合キーへ変換できない場合は、誤ったスレッドへ記録しない。
-            val scope = OwnPostThreadScope.from(tab.boardUrl, tab.threadKey)
-            if (scope == null) {
-                logger.e(
-                    message = "Unable to build own-post scope for board: ${tab.boardUrl} key: ${tab.threadKey}",
-                )
-            } else {
-                reconcileOwnPostsSafely(
-                    scope = scope,
-                    posts = derived.uiPosts,
-                    historyId = historyId,
-                    boardId = nextContent.boardInfo.boardId,
-                    nowMillis = System.currentTimeMillis(),
-                )
-            }
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             handleLoadFailure(tabKey, tab.boardUrl, tab.threadKey, error)
-        }
-    }
-
-    /** 自レス照合の補助DB失敗をスレッド取得成功から分離する。 */
-    private suspend fun reconcileOwnPostsSafely(
-        scope: OwnPostThreadScope,
-        posts: List<ThreadPostUiModel>,
-        historyId: Long,
-        boardId: Long,
-        nowMillis: Long,
-    ) {
-        try {
-            ownPostReconciliationUseCase.reconcile(
-                scope = scope,
-                posts = posts,
-                historyId = historyId,
-                boardId = boardId,
-                nowMillis = nowMillis,
-            )
-        } catch (error: Exception) {
-            if (error is CancellationException) throw error
-            logger.e(
-                message = "Failed to reconcile own posts after successful thread load",
-                throwable = error,
-            )
         }
     }
 

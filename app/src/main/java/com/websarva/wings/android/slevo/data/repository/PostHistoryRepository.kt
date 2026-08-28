@@ -88,6 +88,10 @@ class PostHistoryRepository @Inject constructor(
     fun observeMyPostNumbers(threadHistoryId: Long): Flow<Set<Int>> =
         dao.observeResNums(threadHistoryId).map { it.toSet() }
 
+    /** 指定履歴に紐づく確定済み自レス番号を一度だけ取得する。 */
+    suspend fun getMyPostNumbers(threadHistoryId: Long): Set<Int> =
+        dao.findResNums(threadHistoryId).toSet()
+
     fun observeIdentityHistories(boardId: Long, type: PostIdentityType): Flow<List<String>> =
         identityDao.observeValues(boardId, type.name)
 

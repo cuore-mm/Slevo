@@ -136,6 +136,18 @@ class SettingsLocalDataSourceImpl @Inject constructor(
         }
     }
 
+    override fun observeIsReplyNotificationEnabled(): Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[SlevoPreferenceDataStores.REPLY_NOTIFICATION_ENABLED_KEY] ?: false }
+
+    override suspend fun setReplyNotificationEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[SlevoPreferenceDataStores.REPLY_NOTIFICATION_ENABLED_KEY] = enabled
+        }
+    }
+
+    override suspend fun getIsReplyNotificationEnabled(): Boolean =
+        dataStore.data.first()[SlevoPreferenceDataStores.REPLY_NOTIFICATION_ENABLED_KEY] ?: false
+
     override fun observeGestureSettings(): Flow<GestureSettings> =
         dataStore.data
             .map { prefs ->

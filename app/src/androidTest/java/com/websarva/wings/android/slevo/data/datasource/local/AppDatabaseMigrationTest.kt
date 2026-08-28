@@ -808,6 +808,47 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v11から返信通知テーブルを追加し、複合主キーと既存テーブルを保持する。 */
+    @Test
+    fun migrate11To12_addsReplyNotificationTable() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 11).close()
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            12,
+            true,
+            AppDatabase.MIGRATION_11_12,
+        )
+
+        val database = SQLiteDatabase.openDatabase(
+            context.getDatabasePath(TEST_DB).path,
+            null,
+            SQLiteDatabase.OPEN_READONLY,
+        )
+        database.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'reply_notifications'",
+            null,
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+        }
+        database.rawQuery("PRAGMA table_info('reply_notifications')", null).use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertEquals(
+                listOf(
+                    "threadId", "replyResNo", "targetOwnResNumbers", "boardUrl", "threadKey",
+                    "threadTitle", "messagePreview", "detectedAt", "status",
+                ),
+                columns,
+            )
+        }
+        database.close()
+    }
+
     /**
      * wrapped migration が SQL transaction の前に開始証跡を commit し、delegate 例外後も旧 version
      * を残すことを実 DB で検証する。

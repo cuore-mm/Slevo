@@ -43,10 +43,12 @@ fun NavGraphBuilder.addSettingsRoute(
             SettingsGeneralScreen(
                 themeMode = uiState.themeMode,
                 isRedirect5chNetToIoEnabled = uiState.isRedirect5chNetToIoEnabled,
+                isReplyNotificationEnabled = uiState.isReplyNotificationEnabled,
                 onSelectThemeMode = { viewModel.updateThemeMode(it) },
                 onToggleRedirect5chNetToIoEnabled = {
                     viewModel.updateRedirect5chNetToIoEnabled(it)
                 },
+                onToggleReplyNotification = { viewModel.updateReplyNotificationEnabled(it) },
                 onNavigateUp = { navController.navigateUp() }
             )
         }

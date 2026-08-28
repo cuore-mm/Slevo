@@ -23,6 +23,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostId
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PostLastIdentityDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.PendingOwnPostDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.history.ThreadHistoryDao
+import com.websarva.wings.android.slevo.data.datasource.local.dao.notification.ReplyNotificationDao
 import com.websarva.wings.android.slevo.data.datasource.local.dao.state.ThreadStateDao
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreMigrationAttemptRecorder
@@ -199,4 +200,9 @@ object DatabaseModule {
     @Provides
     fun provideThreadStateDao(db: AppDatabase): ThreadStateDao =
         db.threadStateDao()
+
+    /** 返信通知の永続化DAOを提供する。 */
+    @Provides
+    fun provideReplyNotificationDao(db: AppDatabase): ReplyNotificationDao =
+        db.replyNotificationDao()
 }

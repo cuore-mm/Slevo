@@ -5,6 +5,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.PostDisplayRole
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
+import com.websarva.wings.android.slevo.data.util.ReplyAnchorParser
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -47,10 +48,8 @@ internal fun deriveReplyMaps(posts: List<ThreadPostUiModel>): Triple<Map<String,
     // --- 返信元マップ ---
     val replySourceMap = run {
         val map = mutableMapOf<Int, MutableList<Int>>()
-        val regex = Regex(">>(\\d+)")
         posts.forEachIndexed { idx, reply ->
-            regex.findAll(reply.body.content).forEach { match ->
-                val num = match.groupValues[1].toIntOrNull() ?: return@forEach
+            ReplyAnchorParser.extractReferencedNumbers(reply.body.content).forEach { num ->
                 if (num in 1..posts.size) {
                     map.getOrPut(num) { mutableListOf() }.add(idx + 1)
                 }
@@ -71,11 +70,13 @@ internal fun deriveTreeOrder(posts: List<ThreadPostUiModel>): Pair<List<Int>, Ma
     val children = mutableMapOf<Int, MutableList<Int>>()
     val parent = IntArray(posts.size + 1)
     val depthMap = mutableMapOf<Int, Int>()
-    val regex = Regex("^>>(\\d+)")
     posts.forEachIndexed { idx, reply ->
         val current = idx + 1
-        val match = regex.find(reply.body.content)
-        val p = match?.groupValues?.get(1)?.toIntOrNull()
+        val p = if (reply.body.content.startsWith(">>")) {
+            ReplyAnchorParser.extractReferencedNumbers(reply.body.content).firstOrNull()
+        } else {
+            null
+        }
         if (p != null && p in 1 until current) {
             parent[current] = p
             children.getOrPut(p) { mutableListOf() }.add(current)

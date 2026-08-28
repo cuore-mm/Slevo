@@ -27,6 +27,7 @@ class SettingsViewModelTest {
         val themeFlow = MutableStateFlow(ThemeMode.SYSTEM)
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns themeFlow
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
         val viewModel = SettingsViewModel(repository)
 
         // ViewModel の初期購読コルーチンを先に開始させる。
@@ -41,6 +42,7 @@ class SettingsViewModelTest {
     fun updateThemeMode_callsRepository() = runTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
         val viewModel = SettingsViewModel(repository)
 
         advanceUntilIdle()

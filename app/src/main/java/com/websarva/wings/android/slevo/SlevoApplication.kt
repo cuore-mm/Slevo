@@ -6,6 +6,7 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreApplier
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressInterceptor
+import com.websarva.wings.android.slevo.notification.NotificationChannels
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -27,6 +28,9 @@ class SlevoApplication : Application() {
      */
     override fun onCreate() {
         super.onCreate()
+
+        // --- Notification setup ---
+        NotificationChannels.createReplyNotificationChannel(this)
 
         // --- Pending restore (DB 置換 + DataStore 反映) ---
         // Hilt AppDatabase 生成前に実行する。runBlocking で完了まで待つ。

@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
-import com.websarva.wings.android.slevo.data.repository.DatRepository
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -16,15 +15,17 @@ class ThreadContentLoadUseCaseTest {
 
     @Test
     fun load_returnsDerivedResultFromThreadData() = runTest {
-        val datRepository = mockk<DatRepository>()
-        coEvery { datRepository.getThread(any(), any(), any()) } returns (
-            listOf(
+        val refreshUseCase = mockk<ThreadRefreshUseCase>()
+        coEvery { refreshUseCase.refresh(any()) } returns ThreadRefreshResult(
+            posts = listOf(
                 ReplyInfo(name = "name1", email = "", date = "2024/01/01 00:00:00", id = "id1", content = "root"),
                 ReplyInfo(name = "name2", email = "", date = "2024/01/01 00:00:01", id = "id2", content = ">>1 child"),
-            ) to "title"
+            ),
+            title = "title",
+            previousResCount = null,
         )
 
-        val result = ThreadContentLoadUseCase(datRepository).load(
+        val result = ThreadContentLoadUseCase(refreshUseCase).load(
             boardUrl = "https://example.com/test/",
             threadKey = "123",
             onProgress = {},
@@ -40,10 +41,10 @@ class ThreadContentLoadUseCaseTest {
 
     @Test
     fun load_returnsNullWhenRepositoryReturnsNull() = runTest {
-        val datRepository = mockk<DatRepository>()
-        coEvery { datRepository.getThread(any(), any(), any()) } returns null
+        val refreshUseCase = mockk<ThreadRefreshUseCase>()
+        coEvery { refreshUseCase.refresh(any()) } returns null
 
-        val result = ThreadContentLoadUseCase(datRepository).load(
+        val result = ThreadContentLoadUseCase(refreshUseCase).load(
             boardUrl = "https://example.com/test/",
             threadKey = "123",
             onProgress = {},

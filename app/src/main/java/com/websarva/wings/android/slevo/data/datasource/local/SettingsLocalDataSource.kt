@@ -67,6 +67,15 @@ interface SettingsLocalDataSource {
     /** 5ch.net を 5ch.io として開く設定を保存する */
     suspend fun setRedirect5chNetToIoEnabled(enabled: Boolean)
 
+    /** 返信通知設定を監視する。 */
+    fun observeIsReplyNotificationEnabled(): Flow<Boolean>
+
+    /** 返信通知設定を保存する。 */
+    suspend fun setReplyNotificationEnabled(enabled: Boolean)
+
+    /** 返信通知設定の現在値を取得する。 */
+    suspend fun getIsReplyNotificationEnabled(): Boolean
+
     /** ジェスチャー設定を監視する */
     fun observeGestureSettings(): Flow<GestureSettings>
 

@@ -8,6 +8,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
+import com.websarva.wings.android.slevo.data.util.ReplyAnchorParser
 import com.websarva.wings.android.slevo.ui.theme.imageUrlColor
 import com.websarva.wings.android.slevo.ui.theme.replyColor
 import com.websarva.wings.android.slevo.ui.theme.threadUrlColor
@@ -16,7 +17,7 @@ import java.util.regex.Pattern
 
 private val urlRegex: Pattern =
     Pattern.compile("(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)")
-private val replyRegex: Pattern = Pattern.compile(">>(\\d+)")
+private val replyRegex: Pattern = Pattern.compile(ReplyAnchorParser.ANCHOR_PATTERN)
 
 /**
  * 入力されたテキストからURLと返信アンカー（>>1など）を検出し、

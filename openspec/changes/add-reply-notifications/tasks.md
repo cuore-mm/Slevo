@@ -1,8 +1,8 @@
 ## 1. 返信解析と通知候補モデル
 
-- [ ] 1.1 `ThreadDisplayTransformers.kt` と `LinkUtils.kt` の既存アンカー規則を共通化する `ReplyAnchorParser` を追加し、`>>(\d+)` の単一・複数・重複・範囲表記を `ReplyAnchorParserTest` で固定する。
-- [ ] 1.2 新着境界、自レス番号集合、候補レスから「返信レス単位」の候補を返す純粋な検出クラスを追加し、初回抑止、レス数減少、自レス返信除外、複数自レス参照をunit testで検証する。
-- [ ] 1.3 `ThreadDisplayTransformers.deriveReplyMaps()` と本文リンク生成を共通Parserへ切り替え、既存 `ThreadContentLoadUseCaseTest` と関連リンクtestが同じ表示結果を維持することを確認する。
+- [x] 1.1 `ThreadDisplayTransformers.kt` と `LinkUtils.kt` の既存アンカー規則を共通化する `ReplyAnchorParser` を追加し、`>>(\d+)` の単一・複数・重複・範囲表記を `ReplyAnchorParserTest` で固定する。
+- [x] 1.2 新着境界、自レス番号集合、候補レスから「返信レス単位」の候補を返す純粋な検出クラスを追加し、初回抑止、レス数減少、自レス返信除外、複数自レス参照をunit testで検証する。
+- [x] 1.3 `ThreadDisplayTransformers.deriveReplyMaps()` と本文リンク生成を共通Parserへ切り替え、既存 `ThreadContentLoadUseCaseTest` と関連リンクtestが同じ表示結果を維持することを確認する。
 
 ## 2. 通知状態のRoom永続化
 

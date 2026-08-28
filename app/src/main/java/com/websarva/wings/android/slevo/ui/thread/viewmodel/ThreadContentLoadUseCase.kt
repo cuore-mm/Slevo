@@ -2,8 +2,9 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.data.model.ThreadDate
-import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
+import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import javax.inject.Inject
 
@@ -13,7 +14,7 @@ import javax.inject.Inject
  * 投稿本文の取得、投稿UIモデル変換、返信/ツリー派生情報、スレ情報の導出をまとめて扱う。
  */
 class ThreadContentLoadUseCase @Inject constructor(
-    private val datRepository: DatRepository,
+    private val threadRefreshUseCase: ThreadRefreshUseCase,
 ) {
 
     /**
@@ -23,9 +24,23 @@ class ThreadContentLoadUseCase @Inject constructor(
         boardUrl: String,
         threadKey: String,
         onProgress: (Float) -> Unit,
+        boardId: Long = 0L,
+        boardName: String = "",
+        threadTitle: String = "",
     ): ThreadContentLoadResult? {
-        val threadData = datRepository.getThread(boardUrl, threadKey, onProgress) ?: return null
-        return buildResult(threadData, threadKey)
+        val (host, board) = parseBoardUrl(boardUrl) ?: return null
+        val refreshed = threadRefreshUseCase.refresh(
+            ThreadRefreshRequest(
+                threadId = ThreadId.of(host, board, threadKey),
+                boardUrl = boardUrl,
+                boardId = boardId,
+                boardName = boardName,
+                threadKey = threadKey,
+                threadTitle = threadTitle,
+                onProgress = onProgress,
+            )
+        ) ?: return null
+        return buildResult(refreshed.posts to refreshed.title, threadKey)
     }
 
     /**

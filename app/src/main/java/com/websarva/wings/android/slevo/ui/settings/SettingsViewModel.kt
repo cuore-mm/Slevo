@@ -37,6 +37,12 @@ class SettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(isRedirect5chNetToIoEnabled = enabled) }
                 }
         }
+        viewModelScope.launch {
+            repository.observeIsReplyNotificationEnabled()
+                .collect { enabled ->
+                    _uiState.update { it.copy(isReplyNotificationEnabled = enabled) }
+                }
+        }
     }
 
     /**
@@ -56,6 +62,13 @@ class SettingsViewModel @Inject constructor(
             repository.setRedirect5chNetToIoEnabled(enabled)
         }
     }
+
+    /** 返信通知設定を更新する。 */
+    fun updateReplyNotificationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setReplyNotificationEnabled(enabled)
+        }
+    }
 }
 
 /**
@@ -64,4 +77,5 @@ class SettingsViewModel @Inject constructor(
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isRedirect5chNetToIoEnabled: Boolean = true,
+    val isReplyNotificationEnabled: Boolean = false,
 )
