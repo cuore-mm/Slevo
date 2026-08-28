@@ -25,9 +25,11 @@ import io.mockk.coVerifyOrder
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -298,7 +300,7 @@ class ThreadRefreshUseCaseTest {
         // --- Shared refresh entry points ---
         val refreshUseCase = dependencies.createUseCase()
         val contentLoadUseCase = ThreadContentLoadUseCase(refreshUseCase)
-        val tabs = MutableStateFlow(listOf(testTab()))
+        val tabs = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         every { tabsRepository.observeOpenThreadTabs() } returns tabs
@@ -308,7 +310,8 @@ class ThreadRefreshUseCaseTest {
             threadBookmarkRepository = bookmarkRepository,
             threadRefreshUseCase = refreshUseCase,
         )
-        coordinator.bind(backgroundScope)
+        tabs.emit(listOf(testTab()))
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
         runCurrent()
 
         // --- Refresh order ---

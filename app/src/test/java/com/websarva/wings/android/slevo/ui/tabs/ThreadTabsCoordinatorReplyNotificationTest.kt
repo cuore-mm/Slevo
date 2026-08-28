@@ -11,8 +11,10 @@ import io.mockk.coVerifyOrder
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -24,7 +26,9 @@ class ThreadTabsCoordinatorReplyNotificationTest {
     /** 開いている全タブが共通取得へ渡され、同じ順序で一度ずつ処理されることを確認する。 */
     @Test
     fun refreshOpenThreads_delegatesAllTabsToCommonRefreshUseCase() = runTest {
-        val tabState = MutableStateFlow(listOf(tab("first"), tab("second")))
+        val firstTab = tab("first")
+        val secondTab = tab("second")
+        val tabState = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
@@ -40,16 +44,17 @@ class ThreadTabsCoordinatorReplyNotificationTest {
             threadBookmarkRepository = bookmarkRepository,
             threadRefreshUseCase = refreshUseCase,
         )
+        tabState.emit(listOf(firstTab, secondTab))
 
-        coordinator.bind(backgroundScope)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
         runCurrent()
         coordinator.refreshOpenThreads()
         advanceUntilIdle()
 
         coVerify(exactly = 2) { refreshUseCase.refresh(any()) }
         coVerifyOrder {
-            refreshUseCase.refresh(match { it.threadId == tabState.value[0].id })
-            refreshUseCase.refresh(match { it.threadId == tabState.value[1].id })
+            refreshUseCase.refresh(match { it.threadId == firstTab.id })
+            refreshUseCase.refresh(match { it.threadId == secondTab.id })
         }
         assertEquals(false, coordinator.isRefreshing.value)
         coordinator.close()
