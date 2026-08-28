@@ -26,13 +26,10 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -273,7 +270,7 @@ class ThreadRefreshUseCaseTest {
     }
 
     /** 共通UseCaseを二つの画面経路から呼び、Repositoryの一意登録境界を検証する。 */
-    private suspend fun TestScope.assertCrossPathRefreshOrder(threadFirst: Boolean) {
+    private suspend fun assertCrossPathRefreshOrder(threadFirst: Boolean) {
         // --- Dependencies ---
         val dependencies = dependencies()
         val insertedReplies = mutableSetOf<Pair<ThreadId, Int>>()
@@ -300,19 +297,16 @@ class ThreadRefreshUseCaseTest {
         // --- Shared refresh entry points ---
         val refreshUseCase = dependencies.createUseCase()
         val contentLoadUseCase = ThreadContentLoadUseCase(refreshUseCase)
-        val tabs = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        every { tabsRepository.observeOpenThreadTabs() } returns tabs
+        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(testTab()))
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         val coordinator = ThreadTabsCoordinator(
             tabsRepository = tabsRepository,
             threadBookmarkRepository = bookmarkRepository,
             threadRefreshUseCase = refreshUseCase,
         )
-        tabs.emit(listOf(testTab()))
-        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)))
-        runCurrent()
+        coordinator.bind(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
 
         // --- Refresh order ---
         if (threadFirst) {
@@ -320,13 +314,10 @@ class ThreadRefreshUseCaseTest {
             coordinator.refreshOpenThreads()
         } else {
             coordinator.refreshOpenThreads()
-            advanceUntilIdle()
             contentLoadUseCase.load(BOARD_URL, THREAD_KEY, onProgress = {})
         }
-        advanceUntilIdle()
 
         // stale stateを二経路へ返しても、複合主キー相当の登録境界では一件だけ残る。
-        println("DEBUG cross threadFirst=$threadFirst attempts=$insertAttempts replies=$insertedReplies tabs=${coordinator.openThreadTabs.value}")
         assertEquals(2, insertAttempts)
         assertEquals(setOf(THREAD_ID to 3), insertedReplies)
         coordinator.close()
