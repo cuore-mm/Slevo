@@ -16,12 +16,21 @@ import com.websarva.wings.android.slevo.data.repository.ReplyNotificationReposit
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -253,6 +262,81 @@ class ThreadRefreshUseCaseTest {
             )
         }
     }
+
+    /** スレッド画面とタブ画面をどちらから先に更新しても同じ返信を一件だけ登録する。 */
+    @Test
+    fun threadAndTabRefreshes_registerSameReplyOnceInEitherOrder() = runTest {
+        assertCrossPathRefreshOrder(threadFirst = true)
+        assertCrossPathRefreshOrder(threadFirst = false)
+    }
+
+    /** 共通UseCaseを二つの画面経路から呼び、Repositoryの一意登録境界を検証する。 */
+    private suspend fun TestScope.assertCrossPathRefreshOrder(threadFirst: Boolean) {
+        // --- Dependencies ---
+        val dependencies = dependencies()
+        val insertedReplies = mutableSetOf<Pair<ThreadId, Int>>()
+        var insertAttempts = 0
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+        coEvery { dependencies.replyNotificationRepository.insertNew(any()) } coAnswers {
+            insertAttempts++
+            @Suppress("UNCHECKED_CAST")
+            val candidates = invocation.args[0] as List<ReplyNotificationEntity>
+            candidates.filter { insertedReplies.add(it.threadId to it.replyResNo) }
+        }
+        coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns emptyList()
+
+        // --- Shared refresh entry points ---
+        val refreshUseCase = dependencies.createUseCase()
+        val contentLoadUseCase = ThreadContentLoadUseCase(refreshUseCase)
+        val tabs = MutableStateFlow(listOf(testTab()))
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        every { tabsRepository.observeOpenThreadTabs() } returns tabs
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        val coordinator = ThreadTabsCoordinator(
+            tabsRepository = tabsRepository,
+            threadBookmarkRepository = bookmarkRepository,
+            threadRefreshUseCase = refreshUseCase,
+        )
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        // --- Refresh order ---
+        if (threadFirst) {
+            contentLoadUseCase.load(BOARD_URL, THREAD_KEY, onProgress = {})
+            coordinator.refreshOpenThreads()
+        } else {
+            coordinator.refreshOpenThreads()
+            advanceUntilIdle()
+            contentLoadUseCase.load(BOARD_URL, THREAD_KEY, onProgress = {})
+        }
+        advanceUntilIdle()
+
+        // stale stateを二経路へ返しても、複合主キー相当の登録境界では一件だけ残る。
+        assertEquals(2, insertAttempts)
+        assertEquals(setOf(THREAD_ID to 3), insertedReplies)
+        coordinator.close()
+    }
+
+    private fun testTab() = ThreadTabInfo(
+        id = THREAD_ID,
+        title = "Title",
+        boardName = "Board",
+        boardUrl = BOARD_URL,
+        boardId = 1L,
+        firstVisibleItemIndex = 0,
+        isPinned = false,
+    )
 
     private fun dependencies() = Dependencies(
         datRepository = mockk(relaxed = true),

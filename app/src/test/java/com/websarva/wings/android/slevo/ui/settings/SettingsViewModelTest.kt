@@ -84,4 +84,19 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { repository.setReplyNotificationEnabled(true) }
         coVerify(exactly = 1) { repository.setReplyNotificationEnabled(false) }
     }
+
+    /** 通知権限の拒否結果が返信通知を有効化しないことを確認する。 */
+    @Test
+    fun updateReplyNotificationPermissionResult_deniedKeepsSettingDisabled() = runTest {
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
+        val viewModel = SettingsViewModel(repository)
+
+        advanceUntilIdle()
+        viewModel.updateReplyNotificationPermissionResult(granted = false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.setReplyNotificationEnabled(false) }
+    }
 }

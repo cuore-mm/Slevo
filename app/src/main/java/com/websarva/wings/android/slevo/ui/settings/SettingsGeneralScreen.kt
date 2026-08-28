@@ -32,14 +32,13 @@ fun SettingsGeneralScreen(
     onSelectThemeMode: (ThemeMode) -> Unit,
     onToggleRedirect5chNetToIoEnabled: (Boolean) -> Unit,
     onToggleReplyNotification: (Boolean) -> Unit = {},
+    onReplyNotificationPermissionResult: (Boolean) -> Unit = onToggleReplyNotification,
     onNavigateUp: () -> Unit,
 ) {
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) {
-            onToggleReplyNotification(true)
-        }
+        onReplyNotificationPermissionResult(granted)
     }
 
     /** 返信通知を有効化し、必要なOS権限があれば先に要求する。 */

@@ -2,12 +2,21 @@ package com.websarva.wings.android.slevo.notification
 
 import android.app.Notification
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import com.websarva.wings.android.slevo.data.datasource.local.entity.notification.ReplyNotificationEntity
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublishResult
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.handleThreadDeepLinkRoute
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -61,9 +70,39 @@ class AndroidReplyNotificationPublisherTest {
         assertTrue(shadowPendingIntent.isActivity)
         assertTrue(shadowPendingIntent.isImmutable)
         assertEquals(
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            shadowPendingIntent.flags,
+        )
+        assertEquals(
             "https://example.com/test/read.cgi/test/123/",
             shadowPendingIntent.savedIntent.dataString,
         )
+    }
+
+    /** PendingIntentの対象URLが既存DeepLinkHandlerの登録・選択・遷移へ到達することを確認する。 */
+    @Test
+    fun pendingIntentTarget_registersAndSelectsThreadThroughDeepLinkHandler() = runTest {
+        val publisher = AndroidReplyNotificationPublisher(context)
+        publisher.publish(notification())
+        val pendingIntent = shadowOf(shadowOf(notificationManager).allNotifications.single().contentIntent)
+        val targetUrl = pendingIntent.savedIntent.dataString
+        assertEquals("https://example.com/test/read.cgi/test/123/", targetUrl)
+
+        val route = AppRoute.Thread(
+            threadKey = "123",
+            boardUrl = "https://example.com/test/",
+            boardName = "test",
+            threadTitle = "Thread title",
+        )
+        val store = mockk<TabSessionStore>(relaxed = true)
+        coEvery { store.awaitThreadTabsReady() } returns ThreadTabsLoadState.Loaded(emptyList())
+        coEvery { store.registerThreadRoute(route) } returns 0
+        every { store.isCanonicalThreadTab(notification().threadId) } returns true
+        every { store.selectThreadTab(notification().threadId) } returns true
+        var navigated = false
+
+        assertTrue(handleThreadDeepLinkRoute(route, store) { navigated = true })
+        assertTrue(navigated)
     }
 
     /** OS側で通知が無効な場合は取得処理を失敗させず抑止結果を返すことを確認する。 */

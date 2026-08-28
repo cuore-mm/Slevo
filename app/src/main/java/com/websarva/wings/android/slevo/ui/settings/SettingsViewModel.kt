@@ -69,6 +69,11 @@ class SettingsViewModel @Inject constructor(
             repository.setReplyNotificationEnabled(enabled)
         }
     }
+
+    /** Androidの通知権限結果を設定へ反映し、拒否時は返信通知を無効のまま保つ。 */
+    fun updateReplyNotificationPermissionResult(granted: Boolean) {
+        updateReplyNotificationEnabled(granted)
+    }
 }
 
 /**

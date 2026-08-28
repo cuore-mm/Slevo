@@ -49,6 +49,9 @@ fun NavGraphBuilder.addSettingsRoute(
                     viewModel.updateRedirect5chNetToIoEnabled(it)
                 },
                 onToggleReplyNotification = { viewModel.updateReplyNotificationEnabled(it) },
+                onReplyNotificationPermissionResult = {
+                    viewModel.updateReplyNotificationPermissionResult(it)
+                },
                 onNavigateUp = { navController.navigateUp() }
             )
         }
