@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 12,
-    "identityHash": "902708629a870f89302b08555a69e407",
+    "identityHash": "d400c1005fda61b12d8e649ebb762ef3",
     "entities": [
       {
         "tableName": "reply_notifications",
@@ -42,7 +42,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '902708629a870f89302b08555a69e407')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd400c1005fda61b12d8e649ebb762ef3')"
     ]
   }
 }

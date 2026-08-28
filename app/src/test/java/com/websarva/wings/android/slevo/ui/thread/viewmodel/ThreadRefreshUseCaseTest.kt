@@ -29,7 +29,13 @@ class ThreadRefreshUseCaseTest {
     @Test
     fun failedFetchDoesNotChangeStateOrNotifications() = runTest {
         val dependencies = dependencies()
-        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns null
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns null
         val useCase = dependencies.createUseCase()
 
         val result = useCase.refresh(request())
@@ -80,7 +86,13 @@ class ThreadRefreshUseCaseTest {
         coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns listOf(notification)
         every { dependencies.publisher.publish(notification) } returns ReplyNotificationPublishResult.DELIVERED
         coEvery { dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any()) } returns true
-        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns (
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (
             listOf(
                 post("root"),
                 post("mine"),
@@ -110,7 +122,13 @@ class ThreadRefreshUseCaseTest {
         coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns null
         coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns null
         coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
-        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns (
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (
             listOf(
                 post("root"),
                 post(">>1 old reply"),
