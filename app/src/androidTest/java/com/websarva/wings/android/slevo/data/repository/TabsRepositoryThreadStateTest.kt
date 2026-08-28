@@ -202,6 +202,90 @@ class TabsRepositoryThreadStateTest {
         assertEquals(0, db.openThreadTabDao().getAll().size)
     }
 
+    /** 板のreorderがsortOrderだけを更新し、未知keyを無視して既存keyを末尾へ残すことを確認する。 */
+    @Test
+    fun reorderOpenBoardTabs_updatesOnlySortOrderAndPreservesRows() = runBlocking {
+        val urls = listOf("https://example.com/a/", "https://example.com/b/", "https://example.com/c/")
+        db.openBoardTabDao().upsertAll(
+            urls.mapIndexed { index, url ->
+                OpenBoardTabEntity(
+                    boardUrl = url,
+                    boardId = index.toLong() + 1,
+                    boardName = "Board $index",
+                    serviceName = "example.com",
+                    sortOrder = index,
+                    isPinned = index == 1,
+                )
+            },
+        )
+
+        assertEquals(
+            TabMutationResult.Success,
+            repository.reorderOpenBoardTabs(listOf(urls[2], "missing", urls[0], urls[2])),
+        )
+
+        val rows = db.openBoardTabDao().getAll().sortedBy { it.sortOrder }
+        assertEquals(listOf(urls[2], urls[0], urls[1]), rows.map { it.boardUrl })
+        assertEquals(listOf(3L, 1L, 2L), rows.map { it.boardId })
+        assertEquals(listOf(false, false, true), rows.map { it.isPinned })
+    }
+
+    /** スレッドのreorderが固定状態とスクロール位置を変更しないことを確認する。 */
+    @Test
+    fun reorderOpenThreadTabs_updatesOnlySortOrderAndPreservesTabFields() = runBlocking {
+        val threadIds = (0..2).map { index -> ThreadId.of("example.com", "test", "reorder-$index") }
+        db.openThreadTabDao().upsertAll(
+            threadIds.mapIndexed { index, threadId ->
+                OpenThreadTabEntity(
+                    threadId = threadId,
+                    sortOrder = index,
+                    isPinned = index == 1,
+                    firstVisibleItemIndex = index + 10,
+                    firstVisibleItemScrollOffset = index + 20,
+                )
+            },
+        )
+
+        assertEquals(
+            TabMutationResult.Success,
+            repository.reorderOpenThreadTabs(listOf(threadIds[2].value, threadIds[0].value)),
+        )
+
+        val rows = db.openThreadTabDao().getAll().sortedBy { it.sortOrder }
+        assertEquals(listOf(threadIds[2], threadIds[0], threadIds[1]), rows.map { it.threadId })
+        assertEquals(listOf(12, 10, 11), rows.map { it.firstVisibleItemIndex })
+        assertEquals(listOf(22, 20, 21), rows.map { it.firstVisibleItemScrollOffset })
+        assertEquals(listOf(false, false, true), rows.map { it.isPinned })
+    }
+
+    /** 1,252件を一 transactionで再採番し、全行が一意な連番になることを確認する。 */
+    @Test
+    fun reorderOpenThreadTabs_reindexesLargeTabSet() = runBlocking {
+        val threadIds = (0 until 1_252).map { index ->
+            ThreadId.of("example.com", "test", "large-reorder-$index")
+        }
+        db.openThreadTabDao().upsertAll(
+            threadIds.mapIndexed { index, threadId ->
+                OpenThreadTabEntity(
+                    threadId = threadId,
+                    sortOrder = index,
+                    isPinned = false,
+                    firstVisibleItemIndex = 0,
+                    firstVisibleItemScrollOffset = 0,
+                )
+            },
+        )
+
+        assertEquals(
+            TabMutationResult.Success,
+            repository.reorderOpenThreadTabs(threadIds.asReversed().map(ThreadId::value)),
+        )
+
+        val rows = db.openThreadTabDao().getAll().sortedBy { it.sortOrder }
+        assertEquals(threadIds.asReversed(), rows.map { it.threadId })
+        assertEquals((0 until 1_252).toList(), rows.map { it.sortOrder })
+    }
+
     /**
      * 固定状態を切り替えてもタブの表示順（sortOrder）が変わらないことを確認する。
      */

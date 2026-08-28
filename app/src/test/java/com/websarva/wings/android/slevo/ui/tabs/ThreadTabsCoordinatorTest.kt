@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.tabs
 
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.repository.TabMutationResult
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
@@ -1277,6 +1278,37 @@ class ThreadTabsCoordinatorTest {
             coordinator.threadPresentationState.value.selection,
         )
         assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
+    }
+
+    /** thread reorderのpending projectionを公開し、canonical確認後に処理を完了することを確認する。 */
+    @Test
+    fun reorderThreadTabs_projectsRequestedOrderUntilCanonicalConfirmation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("reorder-first", 0)
+        val second = testTab("reorder-second", 1)
+        val third = testTab("reorder-third", 2)
+        val requestedOrder = listOf(third.id.value, first.id.value, second.id.value)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.reorderOpenThreadTabs(requestedOrder) } returns TabMutationResult.Success
+        databaseFlow.emit(listOf(first, second, third))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        assertTrue(coordinator.reorderThreadTabs(requestedOrder))
+        assertEquals(requestedOrder, coordinator.openThreadTabs.value.map { it.id.value })
+        runCurrent()
+        coVerify(exactly = 1) { tabsRepository.reorderOpenThreadTabs(requestedOrder) }
+
+        databaseFlow.emit(listOf(third, first, second))
+        runCurrent()
+
+        assertEquals(requestedOrder, coordinator.openThreadTabs.value.map { it.id.value })
+        coordinator.close()
     }
 
     /** rapid toggle が targeted write と独立した canonical 確認だけを使うことを検証する。 */

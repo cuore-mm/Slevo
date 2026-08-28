@@ -1,12 +1,12 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,10 +19,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import sh.calvin.reorderable.DragGestureDetector
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
+import kotlin.math.roundToInt
 
 /**
  * タブ一覧の削除アニメーション付きリスト表示を共通化する。
@@ -44,8 +54,61 @@ internal fun <T> RemovableTabList(
     removingKeys: Set<String> = emptySet(),
     onRemoveConfirmed: (T) -> Unit,
     userScrollEnabled: Boolean = true,
-    itemContent: @Composable (item: T, isRemoving: Boolean, requestRemove: () -> Unit) -> Unit,
+    reorderEnabled: Boolean = false,
+    onReorderStarted: (T) -> Unit = {},
+    onReorderMoved: (from: T, to: T) -> Unit = { _, _ -> },
+    onReorderFinished: (T) -> Unit = {},
+    onReorderCancelled: (T) -> Unit = {},
+    itemContent: @Composable (
+        item: T,
+        isRemoving: Boolean,
+        requestRemove: () -> Unit,
+        isDragging: Boolean,
+        reorderHandle: (DragGestureDetector) -> Modifier,
+        onReorderFinished: () -> Unit,
+        onReorderCancelled: () -> Unit,
+    ) -> Unit,
 ) {
+    val reorderAutoScrollThreshold = TabListLayoutDefaults.reorderAutoScrollThreshold
+    val contentPaddingTop = contentPadding.calculateTopPadding()
+    val contentPaddingBottom = contentPadding.calculateBottomPadding()
+    val reorderScrollThresholdPadding = remember(
+        contentPaddingTop,
+        contentPaddingBottom,
+        reorderAutoScrollThreshold,
+    ) {
+        PaddingValues(
+            // 判定帯の内側境界を、実際にカードが表示される領域の境界へ合わせる。
+            top = (contentPaddingTop - reorderAutoScrollThreshold).coerceAtLeast(0.dp),
+            bottom = (contentPaddingBottom - reorderAutoScrollThreshold).coerceAtLeast(0.dp),
+        )
+    }
+    val reorderableState = rememberReorderableLazyListState(
+        lazyListState = listState,
+        scrollThresholdPadding = reorderScrollThresholdPadding,
+        scrollThreshold = reorderAutoScrollThreshold,
+    ) { from, to ->
+        val fromItem = tabItems.getOrNull(from.index)
+        val toItem = tabItems.getOrNull(to.index)
+        logTabReorder {
+            "REORDERABLE_MOVE fromIndex=${from.index} toIndex=${to.index} " +
+                "fromFound=${fromItem != null} toFound=${toItem != null}"
+        }
+        if (fromItem != null && toItem != null) {
+            onReorderMoved(fromItem, toItem)
+        }
+    }
+    val reorderPlacementSpec: FiniteAnimationSpec<IntOffset>? = if (
+        reorderEnabled && removingKeys.isEmpty()
+    ) {
+        spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        )
+    } else {
+        null
+    }
+
     // --- List ---
     Box {
         LazyColumn(
@@ -58,56 +121,82 @@ internal fun <T> RemovableTabList(
                 val itemKey = keyOf(item)
                 val isRemoving = itemKey in removingKeys
 
+                val hasVisibleItemAfter = tabItems
+                    .drop(index + 1)
+                    .any { keyOf(it) !in removingKeys }
                 // --- Removal animation ---
-                Column {
-                    AnimatedVisibility(
-                        visible = !isRemoving,
-                        enter = EnterTransition.None,
-                        exit = fadeOut(
-                            animationSpec = tween(
-                                durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
-                                easing = LinearEasing,
-                            ),
-                        ) + shrinkVertically(
-                            animationSpec = tween(
-                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
-                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
-                                easing = FastOutLinearInEasing,
-                            ),
-                            shrinkTowards = Alignment.CenterVertically,
-                        ),
-                    ) {
-                        Box(
-                            modifier = Modifier.animateItem(
-                                fadeInSpec = tween(removalDurationMillis),
-                                fadeOutSpec = null,
-                                placementSpec = null,
+                val removalHeightFraction by animateFloatAsState(
+                    targetValue = if (isRemoving) 0f else 1f,
+                    animationSpec = tween(
+                        durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
+                        delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
+                        easing = FastOutLinearInEasing,
+                    ),
+                    label = "tabRemovalHeight",
+                )
+                val removalAlpha by animateFloatAsState(
+                    targetValue = if (isRemoving) 0f else 1f,
+                    animationSpec = tween(
+                        durationMillis = TabListAnimationDefaults.ITEM_FADE_OUT_MILLIS,
+                        easing = LinearEasing,
+                    ),
+                    label = "tabRemovalAlpha",
+                )
+                val removalModifier = Modifier
+                    .graphicsLayer {
+                        alpha = removalAlpha
+                    }
+                    .then(if (isRemoving) Modifier.clipToBounds() else Modifier)
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        // LazyColumnの主軸constraintは無限になり得るため、実測高を縮小する。
+                        val animatedHeight = (placeable.height * removalHeightFraction)
+                            .roundToInt()
+                            .coerceIn(constraints.minHeight, constraints.maxHeight)
+                        layout(placeable.width, animatedHeight) {
+                            placeable.placeRelative(
+                                x = 0,
+                                y = (animatedHeight - placeable.height) / 2,
                             )
-                        ) {
-                            itemContent(item, isRemoving) {
-                                if (!isRemoving) {
-                                    onRemoveConfirmed(item)
-                                }
-                            }
                         }
                     }
+                ReorderableItem(
+                    state = reorderableState,
+                    key = itemKey,
+                    enabled = reorderEnabled && !isRemoving,
+                    animateItemModifier = Modifier.animateItem(
+                        fadeInSpec = tween(removalDurationMillis),
+                        fadeOutSpec = null,
+                        placementSpec = reorderPlacementSpec,
+                    ),
+                ) { isDragging ->
+                    val reorderHandle: (DragGestureDetector) -> Modifier = { detector ->
+                        Modifier.draggableHandle(
+                            enabled = reorderEnabled && !isRemoving,
+                            dragGestureDetector = detector,
+                            onDragStarted = {
+                                logTabReorder { "REORDERABLE_STARTED key=$itemKey" }
+                                onReorderStarted(item)
+                            },
+                        )
+                    }
 
-                    val hasVisibleItemAfter = tabItems
-                        .drop(index + 1)
-                        .any { keyOf(it) !in removingKeys }
-                    AnimatedVisibility(
-                        visible = !isRemoving && hasVisibleItemAfter,
-                        enter = EnterTransition.None,
-                        exit = shrinkVertically(
-                            animationSpec = tween(
-                                durationMillis = TabListAnimationDefaults.ITEM_COLLAPSE_MILLIS,
-                                delayMillis = TabListAnimationDefaults.ITEM_COLLAPSE_DELAY_MILLIS,
-                                easing = FastOutLinearInEasing,
-                            ),
-                            shrinkTowards = Alignment.CenterVertically,
-                        ),
-                    ) {
-                        Spacer(modifier = Modifier.height(verticalSpacing))
+                    // --- Item content ---
+                    Column(modifier = removalModifier) {
+                        itemContent(item, isRemoving, {
+                            if (!isRemoving) {
+                                onRemoveConfirmed(item)
+                            }
+                        }, isDragging, reorderHandle, {
+                            logTabReorder { "REORDERABLE_FINISHED key=$itemKey" }
+                            onReorderFinished(item)
+                        }, {
+                            logTabReorder { "REORDERABLE_CANCELLED key=$itemKey" }
+                            onReorderCancelled(item)
+                        })
+                        if (hasVisibleItemAfter) {
+                            Spacer(modifier = Modifier.height(verticalSpacing))
+                        }
                     }
                 }
             }

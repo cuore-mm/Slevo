@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
@@ -41,9 +42,17 @@ fun OpenThreadsList(
     selectedThreadTab: ThreadTabInfo? = null,
     removingKeys: Set<String> = emptySet(),
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
+    onThreadTabLongPressMoved: (Offset) -> Unit = {},
+    onThreadTabLongPressReleased: () -> Unit = {},
     onClearNewResCount: (ThreadId) -> Unit = {},
     tabSessionStore: TabSessionStore? = null,
     isInLongPressSelectionMode: Boolean = false,
+    isReorderEnabled: Boolean = false,
+    onReorderStarted: (ThreadTabInfo) -> Unit = {},
+    onReorderMoved: (ThreadTabInfo, ThreadTabInfo) -> Unit = { _, _ -> },
+    onReorderFinished: (ThreadTabInfo) -> Unit = {},
+    onReorderCancelled: (ThreadTabInfo) -> Unit = {},
+    onReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean = { _, _ -> false },
     currentScreenRoute: AppRoute? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -57,8 +66,13 @@ fun OpenThreadsList(
         listState = listState,
         removingKeys = removingKeys,
         onRemoveConfirmed = { onCloseClick(it) },
-        userScrollEnabled = !isInLongPressSelectionMode,
-    ) { tab, isRemoving, requestRemove ->
+        userScrollEnabled = true,
+        reorderEnabled = isReorderEnabled,
+        onReorderStarted = onReorderStarted,
+        onReorderMoved = onReorderMoved,
+        onReorderFinished = onReorderFinished,
+        onReorderCancelled = onReorderCancelled,
+    ) { tab, isRemoving, requestRemove, isDragging, reorderHandle, reorderFinished, reorderCancelled ->
         OpenThreadCard(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
@@ -91,6 +105,18 @@ fun OpenThreadsList(
                 if (isRemoving) return@OpenThreadCard
                 onThreadTabLongPressed(tab, bounds)
             },
+            onLongPressMoved = onThreadTabLongPressMoved,
+            onLongPressReleased = onThreadTabLongPressReleased,
+            reorderHandle = reorderHandle.takeIf { isReorderEnabled },
+            onReorderFinished = reorderFinished,
+            onReorderCancelled = reorderCancelled,
+            onMoveUp = if (isReorderEnabled) {
+                { onReorderAccessibilityMove(tab, -1) }
+            } else null,
+            onMoveDown = if (isReorderEnabled) {
+                { onReorderAccessibilityMove(tab, 1) }
+            } else null,
+            isDragging = isDragging,
             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenThreadCard
@@ -115,10 +141,18 @@ private fun OpenThreadCard(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
+    onLongPressMoved: (Offset) -> Unit = {},
+    onLongPressReleased: () -> Unit = {},
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = true,
     isRemoving: Boolean = false,
+    isDragging: Boolean = false,
+    reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
+    onReorderFinished: () -> Unit = {},
+    onReorderCancelled: () -> Unit = {},
+    onMoveUp: (() -> Boolean)? = null,
+    onMoveDown: (() -> Boolean)? = null,
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
@@ -128,6 +162,8 @@ private fun OpenThreadCard(
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
+        onLongPressMoved = onLongPressMoved,
+        onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
         isPinned = tab.isPinned,
         isRemoving = isRemoving,
@@ -144,6 +180,12 @@ private fun OpenThreadCard(
         },
         onSwipeDelete = onSwipeDelete,
         isSwipeDeleteEnabled = isSwipeDeleteEnabled,
+        reorderHandle = reorderHandle,
+        onReorderFinished = onReorderFinished,
+        onReorderCancelled = onReorderCancelled,
+        isDragging = isDragging,
+        onMoveUp = onMoveUp,
+        onMoveDown = onMoveDown,
     )
 }
 

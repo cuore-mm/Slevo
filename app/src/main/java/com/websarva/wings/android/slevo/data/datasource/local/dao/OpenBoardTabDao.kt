@@ -53,6 +53,10 @@ interface OpenBoardTabDao {
         firstVisibleItemScrollOffset: Int,
     ): Int
 
+    /** 指定板タブの表示順列だけを更新する。 */
+    @Query("UPDATE open_board_tabs SET sortOrder = :sortOrder WHERE boardUrl = :boardUrl")
+    suspend fun updateSortOrder(boardUrl: String, sortOrder: Int): Int
+
     @Upsert
     suspend fun upsertAll(tabs: List<OpenBoardTabEntity>)
 

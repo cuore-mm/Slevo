@@ -25,9 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,6 +60,7 @@ import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListTopSearchArea
 import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
+import com.websarva.wings.android.slevo.ui.tabs.applyReorderDraft
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
@@ -70,6 +73,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * タブ一覧とURL入力ダイアログを統合した画面を提供する。
@@ -99,6 +103,8 @@ fun TabScreenContent(
     val listUiState by tabListViewModel.uiState.collectAsStateWithLifecycle()
     val invalidUrlMessage = stringResource(R.string.invalid_url)
     val coroutineScope = rememberCoroutineScope()
+    // --- Long-press preview state ---
+    var longPressPreviewOffset by remember { mutableStateOf(Offset.Zero) }
 
     // --- Haze state ---
     val hazeState = rememberHazeState()
@@ -116,6 +122,8 @@ fun TabScreenContent(
     val isShowingSearchResults = searchQuery.isNotBlank()
     val filteredBoardTabs = filterBoardTabsByQuery(openBoardTabs, searchQuery)
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
+    val displayedBoardTabs = applyReorderDraft(openBoardTabs, listUiState.boardReorderDraft, BoardTabInfo::boardUrl)
+    val displayedThreadTabs = applyReorderDraft(openThreadTabs, listUiState.threadReorderDraft) { it.id.value }
 
     // --- Removal state cleanup ---
     LaunchedEffect(openBoardTabs, listUiState.removingBoardTabKeys) {
@@ -125,6 +133,12 @@ fun TabScreenContent(
     LaunchedEffect(openThreadTabs, listUiState.removingThreadTabKeys) {
         val activeKeys = openThreadTabs.map { it.id.value }.toSet()
         tabListViewModel.clearThreadRemovalKeys(listUiState.removingThreadTabKeys - activeKeys)
+    }
+    // --- Preview offset cleanup ---
+    LaunchedEffect(listUiState.isInLongPressSelectionMode) {
+        if (!listUiState.isInLongPressSelectionMode) {
+            longPressPreviewOffset = Offset.Zero
+        }
     }
 
     /**
@@ -234,16 +248,17 @@ fun TabScreenContent(
                         modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
                         pagerState = pagerState,
                         navController = navController,
-                        closeDrawer = closeDrawer,
-                        listContentPadding = listPadding,
-                        isShowingSearchResults = isShowingSearchResults,
-                        boardNormalListState = boardNormalListState,
+                         closeDrawer = closeDrawer,
+                         listContentPadding = listPadding,
+                         isShowingSearchResults = isShowingSearchResults,
+                         isSearchMode = isSearchMode,
+                         boardNormalListState = boardNormalListState,
                         boardSearchListState = boardSearchListState,
                         threadNormalListState = threadNormalListState,
                         threadSearchListState = threadSearchListState,
-                        openBoardTabs = openBoardTabs,
+                         openBoardTabs = displayedBoardTabs,
                         filteredBoardTabs = filteredBoardTabs,
-                        openThreadTabs = openThreadTabs,
+                         openThreadTabs = displayedThreadTabs,
                         filteredThreadTabs = filteredThreadTabs,
                         newResCounts = newResCounts,
                         selectedBoardTab = listUiState.selectedBoardTab,
@@ -252,17 +267,59 @@ fun TabScreenContent(
                         onCloseThreadTab = { tabListViewModel.startThreadTabRemoval(it) },
                         onSwipeDeleteBoardTab = { tabSessionStore.closeBoardTab(it) },
                         onSwipeDeleteThreadTab = createThreadTabCloseHandler(tabSessionStore),
-                        onBoardTabLongPressed = { tab, bounds ->
-                            tabListViewModel.onBoardTabLongPressed(tab, bounds)
-                        },
-                        onThreadTabLongPressed = { tab, bounds ->
-                            tabListViewModel.onThreadTabLongPressed(tab, bounds)
-                        },
+                          onBoardTabLongPressed = { tab, bounds ->
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.onBoardTabLongPressed(tab, bounds)
+                          },
+                          onBoardTabLongPressMoved = { offset ->
+                              longPressPreviewOffset = offset
+                          },
+                          onBoardTabLongPressReleased = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.openSelectedTabMenu()
+                          },
+                          onThreadTabLongPressed = { tab, bounds ->
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.onThreadTabLongPressed(tab, bounds)
+                          },
+                          onThreadTabLongPressMoved = { offset ->
+                              longPressPreviewOffset = offset
+                          },
+                          onThreadTabLongPressReleased = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.openSelectedTabMenu()
+                          },
+                          onBoardTabReorderStarted = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.startBoardReorder()
+                          },
+                         onBoardTabReorderMoved = { from, to -> tabListViewModel.moveBoardReorder(from, to) },
+                         onBoardTabReorderFinished = { tabListViewModel.finishBoardReorder() },
+                          onBoardTabReorderCancelled = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.cancelReorder()
+                          },
+                         onBoardTabReorderAccessibilityMove = { tab, offset ->
+                             tabListViewModel.moveBoardTabByOffset(tab.boardUrl, offset)
+                         },
+                          onThreadTabReorderStarted = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.startThreadReorder()
+                          },
+                         onThreadTabReorderMoved = { from, to -> tabListViewModel.moveThreadReorder(from, to) },
+                         onThreadTabReorderFinished = { tabListViewModel.finishThreadReorder() },
+                          onThreadTabReorderCancelled = {
+                              longPressPreviewOffset = Offset.Zero
+                              tabListViewModel.cancelReorder()
+                          },
+                         onThreadTabReorderAccessibilityMove = { tab, offset ->
+                             tabListViewModel.moveThreadTabByOffset(tab.id.value, offset)
+                         },
                         onClearNewResCount = { tabSessionStore.clearNewResCount(it) },
                         removingBoardTabKeys = listUiState.removingBoardTabKeys,
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,
                         tabSessionStore = tabSessionStore,
-                        isInLongPressSelectionMode = listUiState.isInLongPressSelectionMode,
+                         isInLongPressSelectionMode = listUiState.isTabGestureLocked,
                         currentScreenRoute = currentScreenRoute,
                     )
                 }
@@ -322,11 +379,15 @@ fun TabScreenContent(
                 uiState = listUiState,
                 newResCounts = newResCounts,
                 hazeState = hazeState,
-                onCancelSelection = { tabListViewModel.cancelTabSelection() },
+                onCancelSelection = {
+                    longPressPreviewOffset = Offset.Zero
+                    tabListViewModel.cancelTabSelection()
+                },
                 onDetailClick = { tabListViewModel.openSelectedTabDetail() },
                 onPinClick = { tabListViewModel.toggleSelectedTabPin() },
                 onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
                 isBackHandlerEnabled = !isSearchMode,
+                previewOffset = longPressPreviewOffset,
             )
 
             // --- Bottom sheets ---
@@ -461,6 +522,7 @@ private fun TabLongPressOverlayLayer(
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
     isBackHandlerEnabled: Boolean,
+    previewOffset: Offset,
 ) {
     // --- Floating card animation state (Compose-local) ---
     val floatingScale = remember { Animatable(1f) }
@@ -480,6 +542,10 @@ private fun TabLongPressOverlayLayer(
     val boxWindowOffset = remember { mutableStateOf(IntOffset.Zero) }
     val boundsForFloating = uiState.selectedTabBounds
     val hasFloatingBounds = boundsForFloating != null
+    val previewOffsetInPixels = IntOffset(
+        previewOffset.x.roundToInt(),
+        previewOffset.y.roundToInt(),
+    )
 
     Box(
         modifier = Modifier
@@ -502,7 +568,10 @@ private fun TabLongPressOverlayLayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = dimAlpha))
-                    .clickable(enabled = uiState.isInLongPressSelectionMode) {
+                    .clickable(
+                        enabled = uiState.isInLongPressSelectionMode &&
+                            uiState.tabActionMenuMode == com.websarva.wings.android.slevo.ui.tabs.TabActionMenuMode.Open
+                    ) {
                         onCancelSelection()
                     }
             )
@@ -521,7 +590,12 @@ private fun TabLongPressOverlayLayer(
                 Box(
                     modifier = Modifier
                         .width(with(density) { cardWidthPx.toDp() })
-                        .offset { IntOffset(localLeft, localTop) }
+                        .offset {
+                            IntOffset(
+                                localLeft + previewOffsetInPixels.x,
+                                localTop + previewOffsetInPixels.y,
+                            )
+                        }
                         .graphicsLayer {
                             scaleX = floatingScale.value
                             scaleY = floatingScale.value
@@ -541,7 +615,12 @@ private fun TabLongPressOverlayLayer(
                 Box(
                     modifier = Modifier
                         .width(with(density) { cardWidthPx.toDp() })
-                        .offset { IntOffset(localLeft, localTop) }
+                        .offset {
+                            IntOffset(
+                                localLeft + previewOffsetInPixels.x,
+                                localTop + previewOffsetInPixels.y,
+                            )
+                        }
                         .graphicsLayer {
                             scaleX = floatingScale.value
                             scaleY = floatingScale.value
@@ -565,6 +644,7 @@ private fun TabLongPressOverlayLayer(
             isPinned = uiState.selectedBoardTab?.isPinned
                 ?: uiState.selectedThreadTab?.isPinned
                 ?: false,
+            interactive = uiState.tabActionMenuMode == com.websarva.wings.android.slevo.ui.tabs.TabActionMenuMode.Open,
             onDismissRequest = onCancelSelection,
             onDetailClick = onDetailClick,
             onPinClick = onPinClick,
@@ -573,7 +653,11 @@ private fun TabLongPressOverlayLayer(
     }
 
     // --- Back handler for selection mode ---
-    if (uiState.isInLongPressSelectionMode && isBackHandlerEnabled) {
+    if (
+        uiState.isInLongPressSelectionMode &&
+        uiState.tabActionMenuMode == com.websarva.wings.android.slevo.ui.tabs.TabActionMenuMode.Open &&
+        isBackHandlerEnabled
+    ) {
         BackHandler { onCancelSelection() }
     }
 }

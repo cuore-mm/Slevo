@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
+import com.websarva.wings.android.slevo.ui.tabs.component.logTabReorder
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -43,6 +44,7 @@ class TabListViewModel @Inject constructor(
 
     fun enterSearchMode() {
         cancelTabSelection()
+        cancelReorder()
         dismissBulkCloseMenu()
         nextSearchFocusRequestId += 1
         uiStateMutable.update { state ->
@@ -57,6 +59,7 @@ class TabListViewModel @Inject constructor(
      * 検索モードを終了し、検索入力と未消費の UI 要求を初期状態へ戻す。
      */
     fun closeSearchMode() {
+        cancelReorder()
         uiStateMutable.update { state ->
             state.copy(
                 isSearchMode = false,
@@ -163,6 +166,7 @@ class TabListViewModel @Inject constructor(
      *
      * 検索モード、検索クエリ、未消費の検索結果先頭表示要求をすべてクリアする。
      * BottomSheet dismiss 時など、表示コンテキストを終了するときに使用する。
+     * 画面が破棄されても残る ViewModel の未確定 reorder draft と長押し選択も同時に破棄する。
      */
     fun resetSearchState() {
         uiStateMutable.update { state ->
@@ -171,6 +175,12 @@ class TabListViewModel @Inject constructor(
                 searchInputValue = TextFieldValue(""),
                 pendingSearchFocusRequestId = null,
                 pendingScrollToTopRequest = null,
+                boardReorderDraft = null,
+                threadReorderDraft = null,
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
             )
         }
     }
@@ -178,25 +188,35 @@ class TabListViewModel @Inject constructor(
     // --- Long-press selection ---
 
     fun onBoardTabLongPressed(tab: BoardTabInfo, bounds: IntRect) {
+        logTabReorder { "BOARD_LONG_PRESS_VM key=${tab.boardUrl}" }
         cancelTabSelection()
         uiStateMutable.update { state ->
             state.copy(
                 selectedBoardTab = tab,
                 selectedThreadTab = null,
                 selectedTabBounds = bounds,
+                tabActionMenuMode = if (state.isSearchMode) TabActionMenuMode.Open else TabActionMenuMode.Preview,
             )
         }
     }
 
     fun onThreadTabLongPressed(tab: ThreadTabInfo, bounds: IntRect) {
+        logTabReorder { "THREAD_LONG_PRESS_VM key=${tab.id.value}" }
         cancelTabSelection()
         uiStateMutable.update { state ->
             state.copy(
                 selectedBoardTab = null,
                 selectedThreadTab = tab,
                 selectedTabBounds = bounds,
+                tabActionMenuMode = if (state.isSearchMode) TabActionMenuMode.Open else TabActionMenuMode.Preview,
             )
         }
+    }
+
+    /** 長押し後に指を離した場合、タブ操作メニューを操作可能にする。 */
+    fun openSelectedTabMenu() {
+        if (!uiState.value.isInLongPressSelectionMode) return
+        uiStateMutable.update { state -> state.copy(tabActionMenuMode = TabActionMenuMode.Open) }
     }
 
     fun cancelTabSelection() {
@@ -205,10 +225,163 @@ class TabListViewModel @Inject constructor(
                 selectedBoardTab = null,
                 selectedThreadTab = null,
                 selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
                 showBoardInfoBottomSheet = false,
                 showThreadInfoBottomSheet = false,
             )
         }
+    }
+
+    /** 板タブの並び替えを開始し、現在のstable key順をdraftへ保存する。 */
+    fun startBoardReorder() {
+        val keys = tabSessionStore.openBoardTabs.value.map(BoardTabInfo::boardUrl)
+        val isSearchMode = uiState.value.isSearchMode
+        if (keys.isEmpty() || isSearchMode) {
+            logTabReorder {
+                "BOARD_REORDER_START_REJECT keyCount=${keys.size} isSearchMode=$isSearchMode"
+            }
+            return
+        }
+        logTabReorder { "BOARD_REORDER_START keyCount=${keys.size}" }
+        uiStateMutable.update { state ->
+            state.copy(
+                boardReorderDraft = ReorderDraft(keys, keys),
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
+                showBoardInfoBottomSheet = false,
+                showThreadInfoBottomSheet = false,
+            )
+        }
+    }
+
+    /** スレッドタブの並び替えを開始し、現在のstable key順をdraftへ保存する。 */
+    fun startThreadReorder() {
+        val keys = tabSessionStore.openThreadTabs.value.map { it.id.value }
+        val isSearchMode = uiState.value.isSearchMode
+        if (keys.isEmpty() || isSearchMode) {
+            logTabReorder {
+                "THREAD_REORDER_START_REJECT keyCount=${keys.size} isSearchMode=$isSearchMode"
+            }
+            return
+        }
+        logTabReorder { "THREAD_REORDER_START keyCount=${keys.size}" }
+        uiStateMutable.update { state ->
+            state.copy(
+                threadReorderDraft = ReorderDraft(keys, keys),
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
+                showBoardInfoBottomSheet = false,
+                showThreadInfoBottomSheet = false,
+            )
+        }
+    }
+
+    /** 板タブの移動イベントをdraftへ反映し、永続化はドロップまで遅延する。 */
+    fun moveBoardReorder(from: BoardTabInfo, to: BoardTabInfo) {
+        logTabReorder { "BOARD_DRAFT_MOVE from=${from.boardUrl} to=${to.boardUrl}" }
+        uiStateMutable.update { state ->
+            val draft = state.boardReorderDraft ?: return@update state
+            state.copy(
+                boardReorderDraft = draft.copy(
+                    currentOrder = moveKeyBeforeTarget(
+                        draft.currentOrder,
+                        from.boardUrl,
+                        to.boardUrl,
+                    )
+                )
+            )
+        }
+    }
+
+    /** スレッドタブの移動イベントをdraftへ反映し、永続化はドロップまで遅延する。 */
+    fun moveThreadReorder(from: ThreadTabInfo, to: ThreadTabInfo) {
+        logTabReorder { "THREAD_DRAFT_MOVE from=${from.id.value} to=${to.id.value}" }
+        uiStateMutable.update { state ->
+            val draft = state.threadReorderDraft ?: return@update state
+            state.copy(
+                threadReorderDraft = draft.copy(
+                    currentOrder = moveKeyBeforeTarget(
+                        draft.currentOrder,
+                        from.id.value,
+                        to.id.value,
+                    )
+                )
+            )
+        }
+    }
+
+    /** 板タブのドロップをCoordinatorへ渡し、draftを破棄する。 */
+    fun finishBoardReorder() {
+        val draft = uiState.value.boardReorderDraft
+        if (draft == null) {
+            logTabReorder { "BOARD_DRAFT_FINISH_NO_DRAFT" }
+            return
+        }
+        val accepted = tabSessionStore.reorderBoardTabs(draft.currentOrder)
+        logTabReorder {
+            "BOARD_DRAFT_FINISH accepted=$accepted keyCount=${draft.currentOrder.size}"
+        }
+        uiStateMutable.update { it.copy(boardReorderDraft = null) }
+    }
+
+    /** スレッドタブのドロップをCoordinatorへ渡し、draftを破棄する。 */
+    fun finishThreadReorder() {
+        val draft = uiState.value.threadReorderDraft
+        if (draft == null) {
+            logTabReorder { "THREAD_DRAFT_FINISH_NO_DRAFT" }
+            return
+        }
+        val accepted = tabSessionStore.reorderThreadTabs(draft.currentOrder)
+        logTabReorder {
+            "THREAD_DRAFT_FINISH accepted=$accepted keyCount=${draft.currentOrder.size}"
+        }
+        uiStateMutable.update { it.copy(threadReorderDraft = null) }
+    }
+
+    /** pointer cancel または画面終了時に未確定の順序と長押しプレビューを破棄する。 */
+    fun cancelReorder() {
+        logTabReorder {
+            "DRAFT_CANCEL board=${uiState.value.boardReorderDraft != null} " +
+                "thread=${uiState.value.threadReorderDraft != null}"
+        }
+        uiStateMutable.update { state ->
+            state.copy(
+                boardReorderDraft = null,
+                threadReorderDraft = null,
+                selectedBoardTab = null,
+                selectedThreadTab = null,
+                selectedTabBounds = null,
+                tabActionMenuMode = TabActionMenuMode.None,
+            )
+        }
+    }
+
+    /** アクセシビリティ操作で板タブを隣接位置へ移動する。 */
+    fun moveBoardTabByOffset(boardUrl: String, offset: Int): Boolean {
+        val keys = tabSessionStore.openBoardTabs.value.map(BoardTabInfo::boardUrl).toMutableList()
+        val index = keys.indexOf(boardUrl)
+        val target = index + offset
+        if (index < 0 || target !in keys.indices) return false
+        keys.removeAt(index)
+        keys.add(target, boardUrl)
+        tabSessionStore.reorderBoardTabs(keys)
+        return true
+    }
+
+    /** アクセシビリティ操作でスレッドタブを隣接位置へ移動する。 */
+    fun moveThreadTabByOffset(threadId: String, offset: Int): Boolean {
+        val keys = tabSessionStore.openThreadTabs.value.map { it.id.value }.toMutableList()
+        val index = keys.indexOf(threadId)
+        val target = index + offset
+        if (index < 0 || target !in keys.indices) return false
+        keys.removeAt(index)
+        keys.add(target, threadId)
+        tabSessionStore.reorderThreadTabs(keys)
+        return true
     }
 
     fun toggleSelectedTabPin() {
@@ -377,6 +550,7 @@ class TabListViewModel @Inject constructor(
     /** ページ変更時にタブ選択と一括クローズメニューを同時に解除する。 */
     fun onPageChanged() {
         cancelTabSelection()
+        cancelReorder()
         dismissBulkCloseMenu()
     }
 

@@ -30,10 +30,27 @@ data class TabListUiState(
     val isUrlValidating: Boolean = false,
     val showUrlDialog: Boolean = false,
     val urlErrorMessage: String? = null,
+    val tabActionMenuMode: TabActionMenuMode = TabActionMenuMode.None,
+    val boardReorderDraft: ReorderDraft? = null,
+    val threadReorderDraft: ReorderDraft? = null,
 ) {
     val searchQuery: String
         get() = searchInputValue.text
 
     val isInLongPressSelectionMode: Boolean
         get() = selectedBoardTab != null || selectedThreadTab != null
+
+    /** 長押しPreviewまたはreorder draft中に、親scrollと横スワイプを止めるかを表す。 */
+    val isTabGestureLocked: Boolean
+        get() = isInLongPressSelectionMode || boardReorderDraft != null || threadReorderDraft != null
+}
+
+/**
+ * 長押しタブメニューの表示段階を表す。
+ * Preview は pointer sequence 継続中の非操作表示、Open は指を離した後の操作可能表示である。
+ */
+enum class TabActionMenuMode {
+    None,
+    Preview,
+    Open,
 }

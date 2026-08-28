@@ -28,6 +28,9 @@ internal sealed interface ThreadTabPendingOperation {
 
     /** JOIN された Room query に反映されるまで共通 ThreadState 更新を投影する。 */
     data class Info(val tab: ThreadTabInfo) : ThreadTabPendingOperation
+
+    /** Room が確認するまで要求された stable key 順を投影する。 */
+    data class Reorder(val threadIds: List<ThreadId>) : ThreadTabPendingOperation
 }
 
 /**
@@ -56,6 +59,11 @@ internal fun projectThreadTabs(
             is ThreadTabPendingOperation.Info -> IndexedTabOperation(operation.tab.id) { current ->
                 current?.let { mergeThreadTabMetadata(it, operation.tab) }
             }
+            is ThreadTabPendingOperation.Reorder -> IndexedTabOperation(
+                key = operation.threadIds.first(),
+                reorderKeys = operation.threadIds,
+                transform = { current -> current },
+            )
         }
     },
     keyOf = ThreadTabInfo::id,
@@ -77,6 +85,7 @@ internal fun isThreadTabOperationConfirmed(
             is ThreadTabPendingOperation.BulkDelete -> false
             is ThreadTabPendingOperation.Pin -> tab.id == operation.threadId
             is ThreadTabPendingOperation.Info -> tab.id == operation.tab.id
+            is ThreadTabPendingOperation.Reorder -> false
         }
     }
     return when (operation) {
@@ -85,5 +94,14 @@ internal fun isThreadTabOperationConfirmed(
             is ThreadTabPendingOperation.BulkDelete -> error("BulkDelete is handled above")
             is ThreadTabPendingOperation.Pin -> actual?.isPinned == operation.isPinned
         is ThreadTabPendingOperation.Info -> actual != null
+        is ThreadTabPendingOperation.Reorder -> {
+            val actualKeys = canonicalTabs.map { it.id.value }
+            val expectedKeys = com.websarva.wings.android.slevo.ui.tabs.controller.reorderTabs(
+                canonicalTabs,
+                operation.threadIds.map(ThreadId::value),
+                { it.id.value },
+            ).map { it.id.value }
+            actualKeys == expectedKeys
+        }
     }
 }

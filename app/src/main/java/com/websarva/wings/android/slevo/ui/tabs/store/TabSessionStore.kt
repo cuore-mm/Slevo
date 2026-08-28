@@ -240,6 +240,10 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardScrollPosition(boardUrl, firstVisibleIndex, scrollOffset)
     }
 
+    /** 板タブの stable key 順を retained Coordinator へ渡す。 */
+    fun reorderBoardTabs(boardUrls: List<String>): Boolean =
+        boardTabsCoordinator.reorderBoardTabs(boardUrls)
+
     fun animateBoardPage(offset: Int) {
         boardTabsCoordinator.animateBoardPage(offset)
     }
@@ -381,6 +385,10 @@ class TabSessionStore @Inject constructor(
     fun clearNewResCount(threadId: ThreadId) {
         threadTabsCoordinator.clearNewResCount(threadId)
     }
+
+    /** スレッドタブの stable key 順を retained Coordinator へ渡す。 */
+    fun reorderThreadTabs(threadIds: List<String>): Boolean =
+        threadTabsCoordinator.reorderThreadTabs(threadIds)
 
     fun refreshOpenThreads() {
         threadTabsCoordinator.refreshOpenThreads()

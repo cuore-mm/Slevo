@@ -1,16 +1,20 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +49,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,25 +57,32 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlin.math.abs
+import sh.calvin.reorderable.DragGestureDetector
 import java.net.URI
+import kotlin.math.abs
 
 /**
  * タブ一覧カードのヘッダー右側に表示する内容を表す型。
@@ -102,6 +114,26 @@ private enum class DragMode {
     VerticalScroll,
 }
 
+private const val DRAGGING_CARD_ALPHA = 0.80f
+
+/** タブカード内部で共有するレイアウト寸法を提供する。 */
+private object TabListCardDefaults {
+    val trailingActionSize = 24.dp
+    val trailingActionIconSize = 16.dp
+
+    val trailingActionTopPadding = 2.dp
+    val trailingActionEndPadding = 8.dp
+    val trailingActionContentSpacing = 8.dp
+
+    val headerMinHeight: Dp
+        get() = trailingActionSize
+
+    val headerEndPadding: Dp
+        get() = trailingActionEndPadding +
+                trailingActionSize +
+                trailingActionContentSpacing
+}
+
 /**
  * 指の移動量に対して、端に近づくほど移動量を圧縮するラバーバンド補正を返す。
  *
@@ -129,6 +161,8 @@ internal fun TabListCard(
     bookmarkColor: Color?,
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit = {},
+    onLongPressMoved: (Offset) -> Unit = {},
+    onLongPressReleased: () -> Unit = {},
     isHiddenForSelection: Boolean = false,
     isPinned: Boolean = false,
     isRemoving: Boolean = false,
@@ -139,24 +173,69 @@ internal fun TabListCard(
     onCloseClick: () -> Unit,
     onSwipeDelete: (() -> Unit)? = null,
     isSwipeDeleteEnabled: Boolean = false,
+    reorderHandle: ((DragGestureDetector) -> Modifier)? = null,
+    onReorderFinished: () -> Unit = {},
+    onReorderCancelled: () -> Unit = {},
+    isDragging: Boolean = false,
+    onMoveUp: (() -> Boolean)? = null,
+    onMoveDown: (() -> Boolean)? = null,
 ) {
     // --- Selection animation ---
-    // 長押し中は透明化したまま拡大状態を保持し、解除時は元カードで縮小復帰を行う。
+    // 長押し選択中とドラッグ中は拡大状態を維持し、操作終了時に元サイズへ縮小復帰する。
+    val isScaled = isHiddenForSelection || isDragging
     val selectionScale by animateFloatAsState(
-        targetValue = if (isHiddenForSelection) 1.04f else 1f,
-        animationSpec = tween(durationMillis = if (isHiddenForSelection) 220 else 180),
+        targetValue = if (isScaled) 1.04f else 1f,
+        animationSpec = tween(durationMillis = if (isScaled) 220 else 180),
         label = "tabSelectionScale",
     )
+    val draggingAlpha by animateFloatAsState(
+        targetValue = if (isDragging) DRAGGING_CARD_ALPHA else 1f,
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.DRAGGING_ALPHA_MILLIS),
+        label = "tabDraggingAlpha",
+    )
+    val cardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Swipe-to-delete state ---
-    val canHandleSwipeGesture = isSwipeDeleteEnabled && !isRemoving && onSwipeDelete != null
-    val canDeleteBySwipe = canHandleSwipeGesture && !isPinned && onSwipeDelete != null
+    val canHandleSwipeGesture =
+        isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
+    val canDeleteBySwipe = canHandleSwipeGesture && !isPinned
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
     var cardWidthPx by remember { mutableFloatStateOf(0f) }
+    var cardBounds by remember { mutableStateOf(IntRect.Zero) }
     var isFlyingOut by remember { mutableStateOf(false) }
     val velocityTracker = remember { VelocityTracker() }
     val density = LocalDensity.current
+    val dragHandoffOffset = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+    var dragHandoffAnimationJob by remember { mutableStateOf<Job?>(null) }
+
+    /**
+     * 抵抗付きPreviewの残差を設定し、カードの描画位置だけを指へ補間する。
+     */
+    fun animateDragHandoff(handoffOffset: Offset) {
+        dragHandoffAnimationJob?.cancel()
+        dragHandoffAnimationJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            dragHandoffOffset.snapTo(handoffOffset)
+            dragHandoffOffset.animateTo(
+                targetValue = Offset.Zero,
+                animationSpec = tween(
+                    durationMillis = TabListAnimationDefaults.DRAG_HANDOFF_MILLIS,
+                    easing = LinearOutSlowInEasing,
+                ),
+            )
+        }
+    }
+
+    /**
+     * drag終了時の描画handoffを停止し、Calvinのsettle animationと重ならないよう0へ戻す。
+     */
+    fun resetDragHandoff() {
+        dragHandoffAnimationJob?.cancel()
+        coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            dragHandoffOffset.snapTo(Offset.Zero)
+        }
+    }
+
     // 距離による削除しきい値はカード幅の55%。
     val swipeThreshold = remember(cardWidthPx) {
         if (cardWidthPx > 0f) cardWidthPx * 0.55f else with(density) { 100.dp.toPx() }
@@ -170,109 +249,129 @@ internal fun TabListCard(
     )
     val swipeResistanceLimitPx = with(density) { 56.dp.toPx() }
 
-    val swipeGestureModifier = if (canHandleSwipeGesture && !isFlyingOut) {
-        Modifier.pointerInput(canHandleSwipeGesture, canDeleteBySwipe, isFlyingOut, cardWidthPx) {
-            // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                var dragMode = DragMode.Undecided
-                val touchSlop = viewConfiguration.touchSlop
-                var totalDx = 0f
-                var totalDy = 0f
-                var trackedPosition = Offset.Zero
-                var latestOffset = offsetX.value
-                var offsetUpdateJob: Job? = null
+    // Keep this pointer node attached while the card is pressed. State changes are read through
+    // rememberUpdatedState so long-press recomposition cannot cancel the nested reorder handler.
+    val currentCanHandleSwipeGesture = rememberUpdatedState(canHandleSwipeGesture && !isFlyingOut)
+    val currentCanDeleteBySwipe = rememberUpdatedState(canDeleteBySwipe)
+    val currentSwipeThreshold = rememberUpdatedState(swipeThreshold)
+    val currentCardWidthPx = rememberUpdatedState(cardWidthPx)
+    val currentOnSwipeDelete = rememberUpdatedState(onSwipeDelete)
+    val currentOnLongPress = rememberUpdatedState(onLongPress)
+    val currentOnLongPressMoved = rememberUpdatedState(onLongPressMoved)
+    val currentOnLongPressReleased = rememberUpdatedState(onLongPressReleased)
+    val currentOnReorderFinished = rememberUpdatedState(onReorderFinished)
+    val currentOnReorderCancelled = rememberUpdatedState(onReorderCancelled)
+    val currentCardBounds = rememberUpdatedState(cardBounds)
+    // 長寿命のreorder pointer nodeから、再コンポーズ後の最新callbackを参照する。
+    val swipeGestureModifier = Modifier.pointerInput(Unit) {
+        // 横スワイプと縦スクロールを競合させないため、固定された外側Boxで方向判定を行う。
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            if (!currentCanHandleSwipeGesture.value) return@awaitEachGesture
 
-                velocityTracker.resetTracking()
+            var dragMode = DragMode.Undecided
+            val touchSlop = viewConfiguration.touchSlop
+            var totalDx = 0f
+            var totalDy = 0f
+            var trackedPosition = Offset.Zero
+            var latestOffset = offsetX.value
+            var offsetUpdateJob: Job? = null
 
-                // --- Direction disambiguation loop ---
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.find { it.id == down.id } ?: break
-                    if (!change.pressed) break
+            velocityTracker.resetTracking()
 
-                    val delta = change.positionChange()
-                    totalDx += delta.x
-                    totalDy += delta.y
+            fun restoreOffset() {
+                latestOffset = 0f
+                offsetUpdateJob?.cancel()
+                coroutineScope.launch {
+                    offsetX.animateTo(0f, animationSpec = springBackSpec)
+                }
+            }
 
-                    if (dragMode == DragMode.Undecided) {
-                        if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
-                            if (abs(totalDx) > abs(totalDy)) {
-                                dragMode = DragMode.HorizontalSwipe
-                                velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                            } else {
-                                dragMode = DragMode.VerticalScroll
-                                if (offsetX.value != 0f) {
-                                    latestOffset = 0f
-                                    offsetUpdateJob?.cancel()
-                                    coroutineScope.launch {
-                                        offsetX.animateTo(0f, animationSpec = springBackSpec)
-                                    }
-                                }
-                                return@awaitEachGesture
-                            }
-                        }
-                    }
+            // --- Direction disambiguation loop ---
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.find { it.id == down.id }
+                    ?: return@awaitEachGesture
+                if (!currentCanHandleSwipeGesture.value || change.isConsumed) {
+                    // Reorderableが所有したsequence、または無効化されたsequenceから撤退する。
+                    restoreOffset()
+                    return@awaitEachGesture
+                }
+                if (!change.pressed) break
 
-                    if (dragMode == DragMode.HorizontalSwipe) {
-                        change.consume()
-                        val newOffset = when {
-                            // 削除可能時の左方向は従来どおり削除判定に使える移動量を保持する。
-                            canDeleteBySwipe && totalDx <= 0f -> totalDx.coerceIn(-cardWidthPx, 0f)
-                            // 右方向または削除不可タブでは抵抗感をつけて追従させる。
-                            else -> applyRubberBandOffset(totalDx, swipeResistanceLimitPx)
-                        }
-                        latestOffset = newOffset
-                        trackedPosition += Offset(delta.x, 0f)
-                        velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
-                        offsetUpdateJob?.cancel()
-                        offsetUpdateJob = coroutineScope.launch {
-                            offsetX.snapTo(newOffset)
+                val delta = change.positionChange()
+                totalDx += delta.x
+                totalDy += delta.y
+
+                if (dragMode == DragMode.Undecided) {
+                    if (abs(totalDx) > touchSlop || abs(totalDy) > touchSlop) {
+                        if (abs(totalDx) > abs(totalDy)) {
+                            dragMode = DragMode.HorizontalSwipe
+                            velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
+                        } else {
+                            dragMode = DragMode.VerticalScroll
+                            if (offsetX.value != 0f) restoreOffset()
+                            return@awaitEachGesture
                         }
                     }
                 }
 
-                // --- On finger release ---
                 if (dragMode == DragMode.HorizontalSwipe) {
-                    val velocity = velocityTracker.calculateVelocity()
-                    val distanceMet = latestOffset < -swipeThreshold
-                    val velocityMet =
-                        velocity.x < -velocityThreshold && -latestOffset > minVelocityDistance
-
-                    if (canDeleteBySwipe && (distanceMet || velocityMet)) {
-                        isFlyingOut = true
-                        coroutineScope.launch {
-                            offsetUpdateJob?.cancelAndJoin()
-                            offsetX.animateTo(
-                                targetValue = -cardWidthPx * 1.2f,
-                                animationSpec = tween(durationMillis = 140)
-                            )
-                            onSwipeDelete()
-                        }
-                    } else {
-                        latestOffset = 0f
-                        coroutineScope.launch {
-                            offsetUpdateJob?.cancelAndJoin()
-                            offsetX.animateTo(0f, animationSpec = springBackSpec)
-                        }
+                    change.consume()
+                    val newOffset = when {
+                        // 削除可能時の左方向は従来どおり削除判定に使える移動量を保持する。
+                        currentCanDeleteBySwipe.value && totalDx <= 0f ->
+                            totalDx.coerceIn(-currentCardWidthPx.value, 0f)
+                        // 右方向または削除不可タブでは抵抗感をつけて追従させる。
+                        else -> applyRubberBandOffset(totalDx, swipeResistanceLimitPx)
                     }
-                } else if (latestOffset != 0f) {
-                    latestOffset = 0f
-                    coroutineScope.launch {
-                        offsetUpdateJob?.cancelAndJoin()
-                        offsetX.animateTo(0f, animationSpec = springBackSpec)
+                    latestOffset = newOffset
+                    trackedPosition += Offset(delta.x, 0f)
+                    velocityTracker.addPosition(change.uptimeMillis, trackedPosition)
+                    offsetUpdateJob?.cancel()
+                    offsetUpdateJob = coroutineScope.launch {
+                        offsetX.snapTo(newOffset)
                     }
                 }
             }
+
+            // --- On finger release ---
+            if (dragMode == DragMode.HorizontalSwipe) {
+                val velocity = velocityTracker.calculateVelocity()
+                val distanceMet = latestOffset < -currentSwipeThreshold.value
+                val velocityMet =
+                    velocity.x < -velocityThreshold && -latestOffset > minVelocityDistance
+
+                if (currentCanDeleteBySwipe.value && (distanceMet || velocityMet)) {
+                    isFlyingOut = true
+                    coroutineScope.launch {
+                        offsetUpdateJob?.cancelAndJoin()
+                        offsetX.animateTo(
+                            targetValue = -currentCardWidthPx.value * 1.2f,
+                            animationSpec = tween(durationMillis = 140)
+                        )
+                        currentOnSwipeDelete.value?.invoke()
+                    }
+                } else {
+                    restoreOffset()
+                }
+            } else if (latestOffset != 0f) {
+                restoreOffset()
+            }
         }
-    } else {
-        Modifier
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .then(swipeGestureModifier)
+            .graphicsLayer {
+                // 拡大とhandoffを外側へ置き、alpha layerによる境界clipを避ける。
+                translationX = dragHandoffOffset.value.x
+                translationY = dragHandoffOffset.value.y
+                scaleX = selectionScale
+                scaleY = selectionScale
+                transformOrigin = TransformOrigin.Center
+            }
     ) {
         Card(
             modifier = Modifier
@@ -280,12 +379,17 @@ internal fun TabListCard(
                 .offset { IntOffset(offsetX.value.toInt(), 0) }
                 .onGloballyPositioned { coordinates ->
                     cardWidthPx = coordinates.size.width.toFloat()
+                    val bounds = coordinates.boundsInWindow()
+                    cardBounds = IntRect(
+                        bounds.left.toInt(),
+                        bounds.top.toInt(),
+                        bounds.right.toInt(),
+                        bounds.bottom.toInt(),
+                    )
                 }
                 .graphicsLayer {
-                    scaleX = selectionScale
-                    scaleY = selectionScale
-                    alpha = if (isHiddenForSelection) 0f else 1f
-                    transformOrigin = TransformOrigin.Center
+                    // Previewでは元カードを隠し、reorder中は対象カードだけを半透明にする。
+                    alpha = if (isHiddenForSelection) 0f else draggingAlpha
                 },
             shape = MaterialTheme.shapes.largeIncreased,
             colors = CardDefaults.cardColors(
@@ -295,176 +399,242 @@ internal fun TabListCard(
                 defaultElevation = 1.dp,
             ),
         ) {
-            val layoutCoordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
-            Row(
+            // ContentAreaの操作sourceを共有し、close/pinを含むカード全体へ押下表示を描画する。
+            Box(
                 modifier = Modifier
-                    .height(IntrinsicSize.Min)
-                    .combinedClickable(
-                        enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
-                        interactionSource = remember { MutableInteractionSource() },
+                    .fillMaxWidth()
+                    .indication(
+                        interactionSource = cardInteractionSource,
                         indication = LocalIndication.current,
-                        onClick = onClick,
-                        onLongClick = {
-                            val bounds = layoutCoordinates.value?.boundsInWindow()
-                                ?.let {
-                                    IntRect(
-                                        it.left.toInt(),
-                                        it.top.toInt(),
-                                        it.right.toInt(),
-                                        it.bottom.toInt()
-                                    )
-                                }
-                                ?: IntRect.Zero
-
-                            onLongPress(bounds)
+                    ),
+            ) {
+                val hapticFeedback = LocalHapticFeedback.current
+                val detector = reorderHandle?.let {
+                    SlevoTabDragGestureDetector(
+                        onLongPress = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            currentOnLongPress.value(currentCardBounds.value)
+                        },
+                        onLongPressMoved = { offset -> currentOnLongPressMoved.value(offset) },
+                        onDragThresholdActivated = { handoffOffset ->
+                            hapticFeedback.performHapticFeedback(
+                                HapticFeedbackType.GestureThresholdActivate,
+                            )
+                            animateDragHandoff(handoffOffset)
+                        },
+                        onLongPressReleased = { currentOnLongPressReleased.value() },
+                        onDragFinished = {
+                            resetDragHandoff()
+                            currentOnReorderFinished.value()
+                        },
+                        onDragCancelled = {
+                            resetDragHandoff()
+                            currentOnReorderCancelled.value()
                         },
                     )
-                    .onGloballyPositioned { coordinates ->
-                        layoutCoordinates.value = coordinates
+                }
+                val moveUpLabel = stringResource(R.string.tab_move_up)
+                val moveDownLabel = stringResource(R.string.tab_move_down)
+                val accessibilityModifier = if (onMoveUp != null || onMoveDown != null) {
+                    Modifier.semantics {
+                        customActions = buildList {
+                            onMoveUp?.let { add(CustomAccessibilityAction(moveUpLabel, it)) }
+                            onMoveDown?.let { add(CustomAccessibilityAction(moveDownLabel, it)) }
+                        }
                     }
-            ) {
-                // --- Card body ---
-                Column(
-                    modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                } else {
+                    Modifier
+                }
+                val gestureModifier = if (detector != null) {
+                    Modifier
+                        .clickable(
+                            enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
+                            interactionSource = cardInteractionSource,
+                            indication = null,
+                            onClick = onClick,
+                        )
+                        .then(reorderHandle(detector))
+                        .then(accessibilityModifier)
+                } else {
+                    Modifier
+                        .combinedClickable(
+                            enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
+                            interactionSource = cardInteractionSource,
+                            indication = null,
+                            onClick = onClick,
+                            onLongClick = { onLongPress(cardBounds) },
+                        )
+                        .then(accessibilityModifier)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(swipeGestureModifier)
                 ) {
-                    // --- Header ---
                     Row(
-                        modifier = Modifier
+                        modifier = gestureModifier
                             .fillMaxWidth()
-                            .padding(start = 8.dp, end = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .height(IntrinsicSize.Min),
                     ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
+                        // --- Card body ---
+                        Column(
+                            modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            if (bookmarkColor != null) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.StarBorder,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Filled.Star,
-                                        contentDescription = null,
-                                        tint = bookmarkColor,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                            } else {
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(
-                                text = headerTitle,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            when (headerTrailingContent) {
-                                is TabHeaderTrailingContent.ThreadResCount -> {
-                                    Text(
-                                        text = headerTrailingContent.resCount.toString(),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    if (headerTrailingContent.newResCount > 0) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "+${headerTrailingContent.newResCount}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    shape = RoundedCornerShape(999.dp),
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        )
-                                    }
-                                }
-
-                                TabHeaderTrailingContent.None -> Unit
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            if (isPinned) {
-                                // 固定済みタブは固定アイコンを表示専用で表示する。
-                                // 占有幅とアイコン本体サイズを閉じるボタンと統一する。
-                                Box(
-                                    modifier = Modifier.size(24.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PushPin,
-                                        contentDescription = stringResource(R.string.pinned),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            } else {
-                                IconButton(
-                                    enabled = !isRemoving && !isFlyingOut,
-                                    modifier = Modifier
-                                        .border(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.outlineVariant,
-                                            shape = CircleShape,
-                                        )
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                            shape = CircleShape,
-                                        )
-                                        .size(24.dp),
-                                    onClick = {
-                                        // タブクローズ操作は一覧遷移より優先して処理する。
-                                        onCloseClick()
-                                    }
-                                ) {
-                                    Icon(
-                                        modifier = Modifier.size(16.dp),
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.close),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    // --- Body ---
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 2.dp),
-                        shape = MaterialTheme.shapes.largeIncreased,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        ),
-                    ) {
-                        val bodyStyle = MaterialTheme.typography.bodyMedium
-                        val density = LocalDensity.current
-                        val verticalPadding = 8.dp
-                        val textMinHeight =
-                            with(density) { (bodyStyle.lineHeight * bodyMaxLines).toDp() } +
-                                    verticalPadding * 2
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = textMinHeight),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Text(
-                                text = bodyTitle,
+                            // --- Header ---
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = verticalPadding),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = bodyMaxLines,
-                                style = bodyStyle,
+                                    .heightIn(min = TabListCardDefaults.headerMinHeight)
+                                    .padding(
+                                        start = 8.dp,
+                                        end = TabListCardDefaults.headerEndPadding,
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (bookmarkColor != null) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.StarBorder,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Filled.Star,
+                                                contentDescription = null,
+                                                tint = bookmarkColor,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                    } else {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text(
+                                        text = headerTitle,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    when (headerTrailingContent) {
+                                        is TabHeaderTrailingContent.ThreadResCount -> {
+                                            Text(
+                                                text = headerTrailingContent.resCount.toString(),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            if (headerTrailingContent.newResCount > 0) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "+${headerTrailingContent.newResCount}",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier
+                                                        .background(
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            shape = RoundedCornerShape(999.dp),
+                                                        )
+                                                        .padding(
+                                                            horizontal = 6.dp,
+                                                            vertical = 2.dp
+                                                        ),
+                                                )
+                                            }
+                                        }
+
+                                        TabHeaderTrailingContent.None -> Unit
+                                    }
+                                }
+                            }
+                            // --- Body ---
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 2.dp),
+                                shape = MaterialTheme.shapes.largeIncreased,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                ),
+                            ) {
+                                val bodyStyle = MaterialTheme.typography.bodyMedium
+                                val density = LocalDensity.current
+                                val verticalPadding = 8.dp
+                                val textMinHeight =
+                                    with(density) { (bodyStyle.lineHeight * bodyMaxLines).toDp() } +
+                                            verticalPadding * 2
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = textMinHeight),
+                                    contentAlignment = Alignment.CenterStart,
+                                ) {
+                                    Text(
+                                        text = bodyTitle,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(
+                                                horizontal = 12.dp,
+                                                vertical = verticalPadding
+                                            ),
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = bodyMaxLines,
+                                        style = bodyStyle,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // close/pin は ContentArea と兄弟にし、reorder/swipe の開始領域から除外する。
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(
+                            top = TabListCardDefaults.trailingActionTopPadding,
+                            end = TabListCardDefaults.trailingActionEndPadding,
+                        )
+                        .size(TabListCardDefaults.trailingActionSize),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isPinned) {
+                        Icon(
+                            imageVector = Icons.Default.PushPin,
+                            contentDescription = stringResource(R.string.pinned),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
+                        )
+                    } else {
+                        IconButton(
+                            enabled = !isRemoving && !isFlyingOut,
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape,
+                                )
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape,
+                                )
+                                .size(TabListCardDefaults.trailingActionSize),
+                            onClick = {
+                                // タブクローズ操作は一覧遷移より優先して処理する。
+                                onCloseClick()
+                            },
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.close),
                             )
                         }
                     }

@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.tabs.coordinator
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
+import com.websarva.wings.android.slevo.data.repository.TabMutationResult
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -254,6 +255,27 @@ class ThreadTabsCoordinator @Inject constructor(
             completion.cancel(cancellationException)
             throw cancellationException
         }
+    }
+
+    /** スレッドタブの最終key順をpending projectionへ登録し、Room保存を開始する。 */
+    fun reorderThreadTabs(threadIds: List<String>): Boolean {
+        val distinctIds = threadIds.distinct()
+        if (distinctIds.isEmpty()) return false
+        val operation = ThreadTabPendingOperation.Reorder(distinctIds.map(::ThreadId))
+        if (scope == null) {
+            val reordered = com.websarva.wings.android.slevo.ui.tabs.controller.reorderTabs(
+                _openThreadTabs.value,
+                distinctIds,
+                { it.id.value },
+            )
+            publishThreadPresentation(reordered)
+            return true
+        }
+        // Reorderはkey列を受理した時点でpendingへ登録し、画面側のdraftから連続して引き継ぐ。
+        scope?.launch(start = CoroutineStart.UNDISPATCHED) {
+            processReorder(operation, CompletableDeferred())
+        }
+        return true
     }
 
     /**
@@ -527,6 +549,12 @@ class ThreadTabsCoordinator @Inject constructor(
             val operation: ThreadTabPendingOperation.Info,
             override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
+
+        /** stable key列の表示順を変更する。 */
+        data class Reorder(
+            val operation: ThreadTabPendingOperation.Reorder,
+            override val completion: CompletableDeferred<Unit>,
+        ) : ThreadTabMutationIntent
     }
 
     /**
@@ -567,6 +595,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabMutationIntent.BulkDelete -> processBulkDelete(intent)
             is ThreadTabMutationIntent.Pin -> processPin(intent)
             is ThreadTabMutationIntent.Info -> processInfo(intent)
+            is ThreadTabMutationIntent.Reorder -> processReorder(intent.operation, intent.completion)
         }
     }
 
@@ -720,6 +749,39 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /** 順序列だけを保存し、Roomの新しいsnapshotで並び順を確認する。 */
+    private suspend fun processReorder(
+        operation: ThreadTabPendingOperation.Reorder,
+        completion: CompletableDeferred<Unit>,
+    ) {
+        val (entry, baselineVersion) = registerPending(operation)
+        try {
+            when (val mutation = tabsRepository.reorderOpenThreadTabs(operation.threadIds.map(ThreadId::value))) {
+                TabMutationResult.Success -> {
+                    supersedeEarlierOperations(entry)
+                    when (awaitConfirmation(entry, baselineVersion)) {
+                        ThreadTabConfirmationResolution.Confirmed,
+                        ThreadTabConfirmationResolution.Superseded,
+                        -> {
+                            removePending(entry)
+                            completion.complete(Unit)
+                        }
+                    }
+                }
+
+                TabMutationResult.NoOp -> {
+                    removePending(entry)
+                    completion.complete(Unit)
+                }
+
+                is TabMutationResult.Failure -> throw mutation.cause
+            }
+        } catch (exception: Throwable) {
+            removePending(entry)
+            completion.completeExceptionally(exception)
+        }
+    }
+
     /** 後続の成功 write と両立しない同一 Thread の先行 entry だけを終端する。 */
     private fun supersedeEarlierOperations(currentEntry: ThreadTabPendingEntry) {
         val currentIndex = pendingOperations.indexOfFirst { entry -> entry === currentEntry }
@@ -745,14 +807,17 @@ class ThreadTabsCoordinator @Inject constructor(
         is ThreadTabPendingOperation.Pin -> earlier is ThreadTabPendingOperation.Pin
         is ThreadTabPendingOperation.Delete -> earlier is ThreadTabPendingOperation.Ensure ||
             earlier is ThreadTabPendingOperation.Pin ||
-            earlier is ThreadTabPendingOperation.Info
-        is ThreadTabPendingOperation.BulkDelete -> earlier is ThreadTabPendingOperation.Ensure ||
+            earlier is ThreadTabPendingOperation.Info ||
+            earlier is ThreadTabPendingOperation.Reorder
+            is ThreadTabPendingOperation.BulkDelete -> earlier is ThreadTabPendingOperation.Ensure ||
             earlier is ThreadTabPendingOperation.Pin ||
             earlier is ThreadTabPendingOperation.Info ||
             earlier is ThreadTabPendingOperation.Delete ||
-            earlier is ThreadTabPendingOperation.BulkDelete
+            earlier is ThreadTabPendingOperation.BulkDelete ||
+            earlier is ThreadTabPendingOperation.Reorder
         is ThreadTabPendingOperation.Ensure -> earlier is ThreadTabPendingOperation.Delete
         is ThreadTabPendingOperation.Info -> false
+        is ThreadTabPendingOperation.Reorder -> earlier is ThreadTabPendingOperation.Reorder
     }
 
     /** 保留中の操作を 1 件追加し、投影した一覧を再発行する。 */
@@ -869,6 +934,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabPendingOperation.BulkDelete -> requestedSelection
             is ThreadTabPendingOperation.Pin -> threadId.value
             is ThreadTabPendingOperation.Info -> tab.id.value
+            is ThreadTabPendingOperation.Reorder -> null
         }
 
     /** 各 pending operation が対象とする Thread ID 集合を返す。 */
@@ -879,6 +945,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabPendingOperation.BulkDelete -> threadIds.toSet()
             is ThreadTabPendingOperation.Pin -> setOf(threadId)
             is ThreadTabPendingOperation.Info -> setOf(tab.id)
+            is ThreadTabPendingOperation.Reorder -> threadIds.toSet()
         }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */
@@ -901,6 +968,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabMutationIntent.BulkDelete -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Pin -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Info -> intent.completion.completeExceptionally(exception)
+            is ThreadTabMutationIntent.Reorder -> intent.completion.completeExceptionally(exception)
         }
     }
 
@@ -911,6 +979,7 @@ class ThreadTabsCoordinator @Inject constructor(
         is ThreadTabMutationIntent.BulkDelete -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Pin -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Info -> intent.completion.isCancelled
+        is ThreadTabMutationIntent.Reorder -> intent.completion.isCancelled
     }
 
     /**

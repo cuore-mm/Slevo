@@ -228,6 +228,26 @@ class TabsRepository @Inject constructor(
     }.getOrElse(TabMutationResult::Failure)
 
     /**
+     * 板タブの sortOrder だけを一つの transaction で再採番する。
+     * DBにのみ存在するキーは末尾へ残し、要求にないキーを削除しない。
+     */
+    suspend fun reorderOpenBoardTabs(requestedKeys: List<String>): TabMutationResult = runCatching {
+        gate.withWritePermit {
+            db.withTransaction {
+                val current = boardDao.getAll().sortedBy { it.sortOrder }
+                val currentKeys = current.map { it.boardUrl }
+                val finalKeys = mergeRequestedOrder(currentKeys, requestedKeys)
+                if (finalKeys == currentKeys) {
+                    TabMutationResult.NoOp
+                } else {
+                    finalKeys.forEachIndexed { index, key -> boardDao.updateSortOrder(key, index) }
+                    TabMutationResult.Success
+                }
+            }
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
+    /**
      * 開いているスレッドタブを、客観状態と履歴既読状態を合成した表示モデルとして監視する。
      * 履歴がないタブは未訪問扱いにし、新着数とスクロール位置を 0 に丸める。
      */
@@ -329,6 +349,28 @@ class TabsRepository @Inject constructor(
             db.withTransaction { threadStateRepository.saveThreadStateUngated(update) }
         }
     }
+
+    /**
+     * スレッドタブの sortOrder だけを一つの transaction で再採番する。
+     * ThreadState、固定状態、スクロール位置、タブ集合は変更しない。
+     */
+    suspend fun reorderOpenThreadTabs(requestedKeys: List<String>): TabMutationResult = runCatching {
+        gate.withWritePermit {
+            db.withTransaction {
+                val current = threadDao.getAll().sortedBy { it.sortOrder }
+                val currentKeys = current.map { it.threadId.value }
+                val finalKeys = mergeRequestedOrder(currentKeys, requestedKeys)
+                if (finalKeys == currentKeys) {
+                    TabMutationResult.NoOp
+                } else {
+                    finalKeys.forEachIndexed { index, key ->
+                        threadDao.updateSortOrder(ThreadId(key), index)
+                    }
+                    TabMutationResult.Success
+                }
+            }
+        }
+    }.getOrElse(TabMutationResult::Failure)
 
     /**
      * 初回読込後の専用一括処理からだけ呼び出す全件置換 API。
@@ -446,5 +488,21 @@ class TabsRepository @Inject constructor(
             },
             isPinned = entity.isPinned,
         )
+    }
+
+    /** 要求順とDB上の現在順を統合し、存在するキーだけの一意な順序を作る。 */
+    private fun mergeRequestedOrder(
+        currentKeys: List<String>,
+        requestedKeys: List<String>,
+    ): List<String> {
+        val currentSet = currentKeys.toSet()
+        return buildList {
+            requestedKeys.forEach { key ->
+                if (key in currentSet && key !in this) add(key)
+            }
+            currentKeys.forEach { key ->
+                if (key !in this) add(key)
+            }
+        }
     }
 }

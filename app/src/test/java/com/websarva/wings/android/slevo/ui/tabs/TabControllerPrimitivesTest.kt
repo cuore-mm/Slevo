@@ -4,6 +4,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.controller.IndexedTabOperation
 import com.websarva.wings.android.slevo.ui.tabs.controller.foldEffectiveTabs
 import com.websarva.wings.android.slevo.ui.tabs.controller.resolveTabPresentation
+import com.websarva.wings.android.slevo.ui.tabs.controller.reorderTabs
 import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemoval
 import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemovals
 import org.junit.Assert.assertEquals
@@ -15,6 +16,44 @@ import org.junit.Test
  * Room、Coroutine、presentation の副作用を持たず、pending 順序と state invariant を固定する。
  */
 class TabControllerPrimitivesTest {
+    /** stable keyを中間位置へ移動し、要求外の新規keyを末尾へ残すことを確認する。 */
+    @Test
+    fun reorderPrimitives_moveAndMergeKeysWithoutDuplicates() {
+        assertEquals(listOf("b", "c", "a"), moveKeyBeforeTarget(listOf("a", "b", "c"), "a", "c"))
+        assertEquals(listOf("a", "b", "c"), moveKeyBeforeTarget(listOf("a", "b", "c"), "b", "b"))
+        assertEquals(
+            listOf("c", "a", "b", "new"),
+            reorderTabs(
+                tabs = listOf("a", "b", "c", "new"),
+                requestedKeys = listOf("c", "a", "missing", "c"),
+                keyOf = { it },
+            ),
+        )
+    }
+
+    /** reorder projectionが削除済みkeyを除外し、DB側だけのkeyを既存相対順で末尾へ残すことを確認する。 */
+    @Test
+    fun reorderTabs_mergesDeletedAndNewKeysWithoutChangingRelativeOrder() {
+        assertEquals(
+            listOf("c", "a", "new-1", "new-2"),
+            reorderTabs(
+                tabs = listOf("a", "new-1", "c", "new-2"),
+                requestedKeys = listOf("c", "deleted", "a"),
+                keyOf = { it },
+            ),
+        )
+    }
+
+    /** 最新表示モデルへdraft順を適用し、消失keyを除外することを確認する。 */
+    @Test
+    fun applyReorderDraft_usesLatestItems() {
+        val draft = ReorderDraft(originalOrder = listOf("a", "b"), currentOrder = listOf("b", "a"))
+        assertEquals(
+            listOf("b:new", "a:new", "c:new"),
+            applyReorderDraft(listOf("a:new", "b:new", "c:new"), draft) { it.substringBefore(':') },
+        )
+    }
+
     /** ensure、pin、delete を一回の ordered fold で適用し、順序と key 一意性を確認する。 */
     @Test
     fun foldEffectiveTabs_appliesOperationsInAcceptanceOrder() {

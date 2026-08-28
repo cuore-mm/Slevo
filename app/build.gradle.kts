@@ -242,6 +242,7 @@ dependencies {
     // Haze
     implementation(libs.haze)
     implementation(libs.haze.materials)
+    implementation(libs.reorderable)
 
     // AboutLibraries
     implementation(libs.aboutlibraries.compose.m3)

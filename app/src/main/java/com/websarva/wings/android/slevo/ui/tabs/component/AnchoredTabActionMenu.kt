@@ -11,7 +11,11 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -42,6 +46,7 @@ fun AnchoredTabActionMenu(
     anchorBoundsInWindow: IntRect?,
     hazeState: HazeState?,
     isPinned: Boolean,
+    interactive: Boolean = true,
     onDismissRequest: () -> Unit,
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
@@ -59,10 +64,18 @@ fun AnchoredTabActionMenu(
         horizontalAlignment = HorizontalAnchorAlignment.Start,
         verticalAlignment = VerticalAnchorAlignment.Auto,
         verticalSpacing = 8.dp,
+        focusable = interactive,
+        dismissOnBackPress = interactive,
+        dismissOnClickOutside = interactive,
         onDismissRequest = onDismissRequest,
     ) {
-        // Keep the action label stable while the popup's exit transition retains this content.
-        val displayedIsPinned = remember { isPinned }
+        // 退出中は表示を維持し、新しいexpandedセッション開始時に最新状態へ同期する。
+        var displayedIsPinned by remember { mutableStateOf(isPinned) }
+        LaunchedEffect(expanded) {
+            if (expanded) {
+                displayedIsPinned = isPinned
+            }
+        }
         AnchoredOverlayMenuItem(
             text = stringResource(R.string.tab_action_detail),
             leadingIcon = {
@@ -73,6 +86,7 @@ fun AnchoredTabActionMenu(
                     modifier = Modifier.size(iconSize),
                 )
             },
+            enabled = interactive,
             onClick = onDetailClick,
         )
         AnchoredOverlayMenuItem(
@@ -95,6 +109,7 @@ fun AnchoredTabActionMenu(
                     )
                 }
             },
+            enabled = interactive,
             onClick = onPinClick,
         )
         AnchoredOverlayMenuItem(
@@ -108,6 +123,7 @@ fun AnchoredTabActionMenu(
                     modifier = Modifier.size(iconSize),
                 )
             },
+            enabled = interactive,
             onClick = onCloseClick,
         )
     }

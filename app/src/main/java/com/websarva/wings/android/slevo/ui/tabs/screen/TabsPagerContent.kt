@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,6 +58,7 @@ fun TabsPagerContent(
     closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
     isShowingSearchResults: Boolean,
+    isSearchMode: Boolean,
     boardNormalListState: LazyListState,
     boardSearchListState: LazyListState,
     threadNormalListState: LazyListState,
@@ -75,7 +77,21 @@ fun TabsPagerContent(
     onSwipeDeleteBoardTab: (BoardTabInfo) -> Unit,
     onSwipeDeleteThreadTab: (ThreadTabInfo) -> Unit,
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit,
+    onBoardTabLongPressMoved: (Offset) -> Unit,
+    onBoardTabLongPressReleased: () -> Unit,
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit,
+    onThreadTabLongPressMoved: (Offset) -> Unit,
+    onThreadTabLongPressReleased: () -> Unit,
+    onBoardTabReorderStarted: (BoardTabInfo) -> Unit,
+    onBoardTabReorderMoved: (BoardTabInfo, BoardTabInfo) -> Unit,
+    onBoardTabReorderFinished: (BoardTabInfo) -> Unit,
+    onBoardTabReorderCancelled: (BoardTabInfo) -> Unit,
+    onBoardTabReorderAccessibilityMove: (BoardTabInfo, Int) -> Boolean,
+    onThreadTabReorderStarted: (ThreadTabInfo) -> Unit,
+    onThreadTabReorderMoved: (ThreadTabInfo, ThreadTabInfo) -> Unit,
+    onThreadTabReorderFinished: (ThreadTabInfo) -> Unit,
+    onThreadTabReorderCancelled: (ThreadTabInfo) -> Unit,
+    onThreadTabReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean,
     onClearNewResCount: (ThreadId) -> Unit,
     isInLongPressSelectionMode: Boolean = false,
     currentScreenRoute: AppRoute? = null,
@@ -104,8 +120,16 @@ fun TabsPagerContent(
                         selectedBoardTab = selectedBoardTab,
                         removingKeys = removingBoardTabKeys,
                         onBoardTabLongPressed = onBoardTabLongPressed,
+                        onBoardTabLongPressMoved = onBoardTabLongPressMoved,
+                        onBoardTabLongPressReleased = onBoardTabLongPressReleased,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        isReorderEnabled = !isSearchMode,
+                        onReorderStarted = onBoardTabReorderStarted,
+                        onReorderMoved = onBoardTabReorderMoved,
+                        onReorderFinished = onBoardTabReorderFinished,
+                        onReorderCancelled = onBoardTabReorderCancelled,
+                        onReorderAccessibilityMove = onBoardTabReorderAccessibilityMove,
                         currentScreenRoute = currentScreenRoute,
                     )
                 },
@@ -121,8 +145,10 @@ fun TabsPagerContent(
                         selectedBoardTab = selectedBoardTab,
                         removingKeys = removingBoardTabKeys,
                         onBoardTabLongPressed = onBoardTabLongPressed,
+                        onBoardTabLongPressReleased = onBoardTabLongPressReleased,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        isReorderEnabled = false,
                     )
                 },
                 searchEmptyContent = {
@@ -149,9 +175,17 @@ fun TabsPagerContent(
                         selectedThreadTab = selectedThreadTab,
                         removingKeys = removingThreadTabKeys,
                         onThreadTabLongPressed = onThreadTabLongPressed,
+                        onThreadTabLongPressMoved = onThreadTabLongPressMoved,
+                        onThreadTabLongPressReleased = onThreadTabLongPressReleased,
                         onClearNewResCount = onClearNewResCount,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        isReorderEnabled = !isSearchMode,
+                        onReorderStarted = onThreadTabReorderStarted,
+                        onReorderMoved = onThreadTabReorderMoved,
+                        onReorderFinished = onThreadTabReorderFinished,
+                        onReorderCancelled = onThreadTabReorderCancelled,
+                        onReorderAccessibilityMove = onThreadTabReorderAccessibilityMove,
                         currentScreenRoute = currentScreenRoute,
                     )
                 },
@@ -168,9 +202,11 @@ fun TabsPagerContent(
                         selectedThreadTab = selectedThreadTab,
                         removingKeys = removingThreadTabKeys,
                         onThreadTabLongPressed = onThreadTabLongPressed,
+                        onThreadTabLongPressReleased = onThreadTabLongPressReleased,
                         onClearNewResCount = onClearNewResCount,
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
+                        isReorderEnabled = false,
                     )
                 },
                 searchEmptyContent = {

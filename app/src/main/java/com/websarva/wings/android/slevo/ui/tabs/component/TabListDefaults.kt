@@ -25,6 +25,7 @@ internal object TabListLayoutDefaults {
     val bottomPadding: Dp = 16.dp
     val bottomActionIconSize: Dp = 28.dp
     val scrollbarBottomInset: Dp = 24.dp
+    val reorderAutoScrollThreshold: Dp = 48.dp
     val emptyStateHorizontalPadding: Dp = 16.dp
     val emptyStateVerticalPadding: Dp = 40.dp
 
@@ -58,4 +59,6 @@ internal object TabListAnimationDefaults {
     const val ITEM_COLLAPSE_DELAY_MILLIS: Int = 40
     const val ITEM_COLLAPSE_MILLIS: Int = 160
     const val ITEM_REMOVAL_MILLIS: Int = ITEM_COLLAPSE_DELAY_MILLIS + ITEM_COLLAPSE_MILLIS
+    const val DRAG_HANDOFF_MILLIS: Int = 200
+    const val DRAGGING_ALPHA_MILLIS: Int = 120
 }

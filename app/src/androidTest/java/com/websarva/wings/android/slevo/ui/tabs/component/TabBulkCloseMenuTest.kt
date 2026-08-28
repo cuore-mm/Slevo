@@ -7,13 +7,16 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.waitForIdle
 import androidx.compose.ui.unit.IntRect
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -139,6 +142,255 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithText("全てのタブを閉じる").assertDoesNotExist()
     }
 
+    /** Preview表示では項目を描画したままclick、ripple、accessibility操作を無効化することを確認する。 */
+    @Test
+    fun tabMenu_previewIsVisibleButDisabled() {
+        var detailClickCount = 0
+        var pinClickCount = 0
+        var closeClickCount = 0
+        composeRule.setContent {
+            SlevoTheme {
+                AnchoredTabActionMenu(
+                    expanded = true,
+                    anchorBoundsInWindow = IntRect(0, 0, 100, 100),
+                    hazeState = null,
+                    isPinned = false,
+                    interactive = false,
+                    onDismissRequest = {},
+                    onDetailClick = { detailClickCount += 1 },
+                    onPinClick = { pinClickCount += 1 },
+                    onCloseClick = { closeClickCount += 1 },
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("詳細").assertHasNoClickAction()
+        composeRule.onNodeWithText("タブを固定").assertHasNoClickAction()
+        composeRule.onNodeWithText("タブを閉じる").assertHasNoClickAction()
+        assertEquals(0, detailClickCount + pinClickCount + closeClickCount)
+    }
+
+    /** close buttonはContentAreaのclickやlong-press経路から分離されていることを確認する。 */
+    @Test
+    fun tabCard_closeButtonDoesNotTriggerCardClick() {
+        var cardClickCount = 0
+        var closeClickCount = 0
+        composeRule.setContent {
+            SlevoTheme {
+                TabListCard(
+                    bookmarkColor = null,
+                    onClick = { cardClickCount += 1 },
+                    headerTitle = "example.com",
+                    bodyTitle = "Thread title",
+                    onCloseClick = { closeClickCount += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Thread title").performClick()
+        composeRule.onNodeWithContentDescription("閉じる").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, cardClickCount)
+        assertEquals(1, closeClickCount)
+    }
+
+    /** 実際のreorderable listで長押し後の移動がdrag開始へ到達し、通常clickを発火しないことを確認する。 */
+    @Test
+    fun removableTabList_longPressThenMoveStartsReorder() {
+        var cardClickCount = 0
+        var longPressCount = 0
+        var menuOpenCount = 0
+        var reorderStartedCount = 0
+        var reorderFinishedCount = 0
+        val tabs = listOf("first", "second", "third")
+
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    onRemoveConfirmed = {},
+                    reorderEnabled = true,
+                    onReorderStarted = { reorderStartedCount += 1 },
+                    onReorderFinished = { reorderFinishedCount += 1 },
+                    itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
+                        reorderFinished, reorderCancelled ->
+                        TabListCard(
+                            bookmarkColor = null,
+                            onClick = { cardClickCount += 1 },
+                            onLongPress = { longPressCount += 1 },
+                            onLongPressReleased = { menuOpenCount += 1 },
+                            isRemoving = isRemoving,
+                            headerTitle = "example.com",
+                            bodyTitle = item,
+                            onCloseClick = requestRemove,
+                            reorderHandle = reorderHandle,
+                            onReorderFinished = reorderFinished,
+                            onReorderCancelled = reorderCancelled,
+                            isDragging = isDragging,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("first").performTouchInput {
+            down(center)
+            advanceEventTime(600L)
+            moveBy(Offset(0f, 48f))
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, longPressCount)
+        assertEquals(0, menuOpenCount)
+        assertEquals(0, cardClickCount)
+        assertEquals(1, reorderStartedCount)
+        assertEquals(1, reorderFinishedCount)
+    }
+
+    /** 固定状態が再コンポーズされた後も、reorder detectorが最新のタブ状態を渡すことを確認する。 */
+    @Test
+    fun removableTabList_longPressUsesLatestPinnedState() {
+        // --- Test state ---
+        var isPinned by mutableStateOf(false)
+        val observedPinnedStates = mutableListOf<Boolean>()
+        val tabs = listOf("first", "second")
+
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    onRemoveConfirmed = {},
+                    reorderEnabled = true,
+                    itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
+                        reorderFinished, reorderCancelled ->
+                        val pinnedAtComposition = isPinned
+                        TabListCard(
+                            bookmarkColor = null,
+                            onClick = {},
+                            onLongPress = { observedPinnedStates += pinnedAtComposition },
+                            isPinned = pinnedAtComposition,
+                            isRemoving = isRemoving,
+                            headerTitle = "example.com",
+                            bodyTitle = item,
+                            onCloseClick = requestRemove,
+                            reorderHandle = reorderHandle,
+                            onReorderFinished = reorderFinished,
+                            onReorderCancelled = reorderCancelled,
+                            isDragging = isDragging,
+                        )
+                    },
+                )
+            }
+        }
+
+        /** 先頭カードを長押しして指を離し、最新の固定状態をcallbackへ通知させる。 */
+        fun longPressFirstCard() {
+            composeRule.onNodeWithText("first").performTouchInput {
+                down(center)
+                advanceEventTime(600L)
+                up()
+            }
+            composeRule.waitForIdle()
+        }
+
+        // --- Initial long press ---
+        longPressFirstCard()
+
+        // --- State refresh and second long press ---
+        isPinned = true
+        composeRule.waitForIdle()
+        longPressFirstCard()
+
+        // --- Verification ---
+        assertEquals(listOf(false, true), observedPinnedStates)
+    }
+
+    /** 実際のreorderable listで追加移動なしの長押しをMenuOpenへ遷移させることを確認する。 */
+    @Test
+    fun removableTabList_longPressThenReleaseOpensMenuWithoutReorder() {
+        var cardClickCount = 0
+        var longPressCount = 0
+        var menuOpenCount = 0
+        var reorderStartedCount = 0
+        val tabs = listOf("first", "second")
+
+        composeRule.setContent {
+            SlevoTheme {
+                RemovableTabList(
+                    tabItems = tabs,
+                    keyOf = { it },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    onRemoveConfirmed = {},
+                    reorderEnabled = true,
+                    onReorderStarted = { reorderStartedCount += 1 },
+                    itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
+                        reorderFinished, reorderCancelled ->
+                        TabListCard(
+                            bookmarkColor = null,
+                            onClick = { cardClickCount += 1 },
+                            onLongPress = { longPressCount += 1 },
+                            onLongPressReleased = { menuOpenCount += 1 },
+                            isRemoving = isRemoving,
+                            headerTitle = "example.com",
+                            bodyTitle = item,
+                            onCloseClick = requestRemove,
+                            reorderHandle = reorderHandle,
+                            onReorderFinished = reorderFinished,
+                            onReorderCancelled = reorderCancelled,
+                            isDragging = isDragging,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("first").performTouchInput {
+            down(center)
+            advanceEventTime(600L)
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, longPressCount)
+        assertEquals(1, menuOpenCount)
+        assertEquals(0, cardClickCount)
+        assertEquals(0, reorderStartedCount)
+    }
+
+    /** Reorderableがdrag中のカードでは既存の横スワイプDetectorを起動しないことを確認する。 */
+    @Test
+    fun tabCard_draggingDisablesSwipeGesture() {
+        var swipeDeleteCount = 0
+        composeRule.setContent {
+            SlevoTheme {
+                TabListCard(
+                    bookmarkColor = null,
+                    onClick = {},
+                    headerTitle = "example.com",
+                    bodyTitle = "Dragging tab",
+                    onCloseClick = {},
+                    onSwipeDelete = { swipeDeleteCount += 1 },
+                    isSwipeDeleteEnabled = true,
+                    isDragging = true,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Dragging tab").performTouchInput {
+            swipeLeft()
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(0, swipeDeleteCount)
+    }
+
     /** Back操作で一括クローズを実行せずメニューだけを閉じることを確認する。 */
     @Test
     fun bulkMenu_backDismissesWithoutClosingTabs() {
@@ -255,6 +507,13 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithText("タブの固定を解除").assertExists()
         composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
 
+        // 退出完了前に新しいメニューセッションを開始しても、固定状態を再同期する。
+        expanded = true
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("タブを固定").assertExists()
+        composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
+
+        expanded = false
         composeRule.mainClock.advanceTimeBy(140)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
@@ -273,7 +532,7 @@ class TabBulkCloseMenuTest {
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(),
                     removingKeys = removingKeys,
                     onRemoveConfirmed = {},
-                    itemContent = { item, _, _ ->
+                    itemContent = { item, _, _, _, _, _, _ ->
                         androidx.compose.material3.Text(item)
                     },
                 )
