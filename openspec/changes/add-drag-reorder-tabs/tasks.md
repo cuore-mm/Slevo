@@ -2,7 +2,7 @@
 
 - [x] 1.1 `gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加し、CIでAndroid variantの依存解決とコンパイルを確認する。
 - [ ] 1.2 `app/src/androidTest/.../ui/tabs/`へ実際の`TabListCard`と`RemovableTabList`を使うCompose UI testを追加し、現行実装でDOWN→長押し→追加slop超過がreorder開始へ到達しない現象を再現する。修正前の失敗callbackまたは未移動状態をtest結果として確認する。
-- [x] 1.3 `SlevoTabDragGestureDetector.detect`の長押し後にある`awaitTouchSlopOrCancellation`を、既定の`PointerEventPass.Main`で対象pointerのdeltaを取得して即consumeする局所ループへ置き換える。追加touch slopの1.5倍未満は累積移動量の25%をPreviewへ渡し、超過時は`onDragStart`を1回呼んで累積移動量全体を最初の`onDrag`へ渡す。閾値超過時の触覚を1回だけ発生させ、UPはMenuOpen、pointer消失・system cancel・予期しない事前consumeはcancelへ収束するunitまたはCompose UI testを追加する。
+- [x] 1.3 `SlevoTabDragGestureDetector.detect`の長押し後にある`awaitTouchSlopOrCancellation`を、既定の`PointerEventPass.Main`で対象pointerのdeltaを取得して即consumeする局所ループへ置き換える。`REORDER_TOUCH_SLOP_MULTIPLIER`で定義する追加touch slopの判定までは`PREVIEW_MOVEMENT_RESISTANCE`で累積移動量を圧縮してPreviewへ渡し、超過時は`onDragStart`を1回呼んで累積移動量全体を最初の`onDrag`へ渡す。閾値超過時の触覚を1回だけ発生させ、UPはMenuOpen、pointer消失・system cancel・予期しない事前consumeはcancelへ収束するunitまたはCompose UI testを追加する。
 - [ ] 1.4 `TabListCard.kt`の横スワイプDetectorを常設pointerInput Modifierへ変更し、`rememberUpdatedState`で最新の`canHandleSwipeGesture`、`canDeleteBySwipe`、`isFlyingOut`、`cardWidthPx`を内部参照する。対象changeが`isConsumed`なら撤退し、無効化時はoffsetをspring-backし、`isDragging`中は処理しないCompose UI testを追加する。
 - [ ] 1.5 `RemovableTabList.kt`の`LazyColumn.userScrollEnabled`を固定し、reorder側のconsumeで長押し後のscrollと調停する。Compose UI testで通常tap、Preview→Open、Preview→drag、長押し前の横スワイプ、長押し前の縦スクロール、drag中のscroll/swipe抑止、close領域除外、Main passのUP consumeによる通常`onClick`抑止、非focusable Popup表示後のpointer継続を個別に確認する。
 - [ ] 1.6 1.2〜1.5を接続端末またはemulatorで実行し、端末名、API level、Compose UI 1.10.3、実行command、結果をこのファイルへ記録する。全条件が成功するまでgesture修正を完了扱いにせず、失敗条件が残る場合は実装を拡張する前に`design.md`を再更新する。
@@ -17,14 +17,14 @@
 
 ## 3. カード領域分離とReorderable UI
 
-- [x] 3.1 `TabListCard.kt`のCard直下をBox構成へ整理し、ContentAreaとCloseIconButtonまたはpin表示を兄弟として配置する。ContentAreaのinteraction sourceをカード全体のindicationへ共有し、close/pinの操作領域を拡張せずにカード全体へ押下リップルを表示する。既存レイアウト、カード全体bounds、スワイプoffset、選択scale/alphaを維持する。
-- [ ] 3.2 通常`clickable`、既存スワイプDetector、カスタム`SlevoTabDragGestureDetector`をContentAreaだけへ付け、close領域のtap・長押し・dragがカードtap、swipe、reorderを開始しないCompose UI testを追加する。
+- [x] 3.1 `TabListCard.kt`のCard直下をBox構成へ整理し、ContentAreaとCloseIconButtonまたは固定アイコン表示を兄弟として配置する。ContentAreaのinteraction sourceをカード全体のindicationへ共有し、close領域を操作開始領域へ含めず、固定アイコン表示の入力は親カードへ伝播させてカード全体へ押下リップルを表示する。既存レイアウト、カード全体bounds、スワイプoffset、選択scale/alphaを維持する。
+- [ ] 3.2 通常`clickable`、既存スワイプDetector、カスタム`SlevoTabDragGestureDetector`をContentAreaだけへ付け、close領域のtap・長押し・dragがカードtap、swipe、reorderを開始しないことと、固定アイコン表示領域の入力が親カードへ伝播することをCompose UI testで確認する。
 - [x] 3.3 `RemovableTabList.kt`でstable keyを変えずに`itemsIndexed`のcontent直下へ`ReorderableItem`を適用し、`OpenBoardsList.kt`と`OpenThreadsList.kt`から板・スレッドそれぞれのmove/start/stop/cancel callbackを配線する。
 - [x] 3.4 削除中、飛び出し中、検索結果表示中はreorderを無効化し、通常表示へ戻ると再度有効になる状態を実装する。
 - [x] 3.5 `itemsIndexed`のcontent直下に置いた`ReorderableItem`へplacement animationを渡し、Calvinのdrag modifierを外側に保ったまま、content内Columnへ`AnimatedVisibility`を使わない実測高`layout`とalphaの削除animationを構成する。
-- [x] 3.6 `SlevoTabDragGestureDetector`の閾値コールバックで累積移動量との差分handoff offsetを渡し、`TabListCard`のCompose-local `Animatable`を初期offsetへ`snapTo`して120msで0へ補間する。描画offsetはCalvinのdrag translationへ加算し、reorder終了・cancel時は即時0へ戻す。
-- [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを0.80へ120msで補間し、`isHiddenForSelection`のalpha=0と削除中alpha animationを維持する。
-- [x] 3.8 `RemovableTabList.kt`で`contentPadding`の上下値から共有の48dp閾値を引いた`scrollThresholdPadding`を計算し、`rememberReorderableLazyListState`へ閾値とともに渡す。負値を0dpへ丸め、上下操作UI・hazeに隠れたviewport端ではなく表示領域境界から自動スクロールを判定する。
+- [x] 3.6 `SlevoTabDragGestureDetector`の閾値コールバックで累積移動量との差分handoff offsetを渡し、`TabListCard`のCompose-local `Animatable`を初期offsetへ`snapTo`して`DRAG_HANDOFF_MILLIS`で解消する。描画offsetはCalvinのdrag translationへ加算し、reorder終了・cancel時は即時初期状態へ戻す。
+- [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを`DRAGGING_CARD_ALPHA`へ`DRAGGING_ALPHA_MILLIS`で補間し、`isHiddenForSelection`の完全透明状態と削除中alpha animationを維持する。
+- [x] 3.8 `RemovableTabList.kt`で`contentPadding`の上下値から共有の`TabListLayoutDefaults.reorderAutoScrollThreshold`を引いた`scrollThresholdPadding`を計算し、`rememberReorderableLazyListState`へ閾値とともに渡す。負値を非負へ丸め、上下操作UI・hazeに隠れたviewport端ではなく表示領域境界から自動スクロールを判定する。
 - [x] 3.9 `RemovableTabList.kt`の`clipToBounds`を削除中だけへ限定し、`TabListCard.kt`の外側graphics layerへhandoff translation・selection scale、内側graphics layerへalphaだけを配置する。ドラッグ中の拡大と半透明表示、削除中のfade・高さ縮小を両立する。
 - [x] 3.10 `TabListCard.kt`の長寿命reorder detectorへ`rememberUpdatedState`で最新の長押しcallback・bounds・reorder callbackを渡し、`AnchoredTabActionMenu.kt`は退出中の固定状態を保持しながら新しいexpandedセッション開始時に再同期する。固定切替後の再長押しで最新状態を表示する回帰確認を追加する。
 

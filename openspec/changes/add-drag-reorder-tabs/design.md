@@ -39,7 +39,7 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 ライブラリはdrag offset、移動先、`onMove`、placement animation、エッジ自動スクロールの実行を所有する。Slevoは長押し待機、メニュー状態、追加touch slop、順序draft、永続化と、エッジ判定の基準を表示領域へ合わせるための入力値を所有する。標準`longPressDraggableHandle`は長押し成立時点でdragを開始するため使用しない。
 
-`RemovableTabList`は`TabListLayoutDefaults.reorderAutoScrollThreshold`をCalvinの`scrollThreshold`へ渡し、`contentPadding`の上下値から同じ閾値を引いた`scrollThresholdPadding`を作る。これによりCalvinの判定帯の内側境界がカードの表示領域境界と一致し、上部検索領域と下部操作・haze領域に覆われたviewport端へ判定帯がずれない。計算結果は上下それぞれ0dp以上に丸め、`contentPadding`の値が変わったときだけ`remember`で再計算する。
+`RemovableTabList`は`TabListLayoutDefaults.reorderAutoScrollThreshold`をCalvinの`scrollThreshold`へ渡し、`contentPadding`の上下値から同じ閾値を引いた`scrollThresholdPadding`を作る。これによりCalvinの判定帯の内側境界がカードの表示領域境界と一致し、上部検索領域と下部操作・haze領域に覆われたviewport端へ判定帯がずれない。計算結果は上下それぞれ非負へ丸め、`contentPadding`の値が変わったときだけ`remember`で再計算する。
 
 ### 3. 長押し後だけカスタムDetectorがMain passで所有する
 
@@ -47,11 +47,11 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 `awaitLongPressOrCancellation`で長押しが成立した後は`awaitTouchSlopOrCancellation`を使わず、`SlevoTabDragGestureDetector.detect`内の小さなループで既定の`PointerEventPass.Main`から対象pointerの各eventを受け取る。現在のModifier階層では内側のreorderHandleがMain passで外側の`clickable`、横スワイプDetector、`LazyColumn`より先に処理できるため、deltaを取得してから同じchangeを即時consumeする。長押し後に取得時点で既にconsume済みのchangeが現れた場合は、別handlerから所有権を奪い返さずdrag cancelへ収束させる。
 
-長押し成立位置からの移動量をDetector内だけで累積し、追加touch slopの1.5倍未満では累積量の25%だけを`onLongPressMoved`へ渡してPreviewのfloating cardを抵抗付きで追従させる。1.5倍の閾値を超えたeventでは`onDragStart`を1回呼び、累積移動量全体を最初の`onDrag`へ渡す。Reorderableの論理drag offsetは最初から指の位置へ更新するが、`TabListCard`はCompose-localなhandoff offsetを初期表示へ重ね、抵抗位置から指の位置へ120msで補間する。閾値超過後のdrag offset、移動先、エッジスクロールはReorderableへ委譲する。
+長押し成立位置からの移動量をDetector内だけで累積し、追加touch slopの判定までは`PREVIEW_MOVEMENT_RESISTANCE`で移動量を圧縮して`onLongPressMoved`へ渡し、Previewのfloating cardを抵抗付きで追従させる。`REORDER_TOUCH_SLOP_MULTIPLIER`で定義した閾値を超えたeventでは`onDragStart`を1回呼び、累積移動量全体を最初の`onDrag`へ渡す。Reorderableの論理drag offsetは最初から指の位置へ更新するが、`TabListCard`はCompose-localなhandoff offsetを初期表示へ重ね、抵抗位置から指の位置へ`DRAG_HANDOFF_MILLIS`で補間する。閾値超過後のdrag offset、移動先、エッジスクロールはReorderableへ委譲する。
 
 追加touch slopの閾値を超えた瞬間だけ、`HapticFeedbackType.GestureThresholdActivate`を1回発生させる。既存の長押し成立時の`LongPress`触覚とは別の遷移として扱い、drag中に再発生させない。
 
-閾値超過時のhandoff量はDetectorが`-accumulatedMovement * (1 - 0.25)`として計算し、閾値コールバックでカードへ渡す。`TabListCard`はこのoffsetを`Animatable<Offset, AnimationVector2D>`へ`snapTo`してから`Offset.Zero`へtweenし、Calvinのdrag translationへ加算して描画する。handoffは`TabListUiState`やViewModelへ保存せず、drag終了またはcancel時にアニメーションをキャンセルして0へ戻す。
+閾値超過時のhandoff量はDetectorがPreviewの抵抗位置と指の位置との差分として計算し、閾値コールバックでカードへ渡す。`TabListCard`はこのoffsetを`Animatable<Offset, AnimationVector2D>`へ`snapTo`してから解消するtweenを行い、Calvinのdrag translationへ加算して描画する。handoffは`TabListUiState`やViewModelへ保存せず、drag終了またはcancel時にアニメーションをキャンセルして初期状態へ戻す。
 
 追加touch slop前に対象pointerがUPした場合はMain passでUPをconsumeして`onLongPressReleased`を1回呼び、通常`clickable.onClick`を抑止する。pointer消失、system cancel、別handlerによる予期しないconsumeでは`onDragCancelled`へ収束させる。Main passのUP consumeでも通常clickが発火することをtestで確認した場合だけ、UP取得を`PointerEventPass.Initial`へ限定して変更する。pointer sequence限定の抑止フラグはその方法でも解消しない場合の最終手段とし、ViewModelへ置かない。
 
@@ -62,9 +62,9 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 ### 4. Card内のBoxで操作領域とcloseボタンを分離する
 
-`TabListCard`のCard直下をBoxとして、ContentAreaとCloseIconButtonを兄弟にする。ContentAreaへ通常タップ、横スワイプ、reorder detectorを付け、CloseIconButtonには付けない。カード用`MutableInteractionSource`はContentAreaのclickable/combinedClickableと共有し、ContentAreaのindicationを無効にしたうえで、close/pinを含むカード全体のBoxへ`Modifier.indication`を一度だけ付ける。これにより操作開始領域はContentAreaのまま、カード全体へ押下リップルを表示する。`ReorderableItem`とスワイプoffsetはカード全体へ適用するため、ContentAreaから開始してもcloseボタンを含むカード全体が移動する。
+`TabListCard`のCard直下をBoxとして、ContentAreaとCloseIconButtonまたは固定アイコン表示を兄弟にする。ContentAreaへ通常タップ、横スワイプ、reorder detectorを付け、CloseIconButtonには付けない。固定アイコン表示には独自のpointer入力を付けず、入力がContentAreaのカード操作へ伝播する状態を維持する。カード用`MutableInteractionSource`はContentAreaのclickable/combinedClickableと共有し、ContentAreaのindicationを無効にしたうえで、closeおよび固定アイコン表示を含むカード全体のBoxへ`Modifier.indication`を一度だけ付ける。これによりcloseの操作開始領域は除外しつつ、固定アイコン表示領域はカード操作へ参加させ、カード全体へ押下リップルを表示する。`ReorderableItem`とスワイプoffsetはカード全体へ適用するため、ContentAreaから開始してもcloseボタンを含むカード全体が移動する。
 
-CloseIconButtonは`Alignment.TopEnd`と必要な`zIndex`で配置し、独立したinteraction sourceと自身のリップルを維持する。close/pinのpointer入力はカード用interaction sourceへ流さず、長押ししてもカード全体の操作リップルを開始しない。ContentAreaはMaterialの拡張タッチ領域を含む右余白を確保する。固定タブのpin表示も同じtrailing領域へ置く。メニューアンカーにはContentAreaではなくカード全体のwindow boundsを使用する。
+CloseIconButtonは`Alignment.TopEnd`と必要な`zIndex`で配置し、独立したinteraction sourceと自身のリップルを維持する。closeのpointer入力はカード用interaction sourceへ流さず、長押ししてもカード全体の操作リップルを開始しない。一方、固定アイコン表示は表示専用として入力を遮断せず、親カードのpointer操作へ伝播させる。ContentAreaはMaterialの拡張タッチ領域を含む右余白を確保する。固定タブの固定アイコン表示も同じtrailing領域へ置く。メニューアンカーにはContentAreaではなくカード全体のwindow boundsを使用する。
 
 ### 5. 同じPopupをPreviewとOpenで再利用する
 
@@ -106,14 +106,14 @@ repositoryは`DatabaseWriteGate`と`db.withTransaction`内でDBの現在key順�
 
 ### 9. アニメーションとアクセシビリティを既存契約へ統合する
 
-Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ適用し、並び替え中のLazy item位置変更を補間する。Calvinの`animateItemModifier`は変更せず、drag中のtranslation、drop直後のsettle、その他itemのplacement補間をライブラリへ委譲する。ドラッグ対象カードのalphaは`TabListCard`の既存`graphicsLayer`で0.80へ120ms補間し、長押しPreview中の元カードalpha=0は優先して維持する。削除中は`ReorderableItem`のcontent内Columnに付けた高さ・alpha animationだけを動かし、`AnimatedVisibility`とplacement animationを同じitemへ重複適用しない。削除用の`clipToBounds`はCalvinのdrag translationより内側へ置く。高さはLazyColumnの無限主軸constraintではなく測定済みplaceableの高さを基準に縮小し、カードとspacingを一体でlayoutする。削除中key、飛び出し中カード、検索結果ではreorderを無効にする。
+Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ適用し、並び替え中のLazy item位置変更を補間する。Calvinの`animateItemModifier`は変更せず、drag中のtranslation、drop直後のsettle、その他itemのplacement補間をライブラリへ委譲する。ドラッグ対象カードのalphaは`TabListCard`の既存`graphicsLayer`で`DRAGGING_CARD_ALPHA`へ`DRAGGING_ALPHA_MILLIS`を使って補間し、長押しPreview中の元カードは完全透明の状態を優先して維持する。削除中は`ReorderableItem`のcontent内Columnに付けた高さ・alpha animationだけを動かし、`AnimatedVisibility`とplacement animationを同じitemへ重複適用しない。削除用の`clipToBounds`はCalvinのdrag translationより内側へ置く。高さはLazyColumnの無限主軸constraintではなく測定済みplaceableの高さを基準に縮小し、カードとspacingを一体でlayoutする。削除中key、飛び出し中カード、検索結果ではreorderを無効にする。
 
 カードには「上へ移動」「下へ移動」のcustom accessibility actionを追加し、境界で不可能な方向を成功扱いにしない。通常タップのfocus、keyboard/DPAD、ripple、TalkBack semanticsは`clickable`で維持する。`TabListCard`は外側Boxのgraphics layerでhandoff translationとselection scaleを適用し、内側Cardのgraphics layerではalphaだけを適用する。alpha<1のレイヤーが拡大描画を暗黙にクリップしないよう、scaleとalphaを同じレイヤーへ設定しない。
 
 ## Implementation Contract
 
 1. 現行の失敗を再現するgesture統合testを追加してからDetectorを修正し、同じtestを接続端末またはemulatorで合格させるまでgesture修正を完了扱いにしない。
-2. `TabListCard`のclose/pin trailing領域へreorderまたはswipe detectorを付けない。
+2. `TabListCard`のclose trailing領域へreorderまたはswipe detectorを付けない。固定アイコン表示は独自のpointer入力を持たせず、親カードへの入力伝播を妨げない。
 3. pointer ID、座標、経過時間、touch slop、drag offsetを`TabListUiState`へ保存しない。
 4. `ReorderDraft`はstable keyだけを保持し、drag中の`onMove`からDB writeを呼ばない。
 5. 正常終了した順序は`TabSessionStore`からCoordinatorへ渡し、Controllerがpendingを登録した後にdraftを破棄する。
@@ -127,11 +127,11 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 13. 横スワイプDetectorはconsume済みchangeを処理せず、`isDragging`中は起動しない。
 14. `LazyColumn.userScrollEnabled`をgesture stateで切り替えず、reorder側のconsumeでユーザーscrollと調停する。edge autoscrollは継続する。
 15. post-long-pressのpointer ID、累積移動量、slop判定はDetector内に閉じ、`TabListUiState`またはViewModelへ追加しない。
-16. 追加touch slopの1.5倍未満では累積移動量の25%だけをPreviewへ反映し、閾値超過時は累積移動量全体を最初のdragへ渡す。抵抗位置から指の位置への視覚handoffは120msのCompose-local animationで行い、Reorderableの論理offsetや移動判定を遅延させない。
+16. `REORDER_TOUCH_SLOP_MULTIPLIER`で定義する追加touch slopの判定までは`PREVIEW_MOVEMENT_RESISTANCE`で累積移動量を圧縮してPreviewへ反映し、閾値超過時は累積移動量全体を最初のdragへ渡す。抵抗位置から指の位置への視覚handoffは`DRAG_HANDOFF_MILLIS`を使うCompose-local animationで行い、Reorderableの論理offsetや移動判定を遅延させない。
 17. handoff offsetは`TabListCard`、pointer ID・累積移動量・slop判定はDetectorのCompose-local stateに閉じ、`TabListUiState`またはViewModelへ追加しない。drag終了またはcancel時はhandoff animationを停止してoffsetを0へ戻す。
 18. `HapticFeedbackType.GestureThresholdActivate`は追加touch slopの閾値超過時に1 gestureあたり1回だけ発生させ、既存の長押し成立時`LongPress`触覚とは別に扱う。
-19. ドラッグ対象カードのalphaは0.80とし、`isDragging`の変化に対して120msで補間する。`isHiddenForSelection`のPreview alpha=0および削除用alpha animationを上書きしない。
-20. `scrollThreshold`は`TabListLayoutDefaults.reorderAutoScrollThreshold`へ集約し、`scrollThresholdPadding`の上下値は`contentPadding`から閾値を引いて0dp以上に丸める。判定帯の変更でCalvinのdrag offset、移動先、edge scrollの実行処理を再実装しない。
+19. ドラッグ対象カードのalphaは`DRAGGING_CARD_ALPHA`とし、`isDragging`の変化に対して`DRAGGING_ALPHA_MILLIS`で補間する。`isHiddenForSelection`のPreview完全透明状態および削除用alpha animationを上書きしない。
+20. `scrollThreshold`は`TabListLayoutDefaults.reorderAutoScrollThreshold`へ集約し、`scrollThresholdPadding`の上下値は`contentPadding`から閾値を引いて非負に丸める。判定帯の変更でCalvinのdrag offset、移動先、edge scrollの実行処理を再実装しない。
 21. `RemovableTabList`の`clipToBounds`は削除中だけ有効にし、`TabListCard`ではtranslation・scaleを外側graphics layer、alphaを内側graphics layerへ分離する。削除アニメーション、CalvinのzIndex・translation・settle、カードの半透明表示を同時に維持する。
 22. stable keyのreorder pointer nodeが保持するタブ操作callbackは`rememberUpdatedState`で最新化し、`AnchoredTabActionMenu`の固定状態は退出中だけ保持して新しいexpandedセッション開始時に再同期する。固定切替後の再長押しで古いタブsnapshotを表示しない。
 
@@ -152,16 +152,16 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 - Unit: key順move、Store最新情報とのmerge、cancel rollback、ViewModelからCoordinatorへのhandoff、Board/Threadのpending projection、confirmation、Failure、連続reorder、add/delete競合。
 - Room instrumented: `sortOrder`以外が不変、全key連番、DBのみkey維持、削除済みkey無視、transaction rollback、1,252件性能。
 - Accessibility: 上下移動action、境界、TalkBackの通常タップとメニュー、Preview項目の非操作性。
-- 回帰: 既存の削除アニメーション、ドラッグ対象カードのalpha 0.80、スワイプしきい値、固定タブ、検索、bulk close、選択維持。
-- エッジ自動スクロール: 上下の`contentPadding`境界から48dpの判定帯、haze・操作UIに隠れたviewport端での誤発火なし、`contentPadding`変更時の再計算。
+- 回帰: 既存の削除アニメーション、`DRAGGING_CARD_ALPHA`によるドラッグ対象カードの半透明表示、スワイプしきい値、固定タブ、検索、bulk close、選択維持。
+- エッジ自動スクロール: `TabListLayoutDefaults.reorderAutoScrollThreshold`による上下の`contentPadding`境界の判定帯、haze・操作UIに隠れたviewport端での誤発火なし、`contentPadding`変更時の再計算。
 
 ## Risks / Trade-offs
 
 - [複数gesture detectorがPointerEventを競合する] → 長押し前は消費せず、成立後は内側reorderHandleがMain passで各changeを即consumeする。外側スワイプは常設pointer nodeの内部ゲートと`isConsumed`で撤退し、drag中は無効化する。LazyColumnのuser scrollは値を切り替えずreorder consumeで調停する。
 - [長押し成立時にSwipe親nodeをdetachしてreorder子nodeへcancelが伝播する] → Swipe pointerInputを常設し、状態変化ではDetector内ゲートだけを更新する。active swipeを無効化する場合はoffsetをspring-backして通常終了する。
 - [長押し後のupで通常clickが誤発火する] → まずMain passでUPをconsumeし、実機testで誤発火した場合だけUP取得をInitial passへ変更する。それでも失敗する場合だけ局所抑止フラグを追加する。
-- [slop超過時にカードが飛び出さない] → 閾値超過時の最初の`onDrag`へ累積移動量全体を渡し、カードのCompose-local handoff offsetを抵抗位置から0へ120msで補間する。
-- [抵抗付きPreviewの座標が業務状態へ漏れる] → 移動量と25%変換はDetector内、handoff表示offsetは`TabListCard`のCompose-local stateに閉じる。
+- [slop超過時にカードが飛び出さない] → 閾値超過時の最初の`onDrag`へ累積移動量全体を渡し、カードのCompose-local handoff offsetを抵抗位置から解消するアニメーションを`DRAG_HANDOFF_MILLIS`で実行する。
+- [抵抗付きPreviewの座標が業務状態へ漏れる] → 移動量と`PREVIEW_MOVEMENT_RESISTANCE`による変換はDetector内、handoff表示offsetは`TabListCard`のCompose-local stateに閉じる。
 - [ドラッグ中のカード拡大がalpha layerまたは削除用clipで切れる] → `clipToBounds`を削除中だけに限定し、translation・scaleとalphaを別graphics layerへ分離する。
 - [固定切替後の再長押しで古い固定状態が表示される] → 長寿命pointer nodeのcallbackを`rememberUpdatedState`で最新化し、メニューの表示固定値は新しいexpandedセッション開始時に再同期する。
 - [Popup更新でpointerまたは表示が途切れる] → 同じPopupを維持してpropertiesだけ更新し、端末差が出た場合にinline fallbackを計画し直す。
