@@ -51,4 +51,37 @@ class SettingsViewModelTest {
 
         coVerify(exactly = 1) { repository.setThemeMode(ThemeMode.LIGHT) }
     }
+
+    /** 返信通知のDataStore購読値がUiStateへ反映されることを確認する。 */
+    @Test
+    fun collectReplyNotification_updatesUiState() = runTest {
+        val replyNotificationFlow = MutableStateFlow(false)
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns replyNotificationFlow
+        val viewModel = SettingsViewModel(repository)
+
+        advanceUntilIdle()
+        replyNotificationFlow.value = true
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.isReplyNotificationEnabled)
+    }
+
+    /** 返信通知のON/OFF操作がそのまま永続化APIへ委譲されることを確認する。 */
+    @Test
+    fun updateReplyNotificationEnabled_callsRepositoryForBothStates() = runTest {
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
+        val viewModel = SettingsViewModel(repository)
+
+        advanceUntilIdle()
+        viewModel.updateReplyNotificationEnabled(true)
+        viewModel.updateReplyNotificationEnabled(false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.setReplyNotificationEnabled(true) }
+        coVerify(exactly = 1) { repository.setReplyNotificationEnabled(false) }
+    }
 }

@@ -17,6 +17,7 @@ import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import io.mockk.coEvery
+import io.mockk.coVerifyOrder
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -114,6 +115,21 @@ class ThreadRefreshUseCaseTest {
                 ReplyNotificationStatus.DELIVERED,
             )
         }
+        coVerifyOrder {
+            dependencies.threadStateRepository.getThreadState(THREAD_ID)
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+            dependencies.ownPostReconciliationUseCase.reconcile(any(), any(), any(), any(), any())
+            dependencies.postHistoryRepository.getMyPostNumbers(7L)
+            dependencies.replyNotificationRepository.insertNew(any())
+            dependencies.threadStateRepository.saveThreadState(any())
+            dependencies.replyNotificationRepository.findDetected(THREAD_ID)
+            dependencies.publisher.publish(notification)
+            dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any())
+        }
     }
 
     @Test
@@ -140,6 +156,102 @@ class ThreadRefreshUseCaseTest {
 
         coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
         coVerify(exactly = 1) { dependencies.threadStateRepository.saveThreadState(any()) }
+    }
+
+    @Test
+    fun disabledNotifications_updateStateWithoutPersistingOrPublishing() = runTest {
+        val dependencies = dependencies()
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns false
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+
+        dependencies.createUseCase().refresh(request())
+
+        coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
+        coVerify(exactly = 1) { dependencies.threadStateRepository.saveThreadState(any()) }
+    }
+
+    @Test
+    fun reducedFetch_doesNotCreateNotificationCandidates() = runTest {
+        val dependencies = dependencies()
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 5)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post(">>1 old reply")) to "Title")
+
+        dependencies.createUseCase().refresh(request())
+
+        coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
+        coVerify(exactly = 1) { dependencies.threadStateRepository.saveThreadState(any()) }
+    }
+
+    @Test
+    fun retryPublisher_keepsDetectedStatusForNextRefresh() = runTest {
+        val dependencies = dependencies()
+        val notification = notification(replyResNo = 3)
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+        coEvery { dependencies.replyNotificationRepository.insertNew(any()) } returns listOf(notification)
+        coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns listOf(notification)
+        every { dependencies.publisher.publish(notification) } returns ReplyNotificationPublishResult.RETRY
+
+        dependencies.createUseCase().refresh(request())
+
+        coVerify(exactly = 0) {
+            dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun suppressedPublisher_marksNotificationAsSuppressed() = runTest {
+        val dependencies = dependencies()
+        val notification = notification(replyResNo = 3)
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+        coEvery { dependencies.replyNotificationRepository.insertNew(any()) } returns listOf(notification)
+        coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns listOf(notification)
+        every { dependencies.publisher.publish(notification) } returns ReplyNotificationPublishResult.SUPPRESSED
+
+        dependencies.createUseCase().refresh(request())
+
+        coVerify(exactly = 1) {
+            dependencies.replyNotificationRepository.updateStatus(
+                THREAD_ID,
+                3,
+                ReplyNotificationStatus.DETECTED,
+                ReplyNotificationStatus.SUPPRESSED,
+            )
+        }
     }
 
     private fun dependencies() = Dependencies(
@@ -185,6 +297,39 @@ class ThreadRefreshUseCaseTest {
         boardName = "Board",
         threadKey = THREAD_KEY,
         threadTitle = "Title",
+    )
+
+    private fun state(latestResCount: Int) = ThreadStateEntity(
+        threadId = THREAD_ID,
+        boardId = 1L,
+        boardUrl = BOARD_URL,
+        boardName = "Board",
+        threadKey = THREAD_KEY,
+        title = "Title",
+        latestResCount = latestResCount,
+        updatedAt = 1L,
+    )
+
+    private fun history() = ThreadHistoryEntity(
+        id = 7L,
+        threadId = THREAD_ID,
+        boardUrl = BOARD_URL,
+        boardId = 1L,
+        boardName = "Board",
+        title = "Title",
+        resCount = 2,
+        readState = ThreadReadState(),
+    )
+
+    private fun notification(replyResNo: Int) = ReplyNotificationEntity(
+        threadId = THREAD_ID,
+        replyResNo = replyResNo,
+        targetOwnResNumbers = "2",
+        boardUrl = BOARD_URL,
+        threadKey = THREAD_KEY,
+        threadTitle = "Title",
+        messagePreview = ">>2 reply",
+        detectedAt = 10L,
     )
 
     private fun post(content: String) = ReplyInfo(
