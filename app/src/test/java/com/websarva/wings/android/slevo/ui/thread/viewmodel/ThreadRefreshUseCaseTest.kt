@@ -80,11 +80,13 @@ class ThreadRefreshUseCaseTest {
         coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns listOf(notification)
         every { dependencies.publisher.publish(notification) } returns ReplyNotificationPublishResult.DELIVERED
         coEvery { dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any()) } returns true
-        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns listOf(
-            post("root"),
-            post("mine"),
-            post(">>2 reply"),
-        ) to "New title"
+        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns (
+            listOf(
+                post("root"),
+                post("mine"),
+                post(">>2 reply"),
+            ) to "New title"
+        )
         val useCase = dependencies.createUseCase()
 
         val result = useCase.refresh(request())
@@ -108,10 +110,12 @@ class ThreadRefreshUseCaseTest {
         coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns null
         coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns null
         coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
-        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns listOf(
-            post("root"),
-            post(">>1 old reply"),
-        ) to "Title"
+        coEvery { dependencies.datRepository.getThread(any(), any(), any()) } returns (
+            listOf(
+                post("root"),
+                post(">>1 old reply"),
+            ) to "Title"
+        )
         val useCase = dependencies.createUseCase()
 
         useCase.refresh(request())
