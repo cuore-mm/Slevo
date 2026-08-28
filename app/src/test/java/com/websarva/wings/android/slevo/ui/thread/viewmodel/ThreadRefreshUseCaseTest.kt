@@ -326,6 +326,7 @@ class ThreadRefreshUseCaseTest {
         advanceUntilIdle()
 
         // stale stateを二経路へ返しても、複合主キー相当の登録境界では一件だけ残る。
+        println("DEBUG cross threadFirst=$threadFirst attempts=$insertAttempts replies=$insertedReplies tabs=${coordinator.openThreadTabs.value}")
         assertEquals(2, insertAttempts)
         assertEquals(setOf(THREAD_ID to 3), insertedReplies)
         coordinator.close()

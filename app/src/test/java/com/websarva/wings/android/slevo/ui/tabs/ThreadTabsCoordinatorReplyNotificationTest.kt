@@ -51,6 +51,7 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         coordinator.refreshOpenThreads()
         advanceUntilIdle()
 
+        println("DEBUG refresh tabs=${coordinator.openThreadTabs.value.map { it.id }} refreshing=${coordinator.isRefreshing.value}")
         coVerify(exactly = 2) { refreshUseCase.refresh(any()) }
         coVerifyOrder {
             refreshUseCase.refresh(match { it.threadId == firstTab.id })
