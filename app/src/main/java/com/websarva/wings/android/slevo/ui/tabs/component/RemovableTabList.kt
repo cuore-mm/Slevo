@@ -146,7 +146,7 @@ internal fun <T> RemovableTabList(
                     .graphicsLayer {
                         alpha = removalAlpha
                     }
-                    .clipToBounds()
+                    .then(if (isRemoving) Modifier.clipToBounds() else Modifier)
                     .layout { measurable, constraints ->
                         val placeable = measurable.measure(constraints)
                         // LazyColumnの主軸constraintは無限になり得るため、実測高を縮小する。

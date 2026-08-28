@@ -23,8 +23,9 @@
 - [x] 3.4 削除中、飛び出し中、検索結果表示中はreorderを無効化し、通常表示へ戻ると再度有効になる状態を実装する。
 - [x] 3.5 `itemsIndexed`のcontent直下に置いた`ReorderableItem`へplacement animationを渡し、Calvinのdrag modifierを外側に保ったまま、content内Columnへ`AnimatedVisibility`を使わない実測高`layout`とalphaの削除animationを構成する。
 - [x] 3.6 `SlevoTabDragGestureDetector`の閾値コールバックで累積移動量との差分handoff offsetを渡し、`TabListCard`のCompose-local `Animatable`を初期offsetへ`snapTo`して120msで0へ補間する。描画offsetはCalvinのdrag translationへ加算し、reorder終了・cancel時は即時0へ戻す。
-- [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを0.5へ120msで補間し、`isHiddenForSelection`のalpha=0と削除中alpha animationを維持する。
+- [x] 3.7 `TabListCard.kt`の既存`graphicsLayer`で`isDragging`中のalphaを0.80へ120msで補間し、`isHiddenForSelection`のalpha=0と削除中alpha animationを維持する。
 - [x] 3.8 `RemovableTabList.kt`で`contentPadding`の上下値から共有の48dp閾値を引いた`scrollThresholdPadding`を計算し、`rememberReorderableLazyListState`へ閾値とともに渡す。負値を0dpへ丸め、上下操作UI・hazeに隠れたviewport端ではなく表示領域境界から自動スクロールを判定する。
+- [x] 3.9 `RemovableTabList.kt`の`clipToBounds`を削除中だけへ限定し、`TabListCard.kt`の外側graphics layerへhandoff translation・selection scale、内側graphics layerへalphaだけを配置する。ドラッグ中の拡大と半透明表示、削除中のfade・高さ縮小を両立する。
 
 ## 4. ドラッグ中のkey順序draft
 

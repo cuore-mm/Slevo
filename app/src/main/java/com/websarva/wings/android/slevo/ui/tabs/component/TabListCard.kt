@@ -357,6 +357,14 @@ internal fun TabListCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                // 拡大とhandoffを外側へ置き、alpha layerによる境界clipを避ける。
+                translationX = dragHandoffOffset.value.x
+                translationY = dragHandoffOffset.value.y
+                scaleX = selectionScale
+                scaleY = selectionScale
+                transformOrigin = TransformOrigin.Center
+            }
     ) {
         Card(
             modifier = Modifier
@@ -373,14 +381,8 @@ internal fun TabListCard(
                     )
                 }
                 .graphicsLayer {
-                    // Calvinの論理drag offsetへ、抵抗位置からのhandoff残差を重ねる。
-                    translationX = dragHandoffOffset.value.x
-                    translationY = dragHandoffOffset.value.y
-                    scaleX = selectionScale
-                    scaleY = selectionScale
                     // Previewでは元カードを隠し、reorder中は対象カードだけを半透明にする。
                     alpha = if (isHiddenForSelection) 0f else draggingAlpha
-                    transformOrigin = TransformOrigin.Center
                 },
             shape = MaterialTheme.shapes.largeIncreased,
             colors = CardDefaults.cardColors(

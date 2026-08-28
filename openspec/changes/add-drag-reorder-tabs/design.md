@@ -35,7 +35,7 @@ Compose BOMは`2026.02.00`でFoundation/UI 1.10.3を利用する。Lazy layout�
 
 ### 2. Calvin-LL Reorderable 3.1.0へreorder機構を委譲する
 
-`gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加する。`RemovableTabList`はstable keyを維持したまま、`itemsIndexed`のcontent直下を`ReorderableItem`にして各itemを包む。`ReorderableItem`のcontentは、削除用`removalModifier`を付けたColumnとし、カードと後続itemがある場合だけ表示するspacing `Spacer`を兄弟に持つ。削除時のfadeと高さ縮小は`AnimatedVisibility`ではなくColumnの`modifier`で行い、実測したcontent高さを`layout`で0へ縮め、`graphicsLayer`のalphaを0へ遷移させる。削除用modifierは`ReorderableItem`自体には付けず、CalvinのzIndex・drag translation・drop settleがLazy item全体へ適用される状態を維持する。`animateItemModifier`はLazy item直下のreorder wrapperへ渡し、Calvinのplacement animationの切り替えを維持する。カードのContentAreaへ`draggableHandle(dragGestureDetector = ...)`を付ける。
+`gradle/libs.versions.toml`と`app/build.gradle.kts`へ`sh.calvin.reorderable:reorderable:3.1.0`を追加する。`RemovableTabList`はstable keyを維持したまま、`itemsIndexed`のcontent直下を`ReorderableItem`にして各itemを包む。`ReorderableItem`のcontentは、削除用`removalModifier`を付けたColumnとし、カードと後続itemがある場合だけ表示するspacing `Spacer`を兄弟に持つ。削除時のfadeと高さ縮小は`AnimatedVisibility`ではなくColumnの`modifier`で行い、実測したcontent高さを`layout`で0へ縮め、`graphicsLayer`のalphaを0へ遷移させる。削除用`clipToBounds`は`isRemoving`時だけColumnへ付け、ドラッグ中のカード拡大がitem境界で切れないようにする。削除用modifierは`ReorderableItem`自体には付けず、CalvinのzIndex・drag translation・drop settleがLazy item全体へ適用される状態を維持する。`animateItemModifier`はLazy item直下のreorder wrapperへ渡し、Calvinのplacement animationの切り替えを維持する。カードのContentAreaへ`draggableHandle(dragGestureDetector = ...)`を付ける。
 
 ライブラリはdrag offset、移動先、`onMove`、placement animation、エッジ自動スクロールの実行を所有する。Slevoは長押し待機、メニュー状態、追加touch slop、順序draft、永続化と、エッジ判定の基準を表示領域へ合わせるための入力値を所有する。標準`longPressDraggableHandle`は長押し成立時点でdragを開始するため使用しない。
 
@@ -103,9 +103,9 @@ repositoryは`DatabaseWriteGate`と`db.withTransaction`内でDBの現在key順�
 
 ### 9. アニメーションとアクセシビリティを既存契約へ統合する
 
-Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ適用し、並び替え中のLazy item位置変更を補間する。Calvinの`animateItemModifier`は変更せず、drag中のtranslation、drop直後のsettle、その他itemのplacement補間をライブラリへ委譲する。ドラッグ対象カードのalphaは`TabListCard`の既存`graphicsLayer`で0.5へ120ms補間し、長押しPreview中の元カードalpha=0は優先して維持する。削除中は`ReorderableItem`のcontent内Columnに付けた高さ・alpha animationだけを動かし、`AnimatedVisibility`とplacement animationを同じitemへ重複適用しない。削除用の`clipToBounds`はCalvinのdrag translationより内側へ置く。高さはLazyColumnの無限主軸constraintではなく測定済みplaceableの高さを基準に縮小し、カードとspacingを一体でlayoutする。削除中key、飛び出し中カード、検索結果ではreorderを無効にする。
+Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ適用し、並び替え中のLazy item位置変更を補間する。Calvinの`animateItemModifier`は変更せず、drag中のtranslation、drop直後のsettle、その他itemのplacement補間をライブラリへ委譲する。ドラッグ対象カードのalphaは`TabListCard`の既存`graphicsLayer`で0.80へ120ms補間し、長押しPreview中の元カードalpha=0は優先して維持する。削除中は`ReorderableItem`のcontent内Columnに付けた高さ・alpha animationだけを動かし、`AnimatedVisibility`とplacement animationを同じitemへ重複適用しない。削除用の`clipToBounds`はCalvinのdrag translationより内側へ置く。高さはLazyColumnの無限主軸constraintではなく測定済みplaceableの高さを基準に縮小し、カードとspacingを一体でlayoutする。削除中key、飛び出し中カード、検索結果ではreorderを無効にする。
 
-カードには「上へ移動」「下へ移動」のcustom accessibility actionを追加し、境界で不可能な方向を成功扱いにしない。通常タップのfocus、keyboard/DPAD、ripple、TalkBack semanticsは`clickable`で維持する。
+カードには「上へ移動」「下へ移動」のcustom accessibility actionを追加し、境界で不可能な方向を成功扱いにしない。通常タップのfocus、keyboard/DPAD、ripple、TalkBack semanticsは`clickable`で維持する。`TabListCard`は外側Boxのgraphics layerでhandoff translationとselection scaleを適用し、内側Cardのgraphics layerではalphaだけを適用する。alpha<1のレイヤーが拡大描画を暗黙にクリップしないよう、scaleとalphaを同じレイヤーへ設定しない。
 
 ## Implementation Contract
 
@@ -127,8 +127,9 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 16. 追加touch slopの1.5倍未満では累積移動量の25%だけをPreviewへ反映し、閾値超過時は累積移動量全体を最初のdragへ渡す。抵抗位置から指の位置への視覚handoffは120msのCompose-local animationで行い、Reorderableの論理offsetや移動判定を遅延させない。
 17. handoff offsetは`TabListCard`、pointer ID・累積移動量・slop判定はDetectorのCompose-local stateに閉じ、`TabListUiState`またはViewModelへ追加しない。drag終了またはcancel時はhandoff animationを停止してoffsetを0へ戻す。
 18. `HapticFeedbackType.GestureThresholdActivate`は追加touch slopの閾値超過時に1 gestureあたり1回だけ発生させ、既存の長押し成立時`LongPress`触覚とは別に扱う。
-19. ドラッグ対象カードのalphaは0.5とし、`isDragging`の変化に対して120msで補間する。`isHiddenForSelection`のPreview alpha=0および削除用alpha animationを上書きしない。
+19. ドラッグ対象カードのalphaは0.80とし、`isDragging`の変化に対して120msで補間する。`isHiddenForSelection`のPreview alpha=0および削除用alpha animationを上書きしない。
 20. `scrollThreshold`は`TabListLayoutDefaults.reorderAutoScrollThreshold`へ集約し、`scrollThresholdPadding`の上下値は`contentPadding`から閾値を引いて0dp以上に丸める。判定帯の変更でCalvinのdrag offset、移動先、edge scrollの実行処理を再実装しない。
+21. `RemovableTabList`の`clipToBounds`は削除中だけ有効にし、`TabListCard`ではtranslation・scaleを外側graphics layer、alphaを内側graphics layerへ分離する。削除アニメーション、CalvinのzIndex・translation・settle、カードの半透明表示を同時に維持する。
 
 ## Error Cases and Compatibility
 
@@ -146,7 +147,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 - Unit: key順move、Store最新情報とのmerge、cancel rollback、ViewModelからCoordinatorへのhandoff、Board/Threadのpending projection、confirmation、Failure、連続reorder、add/delete競合。
 - Room instrumented: `sortOrder`以外が不変、全key連番、DBのみkey維持、削除済みkey無視、transaction rollback、1,252件性能。
 - Accessibility: 上下移動action、境界、TalkBackの通常タップとメニュー、Preview項目の非操作性。
-- 回帰: 既存の削除アニメーション、ドラッグ対象カードのalpha 0.5、スワイプしきい値、固定タブ、検索、bulk close、選択維持。
+- 回帰: 既存の削除アニメーション、ドラッグ対象カードのalpha 0.80、スワイプしきい値、固定タブ、検索、bulk close、選択維持。
 - エッジ自動スクロール: 上下の`contentPadding`境界から48dpの判定帯、haze・操作UIに隠れたviewport端での誤発火なし、`contentPadding`変更時の再計算。
 
 ## Risks / Trade-offs
@@ -156,6 +157,7 @@ Reorderableのplacement animationは`itemsIndexed`直下の`ReorderableItem`へ�
 - [長押し後のupで通常clickが誤発火する] → まずMain passでUPをconsumeし、実機testで誤発火した場合だけUP取得をInitial passへ変更する。それでも失敗する場合だけ局所抑止フラグを追加する。
 - [slop超過時にカードが飛び出さない] → 閾値超過時の最初の`onDrag`へ累積移動量全体を渡し、カードのCompose-local handoff offsetを抵抗位置から0へ120msで補間する。
 - [抵抗付きPreviewの座標が業務状態へ漏れる] → 移動量と25%変換はDetector内、handoff表示offsetは`TabListCard`のCompose-local stateに閉じる。
+- [ドラッグ中のカード拡大がalpha layerまたは削除用clipで切れる] → `clipToBounds`を削除中だけに限定し、translation・scaleとalphaを別graphics layerへ分離する。
 - [Popup更新でpointerまたは表示が途切れる] → 同じPopupを維持してpropertiesだけ更新し、端末差が出た場合にinline fallbackを計画し直す。
 - [ViewModel draftとCoordinator projectionのhandoffで一瞬戻る] → pending登録後にdraftを破棄し、同じstable key順を双方で共有する。
 - [全件再採番が大規模一覧で遅い] → 1,252件のinstrumented performance testを必須とし、不合格時だけchunk方式を採用する。
