@@ -1,19 +1,16 @@
 package com.websarva.wings.android.slevo.notification
 
-import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.websarva.wings.android.slevo.MainActivity
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.datasource.local.entity.notification.ReplyNotificationEntity
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublishResult
+import com.websarva.wings.android.slevo.data.notification.NotificationPermissionChecker
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublisher
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,10 +25,11 @@ import javax.inject.Singleton
 @Singleton
 class AndroidReplyNotificationPublisher @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val notificationPermissionChecker: NotificationPermissionChecker,
 ) : ReplyNotificationPublisher {
     /** 通知を投稿できる状態を確認して、返信通知を一件投稿する。 */
     override fun publish(notification: ReplyNotificationEntity): ReplyNotificationPublishResult {
-        if (!canPostNotifications()) {
+        if (!notificationPermissionChecker.isNotificationAllowed()) {
             return ReplyNotificationPublishResult.SUPPRESSED
         }
 
@@ -62,22 +60,6 @@ class AndroidReplyNotificationPublisher @Inject constructor(
         } catch (_: Exception) {
             ReplyNotificationPublishResult.RETRY
         }
-    }
-
-    /** Android 13以上のruntime permissionと端末の通知設定を確認する。 */
-    private fun canPostNotifications(): Boolean {
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            return false
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return false
-        }
-        return true
     }
 
     /** 対象スレッドのURLを既存Deep Link処理へ渡すPendingIntentを作成する。 */

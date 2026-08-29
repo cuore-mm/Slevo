@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.notification.NotificationPermissionChecker
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,13 +18,15 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repository: SettingsRepository
+    private val repository: SettingsRepository,
+    private val notificationPermissionChecker: NotificationPermissionChecker,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        refreshNotificationPermissionState()
         // DataStore からの状態変化を購読して UI ステートに反映
         viewModelScope.launch {
             repository.observeThemeMode()
@@ -73,6 +76,14 @@ class SettingsViewModel @Inject constructor(
     /** Androidの通知権限結果を設定へ反映し、拒否時は返信通知を無効のまま保つ。 */
     fun updateReplyNotificationPermissionResult(granted: Boolean) {
         updateReplyNotificationEnabled(granted)
+        refreshNotificationPermissionState()
+    }
+
+    /** 設定画面の表示状態へ現在のOS通知可否を再反映する。 */
+    fun refreshNotificationPermissionState() {
+        _uiState.update {
+            it.copy(isNotificationAllowed = notificationPermissionChecker.isNotificationAllowed())
+        }
     }
 }
 
@@ -83,4 +94,5 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isRedirect5chNetToIoEnabled: Boolean = true,
     val isReplyNotificationEnabled: Boolean = false,
+    val isNotificationAllowed: Boolean = true,
 )

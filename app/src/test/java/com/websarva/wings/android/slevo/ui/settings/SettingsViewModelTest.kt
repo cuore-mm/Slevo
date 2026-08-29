@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.notification.NotificationPermissionChecker
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coVerify
@@ -28,7 +29,7 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns themeFlow
         every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         // ViewModel の初期購読コルーチンを先に開始させる。
         advanceUntilIdle()
@@ -43,7 +44,7 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
         every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         advanceUntilIdle()
         viewModel.updateThemeMode(ThemeMode.LIGHT)
@@ -59,7 +60,7 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
         every { repository.observeIsReplyNotificationEnabled() } returns replyNotificationFlow
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         advanceUntilIdle()
         replyNotificationFlow.value = true
@@ -74,7 +75,7 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
         every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         advanceUntilIdle()
         viewModel.updateReplyNotificationEnabled(true)
@@ -91,12 +92,40 @@ class SettingsViewModelTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
         every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
-        val viewModel = SettingsViewModel(repository)
+        val viewModel = createViewModel(repository, allowed = false)
 
         advanceUntilIdle()
         viewModel.updateReplyNotificationPermissionResult(granted = false)
         advanceUntilIdle()
 
         coVerify(exactly = 1) { repository.setReplyNotificationEnabled(false) }
+    }
+
+    /** 通知可否の変化を再評価してUiStateへ反映することを確認する。 */
+    @Test
+    fun refreshNotificationPermissionState_updatesUiState() = runTest {
+        var allowed = false
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(true)
+        val checker = mockk<NotificationPermissionChecker>()
+        every { checker.isNotificationAllowed() } answers { allowed }
+        val viewModel = SettingsViewModel(repository, checker)
+
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.isNotificationAllowed)
+        allowed = true
+        viewModel.refreshNotificationPermissionState()
+
+        assertEquals(true, viewModel.uiState.value.isNotificationAllowed)
+    }
+
+    private fun createViewModel(
+        repository: SettingsRepository,
+        allowed: Boolean = true,
+    ): SettingsViewModel {
+        val checker = mockk<NotificationPermissionChecker>()
+        every { checker.isNotificationAllowed() } returns allowed
+        return SettingsViewModel(repository, checker)
     }
 }

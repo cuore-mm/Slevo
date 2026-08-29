@@ -98,6 +98,10 @@ content intentは既存が解決可能なスレッドURLを持つ `ACTION_VIEW` 
 
 API 33以上でOFFからONへ変更するとき、Composableは `ActivityResultContracts.RequestPermission()` で `POST_NOTIFICATIONS` を要求する。許可結果をViewModelへ渡し、許可時だけRepositoryへtrueを保存する。拒否時はfalseを維持する。API 32以下は直接trueへ変更する。OS設定で後から通知を無効化された場合は、Publisherが対象レコードを `SUPPRESSED` にして取得を継続する。
 
+設定画面の表示時と画面復帰時には、Android依存の `NotificationPermissionChecker` で現在の通知可否を再評価し、`SettingsUiState`へ設定値とは別に保持する。API 33以上では `POST_NOTIFICATIONS` のruntime permissionと `NotificationManagerCompat.areNotificationsEnabled()` を確認し、API 32以下ではruntime permissionを確認せずアプリ通知可否を使用する。設定値が有効かつ通知不可の場合だけ、返信通知項目の説明文を「通知を受け取るには通知を許可してください」へ切り替える。
+
+説明文の警告表示には既存の `listItemSpecOfBasic()` の `customSupportingStyle` を使用し、`MaterialTheme.colorScheme.error` を指定する。設定値が無効な場合、または通知可能な場合は既存の説明文と通常色へ戻す。権限を失った場合でも設定値を自動的にfalseへ書き戻さず、スイッチはユーザーが選択した設定値を表示する。
+
 ## Implementation Contract
 
 実装エージェントは次の契約を維持すること。
@@ -128,7 +132,7 @@ API 33以上でOFFからONへ変更するとき、Composableは `ActivityResultC
 - UseCase unit test: `ThreadRefreshUseCase`の成功順序、取得失敗、pending確定後判定、通知無効、state減少、二経路相当の再実行。MockK、`runTest`、既存 `MainDispatcherRule` の慣例に合わせる。
 - Repository unit/instrumented test: insert-ignore、status条件更新、複合主キー競合、transaction失敗時、v11→v12 migration、v2からv12までのmigration chain。
 - ViewModel/Coordinator unit test: `ThreadRouteViewModelTest` と `ThreadTabsCoordinatorTest` で共通UseCaseが呼ばれ、直接取得と通知処理が重複しないことを検証する。
-- Settings unit/Compose test: 初期OFF、API 33権限許可・拒否、OFF操作、表示文言とSwitchのaccessibility semantics。
+- Settings unit/Compose test: 初期OFF、API 33権限許可・拒否、OFF操作、通知不可時の警告文言・`MaterialTheme.colorScheme.error`、通知復帰時の通常表示、Switchのaccessibility semantics。
 - 通知実装test: チャネル属性、stable notification ID、immutable PendingIntent、通知内容、権限なしの抑止。Android API依存部分はRobolectricまたはinstrumented test、Publisher interfaceはFakeでunit testする。
 - 遷移test: 通知用スレッドURLが既存 `DeepLinkHandler` によりタブ登録・選択されることを既存navigation testへ追加する。
 

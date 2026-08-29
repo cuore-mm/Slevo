@@ -53,7 +53,7 @@ class AndroidReplyNotificationPublisherTest {
     /** 通知本文、安定したPendingIntent、再通知時に置換可能な属性を確認する。 */
     @Test
     fun publish_postsReadableNotificationWithStablePendingIntent() {
-        val publisher = AndroidReplyNotificationPublisher(context)
+        val publisher = publisher()
         val entity = notification()
 
         assertEquals(ReplyNotificationPublishResult.DELIVERED, publisher.publish(entity))
@@ -82,7 +82,7 @@ class AndroidReplyNotificationPublisherTest {
     /** PendingIntentの対象URLが既存DeepLinkHandlerの登録・選択・遷移へ到達することを確認する。 */
     @Test
     fun pendingIntentTarget_registersAndSelectsThreadThroughDeepLinkHandler() = runTest {
-        val publisher = AndroidReplyNotificationPublisher(context)
+        val publisher = publisher()
         publisher.publish(notification())
         val pendingIntent = shadowOf(shadowOf(notificationManager).allNotifications.single().contentIntent)
         val targetUrl = pendingIntent.savedIntent.dataString
@@ -110,7 +110,7 @@ class AndroidReplyNotificationPublisherTest {
     fun publish_whenSystemNotificationsDisabled_returnsSuppressed() {
         shadowOf(notificationManager).setNotificationsEnabled(false)
 
-        val result = AndroidReplyNotificationPublisher(context).publish(notification())
+        val result = publisher().publish(notification())
 
         assertEquals(ReplyNotificationPublishResult.SUPPRESSED, result)
         assertTrue(shadowOf(notificationManager).allNotifications.isEmpty())
@@ -125,5 +125,10 @@ class AndroidReplyNotificationPublisherTest {
         threadTitle = "Thread title",
         messagePreview = "reply preview",
         detectedAt = 100L,
+    )
+
+    private fun publisher() = AndroidReplyNotificationPublisher(
+        context = context,
+        notificationPermissionChecker = AndroidNotificationPermissionChecker(context),
     )
 }

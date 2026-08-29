@@ -52,4 +52,28 @@ class SettingsGeneralScreenTest {
         composeRule.onAllNodes(hasRole(Role.Switch))[1].assertIsOff()
         assertEquals(null, selectedValue)
     }
+
+    /** 通知不可かつ設定有効時に警告文を表示し、スイッチは有効状態を保つことを確認する。 */
+    @Test
+    fun replyNotification_permissionWarningUsesWarningText() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        composeRule.setContent {
+            SlevoTheme {
+                SettingsGeneralScreen(
+                    themeMode = ThemeMode.SYSTEM,
+                    isRedirect5chNetToIoEnabled = false,
+                    isReplyNotificationEnabled = true,
+                    isNotificationAllowed = false,
+                    onSelectThemeMode = {},
+                    onToggleRedirect5chNetToIoEnabled = {},
+                    onToggleReplyNotification = {},
+                    onNavigateUp = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(context.getString(R.string.reply_notification_permission_warning))
+            .assertIsDisplayed()
+        composeRule.onAllNodes(hasRole(Role.Switch))[0].assertIsOn()
+    }
 }

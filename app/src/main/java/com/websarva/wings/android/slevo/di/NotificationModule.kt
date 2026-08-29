@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.di
 
+import com.websarva.wings.android.slevo.data.notification.NotificationPermissionChecker
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublisher
+import com.websarva.wings.android.slevo.notification.AndroidNotificationPermissionChecker
 import com.websarva.wings.android.slevo.notification.AndroidReplyNotificationPublisher
 import dagger.Binds
 import dagger.Module
@@ -20,4 +22,11 @@ abstract class NotificationModule {
     abstract fun bindReplyNotificationPublisher(
         publisher: AndroidReplyNotificationPublisher,
     ): ReplyNotificationPublisher
+
+    /** Android通知可否の判定実装を共通Checkerへ束縛する。 */
+    @Binds
+    @Singleton
+    abstract fun bindNotificationPermissionChecker(
+        checker: AndroidNotificationPermissionChecker,
+    ): NotificationPermissionChecker
 }
