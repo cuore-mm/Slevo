@@ -73,9 +73,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Androidの通知権限結果を設定へ反映し、拒否時は返信通知を無効のまま保つ。 */
+    /** Androidの通知権限結果後に通知可否だけを再評価し、アプリ設定値は変更しない。 */
     fun updateReplyNotificationPermissionResult(granted: Boolean) {
-        updateReplyNotificationEnabled(granted)
         refreshNotificationPermissionState()
     }
 

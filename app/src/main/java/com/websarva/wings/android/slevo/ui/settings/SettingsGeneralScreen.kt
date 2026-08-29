@@ -1,7 +1,12 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,6 +48,8 @@ fun SettingsGeneralScreen(
     onRefreshNotificationPermission: () -> Unit = {},
     onNavigateUp: () -> Unit,
 ) {
+    val context = LocalContext.current
+
     // --- Lifecycle ---
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -67,6 +75,8 @@ fun SettingsGeneralScreen(
         if (!enabled) {
             onToggleReplyNotification(false)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // アプリ設定を先に保存し、権限拒否後もユーザーの有効化意図を維持する。
+            onToggleReplyNotification(true)
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             onToggleReplyNotification(true)
@@ -133,7 +143,11 @@ fun SettingsGeneralScreen(
                                 onCheckedChange = ::toggleReplyNotification,
                             ),
                             onClick = {
-                                toggleReplyNotification(!isReplyNotificationEnabled)
+                                if (showNotificationPermissionWarning) {
+                                    openNotificationSettings(context)
+                                } else {
+                                    toggleReplyNotification(!isReplyNotificationEnabled)
+                                }
                             },
                         )
                     )
@@ -187,5 +201,32 @@ private fun SettingsGeneralScreenPreview() {
             onToggleReplyNotification = {},
             onNavigateUp = {},
         )
+    }
+}
+
+/** 現在のAPIレベルに応じたアプリ通知設定画面を開くIntentを作成する。 */
+internal fun notificationSettingsIntent(context: Context): Intent {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
+    } else {
+        applicationDetailsSettingsIntent(context)
+    }
+}
+
+/** アプリ詳細設定画面を開くIntentを作成する。 */
+private fun applicationDetailsSettingsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.parse("package:${context.packageName}")
+    }
+
+/** 通知設定画面を開き、端末が専用画面を提供しない場合はアプリ詳細へフォールバックする。 */
+private fun openNotificationSettings(context: Context) {
+    try {
+        context.startActivity(notificationSettingsIntent(context))
+    } catch (_: ActivityNotFoundException) {
+        // 一部端末ではアプリ通知専用画面がないため、汎用のアプリ詳細設定を開く。
+        context.startActivity(applicationDetailsSettingsIntent(context))
     }
 }
