@@ -10,5 +10,5 @@
     <string name="reply_notification_empty_preview">本文を表示できません</string>
     <string name="reply_notification_setting_title">返信を通知</string>
     <string name="reply_notification_setting_description">自分のレスに返信があったときに通知します</string>
-    <string name="reply_notification_permission_warning">通知を受け取るには通知を許可してください</string>
+    <string name="reply_notification_permission_warning">通知を受け取るには、端末の設定から通知を許可してください</string>
 </resources>

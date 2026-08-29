@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,8 +19,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -98,7 +98,10 @@ fun SettingsGeneralScreen(
         },
     )
     val replyNotificationDescriptionStyle = if (showNotificationPermissionWarning) {
-        MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.error)
+        MaterialTheme.typography.labelLarge.copy(
+            color = MaterialTheme.colorScheme.error,
+            fontWeight = FontWeight.Normal,
+        )
     } else {
         null
     }
@@ -218,7 +221,7 @@ internal fun notificationSettingsIntent(context: Context): Intent {
 /** アプリ詳細設定画面を開くIntentを作成する。 */
 private fun applicationDetailsSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-        data = Uri.parse("package:${context.packageName}")
+        data = "package:${context.packageName}".toUri()
     }
 
 /** 通知設定画面を開き、端末が専用画面を提供しない場合はアプリ詳細へフォールバックする。 */
