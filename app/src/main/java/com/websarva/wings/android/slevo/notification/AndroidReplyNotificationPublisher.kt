@@ -39,6 +39,11 @@ class AndroidReplyNotificationPublisher @Inject constructor(
             val preview = notification.messagePreview.ifBlank {
                 context.getString(R.string.reply_notification_empty_preview)
             }
+            val notificationText = context.getString(
+                R.string.reply_notification_content,
+                notification.replyResNo,
+                preview,
+            )
             val builder = NotificationCompat.Builder(
                 context,
                 NotificationChannels.REPLY_NOTIFICATION_CHANNEL_ID,
@@ -47,8 +52,8 @@ class AndroidReplyNotificationPublisher @Inject constructor(
                 .setContentTitle(notification.threadTitle.ifBlank {
                     context.getString(R.string.reply_notification_default_title)
                 })
-                .setContentText(preview)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
+                .setContentText(notificationText)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(notificationText))
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
