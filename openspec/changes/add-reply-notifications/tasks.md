@@ -46,7 +46,7 @@
 - [x] 7.2 `SettingsGeneralScreen` に「返信通知」スイッチと説明文を追加し、API 33以上のOFF→ONで `ActivityResultContracts.RequestPermission()` を起動し、API 32以下では直接有効化する。
 - [x] 7.3 一般設定Composableの `@Preview` を更新し、Compose testで文言、Switchのchecked state、click semantics、権限許可・拒否後の表示を確認する。
 - [x] 7.4 通知権限やシステム通知が無効な状態で返信を取得してもスレッド更新が成功し、対象レコードが後から大量通知されないことを結合相当testで確認する。
-- [ ] 7.5 `NotificationPermissionChecker` で設定画面表示時・復帰時のOS通知可否を再評価し、設定ONかつ通知不可の場合だけ「通知を受け取るには通知を許可してください」を `MaterialTheme.colorScheme.error` で表示する。通知復帰時の通常文言・通常色への復帰、設定OFF時の警告抑止、スイッチ状態の維持をViewModel/Compose testで検証する。
+- [x] 7.5 `NotificationPermissionChecker` で設定画面表示時・復帰時のOS通知可否を再評価し、設定ONかつ通知不可の場合だけ「通知を受け取るには通知を許可してください」を `MaterialTheme.colorScheme.error` で表示する。通知復帰時の通常文言・通常色への復帰、設定OFF時の警告抑止、スイッチ状態の維持をViewModel/Compose testで検証する。
 
 ## 8. 最終検証
 
