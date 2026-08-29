@@ -5,11 +5,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.websarva.wings.android.slevo.MainActivity
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.datasource.local.entity.notification.ReplyNotificationEntity
@@ -27,7 +27,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class AndroidReplyNotificationPublisher @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) : ReplyNotificationPublisher {
     /** 通知を投稿できる状態を確認して、返信通知を一件投稿する。 */
     override fun publish(notification: ReplyNotificationEntity): ReplyNotificationPublishResult {
@@ -49,7 +49,7 @@ class AndroidReplyNotificationPublisher @Inject constructor(
                 .setContentTitle(notification.threadTitle.ifBlank {
                     context.getString(R.string.reply_notification_default_title)
                 })
-                .setContentText(context.getString(R.string.reply_notification_message, notification.replyResNo))
+                .setContentText(preview)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
@@ -87,7 +87,7 @@ class AndroidReplyNotificationPublisher @Inject constructor(
         val threadUrl = "https://$host/test/read.cgi/$board/${notification.threadKey}/"
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse(threadUrl)
+            data = threadUrl.toUri()
         }
         return PendingIntent.getActivity(
             context,
