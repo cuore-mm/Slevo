@@ -491,6 +491,16 @@ class TabListViewModelTest {
         assertEquals(IntRect(10, 20, 110, 120), state.bulkCloseMenuBounds)
     }
 
+    /** 選択0件の選択モードではその他メニューを開かないことを確認する。 */
+    @Test
+    fun showBulkCloseMenu_ignoresEmptySelectionMode() = runTest {
+        viewModel.startSelectionMode(TabPage.BOARD)
+
+        showBulkCloseMenu()
+
+        assertFalse(viewModel.uiState.first().isBulkCloseMenuVisible)
+    }
+
     /** dismiss 時に一括クローズメニューの表示状態とアンカーがクリアされることを確認する。 */
     @Test
     fun dismissBulkCloseMenu_clearsVisibleAndAnchor() = runTest {

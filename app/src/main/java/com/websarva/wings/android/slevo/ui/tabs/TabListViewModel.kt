@@ -621,6 +621,7 @@ class TabListViewModel @Inject constructor(
 
     /** その他メニューを指定されたアンカー位置で表示する。 */
     fun showBulkCloseMenu(anchorBounds: IntRect) {
+        if (uiState.value.isInSelectionMode && uiState.value.selectedTabCount == 0) return
         uiStateMutable.update { state ->
             state.copy(
                 isBulkCloseMenuVisible = true,
