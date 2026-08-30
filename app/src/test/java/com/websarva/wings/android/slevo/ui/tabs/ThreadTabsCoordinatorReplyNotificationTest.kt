@@ -15,6 +15,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -30,7 +31,8 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
-        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(firstTab, secondTab))
+        val openTabs = MutableStateFlow(listOf(firstTab, secondTab))
+        every { tabsRepository.observeOpenThreadTabs() } returns openTabs
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         coEvery { refreshUseCase.refresh(any()) } returns ThreadRefreshResult(
             posts = emptyList(),
@@ -81,7 +83,8 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         coordinator.bind(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
         coordinator.refreshOpenThreads()
         firstStarted.await()
-        coordinator.closeThreadTab(secondTab)
+        openTabs.value = listOf(firstTab)
+        assertEquals(listOf(firstTab), coordinator.openThreadTabs.value)
         releaseFirst.complete(Unit)
 
         coVerify(exactly = 1) { refreshUseCase.refresh(match { it.threadId == firstTab.id }) }
@@ -98,13 +101,16 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
-        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(onlyTab))
+        val openTabs = MutableStateFlow(listOf(onlyTab))
+        every { tabsRepository.observeOpenThreadTabs() } returns openTabs
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         val refreshStarted = CompletableDeferred<Unit>()
         val releaseRefresh = CompletableDeferred<Unit>()
+        val refreshCompleted = CompletableDeferred<Unit>()
         coEvery { refreshUseCase.refresh(any()) } coAnswers {
             refreshStarted.complete(Unit)
             releaseRefresh.await()
+            refreshCompleted.complete(Unit)
             refreshResult()
         }
         val coordinator = ThreadTabsCoordinator(
@@ -116,8 +122,9 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         coordinator.bind(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
         coordinator.refreshOpenThreads()
         refreshStarted.await()
-        coordinator.closeThreadTab(onlyTab)
+        openTabs.value = emptyList()
         releaseRefresh.complete(Unit)
+        refreshCompleted.await()
 
         coVerify(exactly = 1) { refreshUseCase.refresh(match { it.threadId == onlyTab.id }) }
         coordinator.close()
