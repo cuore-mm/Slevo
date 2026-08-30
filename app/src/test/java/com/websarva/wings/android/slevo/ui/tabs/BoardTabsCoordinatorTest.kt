@@ -63,6 +63,23 @@ class BoardTabsCoordinatorTest {
         assertEquals(false, coordinator.openBoardTabs.value.first().isPinned)
     }
 
+    /** 板タブ集合の固定状態を混在状態から一括して指定値へ揃えることを確認する。 */
+    @Test
+    fun setBoardTabsPinned_setsOnlyRequestedTabs() {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        val first = testBoardTab("first")
+        val second = testBoardTab("second").copy(isPinned = true)
+        val outside = testBoardTab("outside")
+        coordinator.openBoardTab(first)
+        coordinator.openBoardTab(second)
+        coordinator.openBoardTab(outside)
+
+        coordinator.setBoardTabsPinned(listOf(first, second), true)
+
+        assertTrue(coordinator.openBoardTabs.value.take(2).all { it.isPinned })
+        assertFalse(coordinator.openBoardTabs.value.last().isPinned)
+    }
+
     /**
      * 既存の板タブを上書きした場合でも固定状態が維持されることを確認する。
      */

@@ -91,9 +91,9 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithContentDescription("その他").assertDoesNotExist()
     }
 
-    /** その他メニューが承認済みの一括クローズ項目だけを表示することを確認する。 */
+    /** 通常のその他メニューに一括クローズと選択開始を表示することを確認する。 */
     @Test
-    fun bulkMenu_showsOnlyCloseAllAction() {
+    fun bulkMenu_showsCloseAllAndSelectActions() {
         var expanded by mutableStateOf(true)
         composeRule.setContent {
             SlevoTheme {
@@ -110,6 +110,7 @@ class TabBulkCloseMenuTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("全てのタブを閉じる").assertExists()
+        composeRule.onNodeWithText("タブを選択").assertExists()
         composeRule.onNodeWithText("詳細").assertDoesNotExist()
         composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
         composeRule.onNodeWithText("タブを閉じる").assertDoesNotExist()
