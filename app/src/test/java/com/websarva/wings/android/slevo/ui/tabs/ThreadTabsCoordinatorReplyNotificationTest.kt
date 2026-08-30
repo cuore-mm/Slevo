@@ -31,8 +31,7 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
-        val openTabs = MutableStateFlow(listOf(firstTab, secondTab))
-        every { tabsRepository.observeOpenThreadTabs() } returns openTabs
+        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(firstTab, secondTab))
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         coEvery { refreshUseCase.refresh(any()) } returns ThreadRefreshResult(
             posts = emptyList(),
@@ -64,7 +63,8 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
-        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(firstTab, secondTab))
+        val openTabs = MutableStateFlow(listOf(firstTab, secondTab))
+        every { tabsRepository.observeOpenThreadTabs() } returns openTabs
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         val firstStarted = CompletableDeferred<Unit>()
         val releaseFirst = CompletableDeferred<Unit>()
