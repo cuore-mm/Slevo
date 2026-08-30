@@ -31,6 +31,7 @@
 - [x] 5.2 `ThreadRouteViewModel.loadThreadContent()` から共通処理後に重複して行われる自レス照合・thread state更新を除去し、履歴アクセス、既読位置、表示用状態、更新グループだけを画面固有処理として維持することを `ThreadRouteViewModelTest` で検証する。
 - [x] 5.3 `ThreadTabsCoordinator.refreshOpenThreads()` の直接 `DatRepository.getThread()` 呼び出しを `ThreadRefreshUseCase` へ置き換え、レス数・進捗・失敗時の既存挙動を `ThreadTabsCoordinatorTest` で維持する。
 - [x] 5.4 スレッド画面更新後のタブ更新、および逆順の更新をテストし、どちらも同じ返信を一度だけ登録することを確認する。
+- [x] 5.5 `ThreadTabsCoordinator.refreshOpenThreads()` で各タブの共通取得UseCaseを呼び出す直前に現在の投影状態を確認し、取得開始前に閉じられたタブをスキップする。取得開始後のタブ閉鎖は処理を継続し、スキップ時も一括更新の進捗を完了扱いにすることをunit testで検証する。
 
 ## 6. Android通知Publisherとチャネル
 

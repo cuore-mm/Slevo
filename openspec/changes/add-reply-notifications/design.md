@@ -37,6 +37,8 @@ ThreadTabsCoordinator ───────────────────�
                                                        └─ ThreadStateの最大レス数更新
 ```
 
+タブ画面の一括更新は、開始時のタブスナップショットを順番に処理する。各タブについて共通取得UseCaseを呼び出す直前に、現在の投影状態へ同じタブが存在するか確認し、閉じられていた対象はネットワーク取得をスキップする。この確認は取得開始前のガードに限定し、`refresh()` 呼び出し後にタブが閉じられても、取得後のstate更新と返信通知処理は継続する。
+
 入力は `boardUrl`、`boardId`、`boardName`、`threadKey`、既知のタイトルを持つrequestとし、両経路が同じメタデータを渡す。戻り値は取得した `List<ReplyInfo>`、取得タイトル、取得前レス数を保持する。スレッド画面の `ThreadContentLoadUseCase` はこの戻り値から従来どおり表示用の `ThreadContentLoadResult` を構築し、タブ画面はレス数と成功状態だけを使う。
 
 代替案として両呼び出し元へ通知コードを追加する方法は、タブ側だけ自レス照合が抜けること、処理順序が分岐すること、競合テストが重複することから採用しない。`DatRepository`自身へ通知副作用を入れる方法も、データ取得責務とユーザー設定・DB・Android通知が混在するため採用しない。
@@ -106,7 +108,7 @@ API 33以上でOFFからONへ変更するとき、ComposableはまずRepository�
 
 実装エージェントは次の契約を維持すること。
 
-1. スレッド画面は `ThreadContentLoadUseCase` を介して、タブ画面は `ThreadTabsCoordinator` から、新しい共通取得UseCaseへ接続する。両経路から `DatRepository.getThread()` を個別に呼んだ後で通知判定してはならない。
+1. スレッド画面は `ThreadContentLoadUseCase` を介して、タブ画面は `ThreadTabsCoordinator` から、新しい共通取得UseCaseへ接続する。両経路から `DatRepository.getThread()` を個別に呼んだ後で通知判定してはならない。タブ画面では、共通取得UseCaseの呼び出し直前に現在の投影状態を確認し、閉じたタブの取得を開始しない。取得開始後のタブ閉鎖は処理を継続する。
 2. 共通取得UseCaseの順序は「取得前state読取→dat取得→pending自レス照合→自レス番号再読込→返信候補算出・一意登録→thread state更新→OS通知投稿」とする。取得失敗時はstateと通知レコードを変更しない。
 3. スレッド画面固有の表示変換、履歴アクセス記録、既読位置、更新グループは `ThreadRouteViewModel` / `ThreadContentLoadUseCase`側に残し、タブ一括更新では実行しない。
 4. 新着境界は取得開始前の永続 `thread_states.latestResCount` とし、UIのスクロール位置や `lastReadResNo` を通知判定に使わない。

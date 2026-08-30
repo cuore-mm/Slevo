@@ -355,16 +355,19 @@ class ThreadTabsCoordinator @Inject constructor(
                 snapshotTabs.forEachIndexed { index, tab ->
                     // Guard: キャンセル済みなら即座に中断する。
                     currentCoroutineContext().ensureActive()
-                    threadRefreshUseCase.refresh(
-                        ThreadRefreshRequest(
-                            threadId = tab.id,
-                            boardUrl = tab.boardUrl,
-                            boardId = tab.boardId,
-                            boardName = tab.boardName,
-                            threadKey = tab.threadKey,
-                            threadTitle = tab.title,
-                        ),
-                    )
+                    // Guard: 取得開始前に閉じられたタブは通信と取得後処理を行わない。
+                    if (_openThreadTabs.value.any { currentTab -> currentTab.id == tab.id }) {
+                        threadRefreshUseCase.refresh(
+                            ThreadRefreshRequest(
+                                threadId = tab.id,
+                                boardUrl = tab.boardUrl,
+                                boardId = tab.boardId,
+                                boardName = tab.boardName,
+                                threadKey = tab.threadKey,
+                                threadTitle = tab.title,
+                            ),
+                        )
+                    }
                     _refreshProgress.update { progress ->
                         progress?.copy(completedCount = index + 1)
                     }

@@ -11,11 +11,13 @@ import io.mockk.coVerifyOrder
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /** タブ一括更新がスレッド画面と同じ共通RefreshUseCaseを順番に利用することを検証する。 */
@@ -52,6 +54,75 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         coordinator.close()
     }
 
+    /** 取得開始前に閉じられたタブをスキップし、残りのタブだけを取得することを確認する。 */
+    @Test
+    fun refreshOpenThreads_skipsTabClosedBeforeItsRefreshStarts() = runTest {
+        val firstTab = tab("first")
+        val secondTab = tab("second")
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
+        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(firstTab, secondTab))
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        val firstStarted = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        coEvery { refreshUseCase.refresh(match { it.threadId == firstTab.id }) } coAnswers {
+            firstStarted.complete(Unit)
+            releaseFirst.await()
+            refreshResult()
+        }
+        coEvery { refreshUseCase.refresh(match { it.threadId == secondTab.id }) } returns refreshResult()
+        val coordinator = ThreadTabsCoordinator(
+            tabsRepository = tabsRepository,
+            threadBookmarkRepository = bookmarkRepository,
+            threadRefreshUseCase = refreshUseCase,
+        )
+
+        coordinator.bind(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        coordinator.refreshOpenThreads()
+        firstStarted.await()
+        coordinator.closeThreadTab(secondTab)
+        releaseFirst.complete(Unit)
+
+        coVerify(exactly = 1) { refreshUseCase.refresh(match { it.threadId == firstTab.id }) }
+        coVerify(exactly = 0) { refreshUseCase.refresh(match { it.threadId == secondTab.id }) }
+        assertEquals(2, coordinator.refreshProgress.value?.totalCount)
+        assertEquals(2, coordinator.refreshProgress.value?.completedCount)
+        coordinator.close()
+    }
+
+    /** 取得開始後にタブが閉じられても、共通取得処理を中断せず完了することを確認する。 */
+    @Test
+    fun refreshOpenThreads_continuesRefreshAfterTabCloses() = runTest {
+        val onlyTab = tab("only")
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val refreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true)
+        every { tabsRepository.observeOpenThreadTabs() } returns flowOf(listOf(onlyTab))
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        coEvery { refreshUseCase.refresh(any()) } coAnswers {
+            refreshStarted.complete(Unit)
+            releaseRefresh.await()
+            refreshResult()
+        }
+        val coordinator = ThreadTabsCoordinator(
+            tabsRepository = tabsRepository,
+            threadBookmarkRepository = bookmarkRepository,
+            threadRefreshUseCase = refreshUseCase,
+        )
+
+        coordinator.bind(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        coordinator.refreshOpenThreads()
+        refreshStarted.await()
+        coordinator.closeThreadTab(onlyTab)
+        releaseRefresh.complete(Unit)
+
+        coVerify(exactly = 1) { refreshUseCase.refresh(match { it.threadId == onlyTab.id }) }
+        coordinator.close()
+    }
+
     private fun tab(key: String) = ThreadTabInfo(
         id = com.websarva.wings.android.slevo.data.model.ThreadId.of("host", "board", key),
         title = key,
@@ -60,5 +131,11 @@ class ThreadTabsCoordinatorReplyNotificationTest {
         boardId = 1L,
         firstVisibleItemIndex = 0,
         isPinned = false,
+    )
+
+    private fun refreshResult() = ThreadRefreshResult(
+        posts = emptyList(),
+        title = null,
+        previousResCount = null,
     )
 }
