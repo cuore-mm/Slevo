@@ -78,6 +78,18 @@ class SettingsRepository @Inject constructor(
     suspend fun setRedirect5chNetToIoEnabled(enabled: Boolean) =
         local.setRedirect5chNetToIoEnabled(enabled)
 
+    /** 返信通知設定を監視する。 */
+    fun observeIsReplyNotificationEnabled(): Flow<Boolean> =
+        local.observeIsReplyNotificationEnabled()
+
+    /** 返信通知設定を保存する。 */
+    suspend fun setReplyNotificationEnabled(enabled: Boolean) =
+        local.setReplyNotificationEnabled(enabled)
+
+    /** 返信通知設定の現在値を取得する。 */
+    suspend fun getIsReplyNotificationEnabled(): Boolean =
+        local.getIsReplyNotificationEnabled()
+
     /**
      * 5ch.net を 5ch.io として開く設定の現在値を取得する。
      */

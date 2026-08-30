@@ -808,6 +808,79 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v11から返信通知テーブルを追加し、複合主キーと既存テーブルを保持する。 */
+    @Test
+    fun migrate11To12_addsReplyNotificationTable() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.deleteDatabase(TEST_DB)
+
+        helper.createDatabase(TEST_DB, 11).apply {
+            execSQL(
+                "INSERT INTO thread_states " +
+                    "(threadId, boardId, boardUrl, boardName, threadKey, title, latestResCount, updatedAt) " +
+                    "VALUES ('example.com/test/123', 1, 'https://example.com/test/', " +
+                    "'Example', '123', 'Existing thread', 12, 1000)"
+            )
+            close()
+        }
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            12,
+            true,
+            AppDatabase.MIGRATION_11_12,
+        )
+
+        val database = SQLiteDatabase.openDatabase(
+            context.getDatabasePath(TEST_DB).path,
+            null,
+            SQLiteDatabase.OPEN_READWRITE,
+        )
+        database.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'reply_notifications'",
+            null,
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+        }
+        database.rawQuery("PRAGMA table_info('reply_notifications')", null).use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertEquals(
+                listOf(
+                    "threadId", "replyResNo", "targetOwnResNumbers", "boardUrl", "threadKey",
+                    "threadTitle", "messagePreview", "detectedAt", "status",
+                ),
+                columns,
+            )
+        }
+        database.rawQuery(
+            "SELECT title, latestResCount FROM thread_states WHERE threadId = 'example.com/test/123'",
+            null,
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Existing thread", cursor.getString(0))
+            assertEquals(12, cursor.getInt(1))
+        }
+        database.execSQL(
+            "INSERT INTO reply_notifications " +
+                "(threadId, replyResNo, targetOwnResNumbers, boardUrl, threadKey, threadTitle, " +
+                "messagePreview, detectedAt, status) VALUES " +
+                "('example.com/test/123', 13, '12', 'https://example.com/test/', '123', " +
+                "'Existing thread', 'reply', 2000, 'DETECTED')"
+        )
+        assertThrows(SQLiteConstraintException::class.java) {
+            database.execSQL(
+                "INSERT INTO reply_notifications " +
+                    "(threadId, replyResNo, targetOwnResNumbers, boardUrl, threadKey, threadTitle, " +
+                    "messagePreview, detectedAt, status) VALUES " +
+                    "('example.com/test/123', 13, '12', 'https://example.com/test/', '123', " +
+                    "'Existing thread', 'duplicate', 3000, 'DETECTED')"
+            )
+        }
+        database.close()
+    }
+
     /**
      * wrapped migration が SQL transaction の前に開始証跡を commit し、delegate 例外後も旧 version
      * を残すことを実 DB で検証する。

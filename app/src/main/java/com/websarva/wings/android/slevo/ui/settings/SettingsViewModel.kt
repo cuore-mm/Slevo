@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.notification.NotificationPermissionChecker
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,13 +18,15 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repository: SettingsRepository
+    private val repository: SettingsRepository,
+    private val notificationPermissionChecker: NotificationPermissionChecker,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        refreshNotificationPermissionState()
         // DataStore からの状態変化を購読して UI ステートに反映
         viewModelScope.launch {
             repository.observeThemeMode()
@@ -35,6 +38,12 @@ class SettingsViewModel @Inject constructor(
             repository.observeIsRedirect5chNetToIoEnabled()
                 .collect { enabled ->
                     _uiState.update { it.copy(isRedirect5chNetToIoEnabled = enabled) }
+                }
+        }
+        viewModelScope.launch {
+            repository.observeIsReplyNotificationEnabled()
+                .collect { enabled ->
+                    _uiState.update { it.copy(isReplyNotificationEnabled = enabled) }
                 }
         }
     }
@@ -56,6 +65,25 @@ class SettingsViewModel @Inject constructor(
             repository.setRedirect5chNetToIoEnabled(enabled)
         }
     }
+
+    /** 返信通知設定を更新する。 */
+    fun updateReplyNotificationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setReplyNotificationEnabled(enabled)
+        }
+    }
+
+    /** Androidの通知権限結果後に通知可否だけを再評価し、アプリ設定値は変更しない。 */
+    fun updateReplyNotificationPermissionResult(granted: Boolean) {
+        refreshNotificationPermissionState()
+    }
+
+    /** 設定画面の表示状態へ現在のOS通知可否を再反映する。 */
+    fun refreshNotificationPermissionState() {
+        _uiState.update {
+            it.copy(isNotificationAllowed = notificationPermissionChecker.isNotificationAllowed())
+        }
+    }
 }
 
 /**
@@ -64,4 +92,6 @@ class SettingsViewModel @Inject constructor(
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isRedirect5chNetToIoEnabled: Boolean = true,
+    val isReplyNotificationEnabled: Boolean = false,
+    val isNotificationAllowed: Boolean = true,
 )

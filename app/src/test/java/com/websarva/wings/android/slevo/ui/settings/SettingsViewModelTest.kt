@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import com.websarva.wings.android.slevo.data.model.ThemeMode
+import com.websarva.wings.android.slevo.data.notification.NotificationPermissionChecker
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.testutil.MainDispatcherRule
 import io.mockk.coVerify
@@ -27,7 +28,8 @@ class SettingsViewModelTest {
         val themeFlow = MutableStateFlow(ThemeMode.SYSTEM)
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns themeFlow
-        val viewModel = SettingsViewModel(repository)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
+        val viewModel = createViewModel(repository)
 
         // ViewModel の初期購読コルーチンを先に開始させる。
         advanceUntilIdle()
@@ -41,12 +43,90 @@ class SettingsViewModelTest {
     fun updateThemeMode_callsRepository() = runTest {
         val repository = mockk<SettingsRepository>(relaxed = true)
         every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
-        val viewModel = SettingsViewModel(repository)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
+        val viewModel = createViewModel(repository)
 
         advanceUntilIdle()
         viewModel.updateThemeMode(ThemeMode.LIGHT)
         advanceUntilIdle()
 
         coVerify(exactly = 1) { repository.setThemeMode(ThemeMode.LIGHT) }
+    }
+
+    /** 返信通知のDataStore購読値がUiStateへ反映されることを確認する。 */
+    @Test
+    fun collectReplyNotification_updatesUiState() = runTest {
+        val replyNotificationFlow = MutableStateFlow(false)
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns replyNotificationFlow
+        val viewModel = createViewModel(repository)
+
+        advanceUntilIdle()
+        replyNotificationFlow.value = true
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.isReplyNotificationEnabled)
+    }
+
+    /** 返信通知のON/OFF操作がそのまま永続化APIへ委譲されることを確認する。 */
+    @Test
+    fun updateReplyNotificationEnabled_callsRepositoryForBothStates() = runTest {
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(false)
+        val viewModel = createViewModel(repository)
+
+        advanceUntilIdle()
+        viewModel.updateReplyNotificationEnabled(true)
+        viewModel.updateReplyNotificationEnabled(false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.setReplyNotificationEnabled(true) }
+        coVerify(exactly = 1) { repository.setReplyNotificationEnabled(false) }
+    }
+
+    /** 通知権限を拒否しても、先に有効化した返信通知設定を維持することを確認する。 */
+    @Test
+    fun updateReplyNotificationPermissionResult_deniedKeepsSettingEnabled() = runTest {
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(true)
+        val viewModel = createViewModel(repository, allowed = false)
+
+        advanceUntilIdle()
+        viewModel.updateReplyNotificationPermissionResult(granted = false)
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.isReplyNotificationEnabled)
+        coVerify(exactly = 0) { repository.setReplyNotificationEnabled(any()) }
+    }
+
+    /** 通知可否の変化を再評価してUiStateへ反映することを確認する。 */
+    @Test
+    fun refreshNotificationPermissionState_updatesUiState() = runTest {
+        var allowed = false
+        val repository = mockk<SettingsRepository>(relaxed = true)
+        every { repository.observeThemeMode() } returns MutableStateFlow(ThemeMode.SYSTEM)
+        every { repository.observeIsReplyNotificationEnabled() } returns MutableStateFlow(true)
+        val checker = mockk<NotificationPermissionChecker>()
+        every { checker.isNotificationAllowed() } answers { allowed }
+        val viewModel = SettingsViewModel(repository, checker)
+
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.isNotificationAllowed)
+        allowed = true
+        viewModel.refreshNotificationPermissionState()
+
+        assertEquals(true, viewModel.uiState.value.isNotificationAllowed)
+    }
+
+    private fun createViewModel(
+        repository: SettingsRepository,
+        allowed: Boolean = true,
+    ): SettingsViewModel {
+        val checker = mockk<NotificationPermissionChecker>()
+        every { checker.isNotificationAllowed() } returns allowed
+        return SettingsViewModel(repository, checker)
     }
 }

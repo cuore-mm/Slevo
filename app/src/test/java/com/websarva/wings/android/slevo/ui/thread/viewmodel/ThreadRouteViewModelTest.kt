@@ -84,7 +84,9 @@ class ThreadRouteViewModelTest {
         viewModel.reloadThread(threadId.value)
         advanceUntilIdle()
 
-        coVerify(atLeast = 1) { dependencies.threadContentLoadUseCase.load(any(), "111", any()) }
+        coVerify(atLeast = 1) {
+            dependencies.threadContentLoadUseCase.load(any(), "111", any(), any(), any(), any())
+        }
     }
 
     @Test
@@ -161,12 +163,11 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
-    fun reloadThread_reconciliationFailure_keepsSuccessfulLoadState() = runTest {
+    fun reloadThread_successfulLoad_keepsSuccessfulLoadState() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
         val dependencies = mockDependencies(
             tabs = listOf(threadTab(threadId, "title")),
             selectedTabKey = threadId.value,
-            reconciliationFailure = IllegalStateException("database temporarily unavailable"),
         )
         val viewModel = dependencies.createViewModel()
 
@@ -424,7 +425,6 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
-        reconciliationFailure: Throwable? = null,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -507,7 +507,16 @@ class ThreadRouteViewModelTest {
         val threadContentLoadUseCase = mockk<ThreadContentLoadUseCase>()
         val threadLoadCancelled = MutableStateFlow(false)
         tabs.forEach { tab ->
-            coEvery { threadContentLoadUseCase.load(tab.boardUrl, tab.threadKey, any()) } coAnswers {
+            coEvery {
+                threadContentLoadUseCase.load(
+                    tab.boardUrl,
+                    tab.threadKey,
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                )
+            } coAnswers {
                 if (suspendLoad) {
                     suspendCancellableCoroutine { continuation ->
                         continuation.invokeOnCancellation { threadLoadCancelled.value = true }
@@ -532,13 +541,6 @@ class ThreadRouteViewModelTest {
             }
         }
 
-        val ownPostReconciliationUseCase = mockk<OwnPostReconciliationUseCase>(relaxed = true)
-        reconciliationFailure?.let { failure ->
-            coEvery {
-                ownPostReconciliationUseCase.reconcile(any(), any(), any(), any(), any())
-            } throws failure
-        }
-
         return RouteDependencies(
             store = store,
             openTabs = openTabs,
@@ -554,7 +556,6 @@ class ThreadRouteViewModelTest {
             tabsRepository = tabsRepository,
             readStateRepository = readStateRepository,
             threadContentLoadUseCase = threadContentLoadUseCase,
-            ownPostReconciliationUseCase = ownPostReconciliationUseCase,
             threadVisiblePostsUseCase = ThreadVisiblePostsUseCase(),
             logger = mockk(relaxed = true),
         )
@@ -576,7 +577,6 @@ class ThreadRouteViewModelTest {
         val tabsRepository: TabsRepository,
         val readStateRepository: ThreadReadStateRepository,
         val threadContentLoadUseCase: ThreadContentLoadUseCase,
-        val ownPostReconciliationUseCase: OwnPostReconciliationUseCase,
         val threadVisiblePostsUseCase: ThreadVisiblePostsUseCase,
         val logger: AppLogger,
     ) {
@@ -594,7 +594,6 @@ class ThreadRouteViewModelTest {
                 tabsRepository = tabsRepository,
                 threadReadStateRepository = readStateRepository,
                 threadContentLoadUseCase = threadContentLoadUseCase,
-                ownPostReconciliationUseCase = ownPostReconciliationUseCase,
                 threadVisiblePostsUseCase = threadVisiblePostsUseCase,
                 logger = logger,
             )

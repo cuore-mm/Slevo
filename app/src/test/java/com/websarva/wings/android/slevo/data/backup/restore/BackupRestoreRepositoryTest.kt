@@ -506,6 +506,9 @@ class BackupRestoreRepositoryTest {
         override fun observeIsRedirect5chNetToIoEnabled(): Flow<Boolean> = flowOf(false)
         override suspend fun getIsRedirect5chNetToIoEnabled(): Boolean = false
         override suspend fun setRedirect5chNetToIoEnabled(enabled: Boolean) {}
+        override fun observeIsReplyNotificationEnabled(): Flow<Boolean> = flowOf(false)
+        override suspend fun setReplyNotificationEnabled(enabled: Boolean) {}
+        override suspend fun getIsReplyNotificationEnabled(): Boolean = false
         override fun observeGestureSettings(): Flow<GestureSettings> =
             flowOf(GestureSettings.Companion.DEFAULT)
         override suspend fun setGestureEnabled(enabled: Boolean) {}

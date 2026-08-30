@@ -113,6 +113,7 @@ object SlevoPreferenceDataStores {
     internal val BODY_TEXT_SCALE_KEY = floatPreferencesKey("body_text_scale")
     internal val LINE_HEIGHT_KEY = floatPreferencesKey("line_height")
     internal val REDIRECT_5CH_NET_TO_IO_KEY = booleanPreferencesKey("redirect_5ch_net_to_io")
+    internal val REPLY_NOTIFICATION_ENABLED_KEY = booleanPreferencesKey("reply_notification_enabled")
     internal val GESTURE_ENABLED_KEY = booleanPreferencesKey("gesture_enabled")
     internal val GESTURE_SHOW_HINT_KEY = booleanPreferencesKey("gesture_show_action_hint")
     internal val GESTURE_ASSIGNMENTS_INITIALIZED_KEY =

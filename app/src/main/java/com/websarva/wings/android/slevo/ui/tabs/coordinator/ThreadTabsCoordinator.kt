@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.tabs.coordinator
 
 import com.websarva.wings.android.slevo.data.model.ThreadId
-import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.TabMutationResult
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
@@ -16,6 +15,8 @@ import com.websarva.wings.android.slevo.ui.tabs.controller.selectionAfterTabRemo
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionRuntimeState
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.util.parseBoardUrl
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshRequest
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -58,8 +59,7 @@ import javax.inject.Inject
 class ThreadTabsCoordinator @Inject constructor(
     private val tabsRepository: TabsRepository,
     private val threadBookmarkRepository: ThreadBookmarkRepository,
-    private val datRepository: DatRepository,
-    private val threadStateRepository: ThreadStateRepository,
+    private val threadRefreshUseCase: ThreadRefreshUseCase,
 ) {
     /**
      * 正常完了時に 100% の進捗を表示し続ける時間。
@@ -355,21 +355,18 @@ class ThreadTabsCoordinator @Inject constructor(
                 snapshotTabs.forEachIndexed { index, tab ->
                     // Guard: キャンセル済みなら即座に中断する。
                     currentCoroutineContext().ensureActive()
-                    val result = datRepository.getThread(tab.boardUrl, tab.threadKey)
-                    val latestResCount = result?.first?.size
-                    val isTabStillOpen = _openThreadTabs.value.any { it.id == tab.id }
-                    if (latestResCount != null && isTabStillOpen) {
-                        // 削除済みタブには反映せず、開いているタブのみ更新対象にする。
-                        // 取得済みの最新レス数を thread_states に保存する。
-                        val update = ThreadStateRepository.ThreadStateUpdate(
-                            threadId = tab.id,
-                            boardId = tab.boardId,
-                            boardUrl = tab.boardUrl,
-                            boardName = tab.boardName,
-                            title = tab.title,
-                            latestResCount = latestResCount,
+                    // Guard: 取得開始前に閉じられたタブは通信と取得後処理を行わない。
+                    if (_openThreadTabs.value.any { currentTab -> currentTab.id == tab.id }) {
+                        threadRefreshUseCase.refresh(
+                            ThreadRefreshRequest(
+                                threadId = tab.id,
+                                boardUrl = tab.boardUrl,
+                                boardId = tab.boardId,
+                                boardName = tab.boardName,
+                                threadKey = tab.threadKey,
+                                threadTitle = tab.title,
+                            ),
                         )
-                        threadStateRepository.saveThreadState(update)
                     }
                     _refreshProgress.update { progress ->
                         progress?.copy(completedCount = index + 1)

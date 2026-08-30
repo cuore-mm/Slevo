@@ -13,6 +13,7 @@ import com.websarva.wings.android.slevo.ui.tabs.coordinator.isThreadTabOperation
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -1370,8 +1371,7 @@ class ThreadTabsCoordinatorTest {
         return ThreadTabsCoordinator(
             tabsRepository = tabsRepository,
             threadBookmarkRepository = bookmarkRepository,
-            datRepository = mockk<DatRepository>(relaxed = true),
-            threadStateRepository = mockk<ThreadStateRepository>(relaxed = true),
+            threadRefreshUseCase = mockk<ThreadRefreshUseCase>(relaxed = true),
         )
     }
 

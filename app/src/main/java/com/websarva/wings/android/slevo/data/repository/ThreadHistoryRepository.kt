@@ -42,6 +42,9 @@ class ThreadHistoryRepository @Inject constructor(
         return dao.findByBoard(boardUrl).associate { it.threadId.threadKey to it.resCount }
     }
 
+    /** 指定スレッドの閲覧履歴を一度だけ取得する。 */
+    suspend fun getHistory(threadId: ThreadId): ThreadHistoryEntity? = dao.find(threadId)
+
     suspend fun deleteHistories(threadIds: Collection<ThreadId>) {
         gate.withWritePermit {
             threadIds.forEach { dao.delete(it) }

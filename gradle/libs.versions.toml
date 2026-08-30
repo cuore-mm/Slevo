@@ -45,6 +45,7 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 androidx-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-navigation-testing = { module = "androidx.navigation:navigation-testing", version.ref = "navigationTesting" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
