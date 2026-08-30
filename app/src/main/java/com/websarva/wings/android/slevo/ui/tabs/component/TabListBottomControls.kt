@@ -69,6 +69,8 @@ internal fun TabListBottomControls(
     hazeState: HazeState,
     isRefreshing: Boolean,
     isSearchMode: Boolean,
+    isSelectionMode: Boolean = false,
+    selectedTabCount: Int = 0,
     refreshProgress: ThreadTabRefreshProgress?,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -108,7 +110,7 @@ internal fun TabListBottomControls(
             verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         ) {
             AnimatedVisibility(
-                visible = !isSearchMode,
+                visible = !isSearchMode && !isSelectionMode,
                 enter = fadeIn(
                     animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
                 ),
@@ -131,10 +133,35 @@ internal fun TabListBottomControls(
                     onCancelRefreshClick = onCancelRefreshClick,
                 )
             }
-            TabListRefreshProgressSlot(
-                isVisible = isRefreshing,
-                progress = indicatorProgress,
-            )
+            AnimatedVisibility(
+                visible = !isSearchMode && !isSelectionMode,
+                enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+            ) {
+                TabListRefreshProgressSlot(
+                    isVisible = isRefreshing,
+                    progress = indicatorProgress,
+                )
+            }
+            AnimatedVisibility(
+                visible = isSelectionMode,
+                enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(TabListLayoutDefaults.bottomProgressHeight),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.tab_selection_count, selectedTabCount),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
         }
     }
 }
@@ -331,6 +358,8 @@ private fun TabListBottomControlsBoardPreview() {
         hazeState = hazeState,
         isRefreshing = false,
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -354,6 +383,8 @@ private fun TabListBottomControlsThreadPreview() {
         hazeState = hazeState,
         isRefreshing = false,
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -377,6 +408,8 @@ private fun TabListBottomControlsRefreshingPreview() {
         hazeState = hazeState,
         isRefreshing = true,
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         refreshProgress = ThreadTabRefreshProgress(
             completedCount = 3,
             totalCount = 8,

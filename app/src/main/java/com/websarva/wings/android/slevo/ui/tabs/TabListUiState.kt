@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.tabs
 
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.text.input.TextFieldValue
+import com.websarva.wings.android.slevo.data.model.TabPage
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 
@@ -19,6 +21,9 @@ data class TabListUiState(
     val selectedBoardTab: BoardTabInfo? = null,
     val selectedThreadTab: ThreadTabInfo? = null,
     val selectedTabBounds: IntRect? = null,
+    val selectionModePage: TabPage? = null,
+    val selectedBoardTabKeys: Set<String> = emptySet(),
+    val selectedThreadTabIds: Set<ThreadId> = emptySet(),
     val isBulkCloseMenuVisible: Boolean = false,
     val bulkCloseMenuBounds: IntRect? = null,
     val removingBoardTabKeys: Set<String> = emptySet(),
@@ -40,9 +45,16 @@ data class TabListUiState(
     val isInLongPressSelectionMode: Boolean
         get() = selectedBoardTab != null || selectedThreadTab != null
 
+    val isInSelectionMode: Boolean
+        get() = selectionModePage != null
+
+    val selectedTabCount: Int
+        get() = selectedBoardTabKeys.size + selectedThreadTabIds.size
+
     /** 長押しPreviewまたはreorder draft中に、親scrollと横スワイプを止めるかを表す。 */
     val isTabGestureLocked: Boolean
-        get() = isInLongPressSelectionMode || boardReorderDraft != null || threadReorderDraft != null
+        get() = isInLongPressSelectionMode || isInSelectionMode ||
+            boardReorderDraft != null || threadReorderDraft != null
 }
 
 /**

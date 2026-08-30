@@ -26,9 +26,11 @@ fun TabActionButton(
     contentDescription: String,
     onClick: () -> Unit,
     tint: Color = MaterialTheme.colorScheme.primary,
+    enabled: Boolean = true,
 ) {
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier.size(TabListLayoutDefaults.bottomControlHeight),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),

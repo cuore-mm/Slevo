@@ -111,6 +111,10 @@ interface OpenThreadTabDao {
     @Query("UPDATE open_thread_tabs SET isPinned = :isPinned WHERE threadId = :threadId")
     suspend fun updatePinned(threadId: ThreadId, isPinned: Boolean): Int
 
+    /** 指定 threadId 文字列集合のタブだけの pin 列を更新し、更新行数を返す。 */
+    @Query("UPDATE open_thread_tabs SET isPinned = :isPinned WHERE threadId IN (:threadIds)")
+    suspend fun updatePinnedByThreadIds(threadIds: List<String>, isPinned: Boolean): Int
+
     @Query("DELETE FROM open_thread_tabs WHERE threadId NOT IN (:ids)")
     suspend fun deleteNotIn(ids: List<String>)
 

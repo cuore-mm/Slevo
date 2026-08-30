@@ -183,6 +183,21 @@ class TabsRepository @Inject constructor(
         }
     }.getOrElse(TabMutationResult::Failure)
 
+    /** 指定板タブ集合の pin 列だけを一つの transaction で更新する。 */
+    suspend fun setBoardTabsPinned(boardUrls: List<String>, isPinned: Boolean): TabMutationResult = runCatching {
+        val distinctUrls = boardUrls.distinct()
+        if (distinctUrls.isEmpty()) return@runCatching TabMutationResult.NoOp
+        gate.withWritePermit {
+            db.withTransaction {
+                var updatedCount = 0
+                distinctUrls.chunked(BULK_DELETE_CHUNK_SIZE).forEach { chunk ->
+                    updatedCount += boardDao.updatePinnedByBoardUrls(chunk, isPinned)
+                }
+                if (updatedCount == 0) TabMutationResult.NoOp else TabMutationResult.Success
+            }
+        }
+    }.getOrElse(TabMutationResult::Failure)
+
     /** Board の対象行のスクロール列だけを更新する。 */
     suspend fun updateBoardTabScrollPosition(
         boardUrl: String,
@@ -340,6 +355,19 @@ class TabsRepository @Inject constructor(
             val current = threadDao.getByThreadId(threadId) ?: return@withTransaction false
             if (current.isPinned == isPinned) return@withTransaction false
             threadDao.updatePinned(threadId, isPinned) > 0
+        }
+    }
+
+    /** 指定スレッドタブ集合の pin 列だけを一つの transaction で更新する。 */
+    suspend fun setThreadTabsPinned(threadIds: List<ThreadId>, isPinned: Boolean): Boolean = gate.withWritePermit {
+        val distinctIds = threadIds.distinctBy { it.value }
+        if (distinctIds.isEmpty()) return@withWritePermit false
+        db.withTransaction {
+            var updatedCount = 0
+            distinctIds.chunked(BULK_DELETE_CHUNK_SIZE).forEach { chunk ->
+                updatedCount += threadDao.updatePinnedByThreadIds(chunk.map { it.value }, isPinned)
+            }
+            updatedCount > 0
         }
     }
 

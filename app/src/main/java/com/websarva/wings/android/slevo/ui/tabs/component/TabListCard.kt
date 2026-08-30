@@ -5,6 +5,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
@@ -33,9 +34,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -69,6 +72,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -132,6 +137,9 @@ private object TabListCardDefaults {
         get() = trailingActionEndPadding +
                 trailingActionSize +
                 trailingActionContentSpacing
+
+    val selectionHeaderEndPadding: Dp
+        get() = trailingActionEndPadding + trailingActionSize * 2 + 4.dp + trailingActionContentSpacing
 }
 
 /**
@@ -164,6 +172,9 @@ internal fun TabListCard(
     onLongPressMoved: (Offset) -> Unit = {},
     onLongPressReleased: () -> Unit = {},
     isHiddenForSelection: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSelectedForSelectionMode: Boolean = false,
+    onSelectionToggle: () -> Unit = {},
     isPinned: Boolean = false,
     isRemoving: Boolean = false,
     headerTitle: String,
@@ -193,11 +204,29 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = TabListAnimationDefaults.DRAGGING_ALPHA_MILLIS),
         label = "tabDraggingAlpha",
     )
+    val cardColor by animateColorAsState(
+        targetValue = if (isSelectionMode && isSelectedForSelectionMode) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
+        label = "tabSelectionColor",
+    )
+    val bodyCardColor by animateColorAsState(
+        targetValue = if (isSelectionMode && isSelectedForSelectionMode) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
+        label = "tabSelectionBodyColor",
+    )
     val cardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Swipe-to-delete state ---
     val canHandleSwipeGesture =
-        isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
+        !isSelectionMode && isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
     val canDeleteBySwipe = canHandleSwipeGesture && !isPinned
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -393,7 +422,7 @@ internal fun TabListCard(
                 },
             shape = MaterialTheme.shapes.largeIncreased,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                containerColor = cardColor,
             ),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 1.dp,
@@ -409,7 +438,7 @@ internal fun TabListCard(
                     ),
             ) {
                 val hapticFeedback = LocalHapticFeedback.current
-                val detector = reorderHandle?.let {
+    val detector = reorderHandle?.takeUnless { isSelectionMode }?.let {
                     SlevoTabDragGestureDetector(
                         onLongPress = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -445,8 +474,19 @@ internal fun TabListCard(
                 } else {
                     Modifier
                 }
-                val gestureModifier = if (detector != null) {
-                    Modifier
+                val gestureModifier = when {
+                    isSelectionMode -> Modifier
+                        .clickable(
+                            enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
+                            interactionSource = cardInteractionSource,
+                            indication = null,
+                            onClick = onSelectionToggle,
+                        )
+                        .semantics {
+                            selected = isSelectedForSelectionMode
+                            stateDescription = if (isSelectedForSelectionMode) "選択済み" else "未選択"
+                        }
+                    detector != null -> Modifier
                         .clickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
                             interactionSource = cardInteractionSource,
@@ -455,8 +495,7 @@ internal fun TabListCard(
                         )
                         .then(reorderHandle(detector))
                         .then(accessibilityModifier)
-                } else {
-                    Modifier
+                    else -> Modifier
                         .combinedClickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
                             interactionSource = cardInteractionSource,
@@ -469,7 +508,7 @@ internal fun TabListCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(swipeGestureModifier)
+                        .then(if (isSelectionMode) Modifier else swipeGestureModifier)
                 ) {
                     Row(
                         modifier = gestureModifier
@@ -488,7 +527,11 @@ internal fun TabListCard(
                                     .heightIn(min = TabListCardDefaults.headerMinHeight)
                                     .padding(
                                         start = 8.dp,
-                                        end = TabListCardDefaults.headerEndPadding,
+                                        end = if (isSelectionMode && isPinned) {
+                                            TabListCardDefaults.selectionHeaderEndPadding
+                                        } else {
+                                            TabListCardDefaults.headerEndPadding
+                                        },
                                     ),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -560,7 +603,7 @@ internal fun TabListCard(
                                     .padding(horizontal = 2.dp),
                                 shape = MaterialTheme.shapes.largeIncreased,
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    containerColor = bodyCardColor,
                                 ),
                             ) {
                                 val bodyStyle = MaterialTheme.typography.bodyMedium
@@ -602,10 +645,60 @@ internal fun TabListCard(
                             top = TabListCardDefaults.trailingActionTopPadding,
                             end = TabListCardDefaults.trailingActionEndPadding,
                         )
-                        .size(TabListCardDefaults.trailingActionSize),
+                        .width(
+                            if (isSelectionMode && isPinned) {
+                                TabListCardDefaults.trailingActionSize * 2 + 4.dp
+                            } else {
+                                TabListCardDefaults.trailingActionSize
+                            }
+                        )
+                        .height(TabListCardDefaults.trailingActionSize),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (isPinned) {
+                    if (isSelectionMode) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (isPinned) {
+                                Icon(
+                                    imageVector = Icons.Default.PushPin,
+                                    contentDescription = stringResource(R.string.pinned),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        shape = CircleShape,
+                                    )
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = CircleShape,
+                                    )
+                                    .size(TabListCardDefaults.trailingActionSize),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelectedForSelectionMode) {
+                                        Icons.Default.Check
+                                    } else {
+                                        Icons.Outlined.Circle
+                                    },
+                                    contentDescription = if (isSelectedForSelectionMode) {
+                                        "選択済み"
+                                    } else {
+                                        "未選択"
+                                    },
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
+                                )
+                            }
+                        }
+                    } else if (isPinned) {
                         Icon(
                             imageVector = Icons.Default.PushPin,
                             contentDescription = stringResource(R.string.pinned),

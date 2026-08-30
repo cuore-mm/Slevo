@@ -257,6 +257,29 @@ class ThreadTabsCoordinator @Inject constructor(
         }
     }
 
+    /** 指定スレッドタブ集合の pin 状態を明示値へ揃える。 */
+    suspend fun setThreadTabsPinned(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
+        val threadIds = tabs.map { it.id }.distinctBy { it.value }
+        if (threadIds.isEmpty()) return
+        if (scope == null) {
+            _openThreadTabs.update { currentTabs ->
+                currentTabs.map { tab ->
+                    if (tab.id in threadIds) tab.copy(isPinned = isPinned) else tab
+                }
+            }
+            return
+        }
+        val operation = ThreadTabPendingOperation.BulkPin(threadIds, isPinned)
+        val completion = CompletableDeferred<Unit>()
+        commandQueue.send(ThreadTabMutationIntent.BulkPin(operation, completion))
+        try {
+            completion.await()
+        } catch (cancellationException: CancellationException) {
+            completion.cancel(cancellationException)
+            throw cancellationException
+        }
+    }
+
     /** スレッドタブの最終key順をpending projectionへ登録し、Room保存を開始する。 */
     fun reorderThreadTabs(threadIds: List<String>): Boolean {
         val distinctIds = threadIds.distinct()
@@ -540,6 +563,12 @@ class ThreadTabsCoordinator @Inject constructor(
             override val completion: CompletableDeferred<Unit>,
         ) : ThreadTabMutationIntent
 
+        /** 複数スレッドの固定列を一つの対象集合として変更する。 */
+        data class BulkPin(
+            val operation: ThreadTabPendingOperation.BulkPin,
+            override val completion: CompletableDeferred<Unit>,
+        ) : ThreadTabMutationIntent
+
         /** JOIN 済みの ThreadState 投影を 1 件更新する。 */
         data class Info(
             val tab: ThreadTabInfo,
@@ -565,7 +594,7 @@ class ThreadTabsCoordinator @Inject constructor(
                 awaitLoadedState()
                 // 呼び出し元のキャンセルと同時に準備が完了している可能性がある。
                 if (isIntentCancelled(intent)) continue
-                if (intent is ThreadTabMutationIntent.BulkDelete) {
+                if (intent is ThreadTabMutationIntent.BulkDelete || intent is ThreadTabMutationIntent.BulkPin) {
                     // Bulkは後続mutationを開始する前にcanonical確認まで完了させるbarrierとする。
                     processIntent(intent)
                 } else {
@@ -591,6 +620,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabMutationIntent.Delete -> processDelete(intent)
             is ThreadTabMutationIntent.BulkDelete -> processBulkDelete(intent)
             is ThreadTabMutationIntent.Pin -> processPin(intent)
+            is ThreadTabMutationIntent.BulkPin -> processBulkPin(intent)
             is ThreadTabMutationIntent.Info -> processInfo(intent)
             is ThreadTabMutationIntent.Reorder -> processReorder(intent.operation, intent.completion)
         }
@@ -692,6 +722,28 @@ class ThreadTabsCoordinator @Inject constructor(
                 _threadSessionStates.update { it - key }
                 _threadRuntimeStates.update { it - key }
             }
+            intent.completion.complete(Unit)
+        } catch (exception: Throwable) {
+            removePending(entry)
+            intent.completion.completeExceptionally(exception)
+        }
+    }
+
+    /** bulk pinを実行し、指定集合のRoom確認後にpendingを破棄する。 */
+    private suspend fun processBulkPin(intent: ThreadTabMutationIntent.BulkPin) {
+        val operation = intent.operation
+        val (entry, baselineVersion) = registerPending(operation)
+        try {
+            val changed = tabsRepository.setThreadTabsPinned(operation.threadIds, operation.isPinned)
+            if (changed) {
+                supersedeEarlierOperations(entry)
+                if (awaitConfirmation(entry, baselineVersion) == ThreadTabConfirmationResolution.Superseded) {
+                    removePending(entry)
+                    intent.completion.complete(Unit)
+                    return
+                }
+            }
+            removePending(entry)
             intent.completion.complete(Unit)
         } catch (exception: Throwable) {
             removePending(entry)
@@ -801,9 +853,11 @@ class ThreadTabsCoordinator @Inject constructor(
         later: ThreadTabPendingOperation,
         earlier: ThreadTabPendingOperation,
     ): Boolean = when (later) {
-        is ThreadTabPendingOperation.Pin -> earlier is ThreadTabPendingOperation.Pin
+        is ThreadTabPendingOperation.Pin -> earlier is ThreadTabPendingOperation.Pin ||
+            earlier is ThreadTabPendingOperation.BulkPin
         is ThreadTabPendingOperation.Delete -> earlier is ThreadTabPendingOperation.Ensure ||
             earlier is ThreadTabPendingOperation.Pin ||
+            earlier is ThreadTabPendingOperation.BulkPin ||
             earlier is ThreadTabPendingOperation.Info ||
             earlier is ThreadTabPendingOperation.Reorder
             is ThreadTabPendingOperation.BulkDelete -> earlier is ThreadTabPendingOperation.Ensure ||
@@ -811,7 +865,10 @@ class ThreadTabsCoordinator @Inject constructor(
             earlier is ThreadTabPendingOperation.Info ||
             earlier is ThreadTabPendingOperation.Delete ||
             earlier is ThreadTabPendingOperation.BulkDelete ||
+            earlier is ThreadTabPendingOperation.BulkPin ||
             earlier is ThreadTabPendingOperation.Reorder
+        is ThreadTabPendingOperation.BulkPin -> earlier is ThreadTabPendingOperation.Pin ||
+            earlier is ThreadTabPendingOperation.BulkPin
         is ThreadTabPendingOperation.Ensure -> earlier is ThreadTabPendingOperation.Delete
         is ThreadTabPendingOperation.Info -> false
         is ThreadTabPendingOperation.Reorder -> earlier is ThreadTabPendingOperation.Reorder
@@ -930,6 +987,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabPendingOperation.Delete -> threadId.value
             is ThreadTabPendingOperation.BulkDelete -> requestedSelection
             is ThreadTabPendingOperation.Pin -> threadId.value
+            is ThreadTabPendingOperation.BulkPin -> null
             is ThreadTabPendingOperation.Info -> tab.id.value
             is ThreadTabPendingOperation.Reorder -> null
         }
@@ -941,6 +999,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabPendingOperation.Delete -> setOf(threadId)
             is ThreadTabPendingOperation.BulkDelete -> threadIds.toSet()
             is ThreadTabPendingOperation.Pin -> setOf(threadId)
+            is ThreadTabPendingOperation.BulkPin -> threadIds.toSet()
             is ThreadTabPendingOperation.Info -> setOf(tab.id)
             is ThreadTabPendingOperation.Reorder -> threadIds.toSet()
         }
@@ -964,6 +1023,7 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabMutationIntent.Delete -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.BulkDelete -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Pin -> intent.completion.completeExceptionally(exception)
+            is ThreadTabMutationIntent.BulkPin -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Info -> intent.completion.completeExceptionally(exception)
             is ThreadTabMutationIntent.Reorder -> intent.completion.completeExceptionally(exception)
         }
@@ -973,8 +1033,9 @@ class ThreadTabsCoordinator @Inject constructor(
     private fun isIntentCancelled(intent: ThreadTabMutationIntent): Boolean = when (intent) {
         is ThreadTabMutationIntent.Ensure -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Delete -> intent.completion.isCancelled
-        is ThreadTabMutationIntent.BulkDelete -> intent.completion.isCancelled
-        is ThreadTabMutationIntent.Pin -> intent.completion.isCancelled
+            is ThreadTabMutationIntent.BulkDelete -> intent.completion.isCancelled
+            is ThreadTabMutationIntent.Pin -> intent.completion.isCancelled
+            is ThreadTabMutationIntent.BulkPin -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Info -> intent.completion.isCancelled
         is ThreadTabMutationIntent.Reorder -> intent.completion.isCancelled
     }

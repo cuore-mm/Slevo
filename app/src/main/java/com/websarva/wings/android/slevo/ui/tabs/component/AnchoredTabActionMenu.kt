@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
@@ -51,6 +52,7 @@ fun AnchoredTabActionMenu(
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
+    onSelectClick: () -> Unit = {},
 ) {
     val iconSize = 20.dp
 
@@ -113,6 +115,19 @@ fun AnchoredTabActionMenu(
             onClick = onPinClick,
         )
         AnchoredOverlayMenuItem(
+            text = stringResource(R.string.tab_action_select),
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = onSurfaceColor,
+                    modifier = Modifier.size(iconSize),
+                )
+            },
+            enabled = interactive,
+            onClick = onSelectClick,
+        )
+        AnchoredOverlayMenuItem(
             text = stringResource(R.string.tab_action_close),
             textColor = errorColor,
             leadingIcon = {
@@ -142,6 +157,12 @@ fun AnchoredTabActionMenu(
     hazeState: HazeState?,
     onDismissRequest: () -> Unit,
     onCloseAllClick: () -> Unit,
+    isSelectionMode: Boolean = false,
+    selectedTabCount: Int = 0,
+    allSelectedPinned: Boolean = false,
+    onSelectClick: () -> Unit = {},
+    onCloseSelectedClick: () -> Unit = {},
+    onPinSelectedClick: () -> Unit = {},
 ) {
     AnchoredOverlayMenu(
         expanded = expanded,
@@ -152,19 +173,63 @@ fun AnchoredTabActionMenu(
         verticalSpacing = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {
-        AnchoredOverlayMenuItem(
-            text = stringResource(R.string.tab_action_close_all),
-            textColor = MaterialTheme.colorScheme.error,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp),
-                )
-            },
-            onClick = onCloseAllClick,
-        )
+        if (isSelectionMode) {
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_close),
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                enabled = selectedTabCount > 0,
+                onClick = onCloseSelectedClick,
+            )
+            AnchoredOverlayMenuItem(
+                text = stringResource(
+                    if (allSelectedPinned) R.string.tab_action_unpin else R.string.tab_action_pin,
+                ),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.PushPin,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                enabled = selectedTabCount > 0,
+                onClick = onPinSelectedClick,
+            )
+        } else {
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_close_all),
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = onCloseAllClick,
+            )
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_select),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = onSelectClick,
+            )
+        }
     }
 }
 

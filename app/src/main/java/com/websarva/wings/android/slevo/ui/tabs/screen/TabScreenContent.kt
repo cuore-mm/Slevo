@@ -124,6 +124,17 @@ fun TabScreenContent(
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
     val displayedBoardTabs = applyReorderDraft(openBoardTabs, listUiState.boardReorderDraft, BoardTabInfo::boardUrl)
     val displayedThreadTabs = applyReorderDraft(openThreadTabs, listUiState.threadReorderDraft) { it.id.value }
+    val isSelectionMode = listUiState.isInSelectionMode
+    val selectionPage = listUiState.selectionModePage
+    val allSelectedPinned = when (selectionPage) {
+        TabPage.BOARD -> openBoardTabs
+            .filter { it.boardUrl in listUiState.selectedBoardTabKeys }
+            .let { tabs -> tabs.isNotEmpty() && tabs.all { it.isPinned } }
+        TabPage.THREAD -> openThreadTabs
+            .filter { it.id in listUiState.selectedThreadTabIds }
+            .let { tabs -> tabs.isNotEmpty() && tabs.all { it.isPinned } }
+        null -> false
+    }
 
     // --- Removal state cleanup ---
     LaunchedEffect(openBoardTabs, listUiState.removingBoardTabKeys) {
@@ -133,6 +144,12 @@ fun TabScreenContent(
     LaunchedEffect(openThreadTabs, listUiState.removingThreadTabKeys) {
         val activeKeys = openThreadTabs.map { it.id.value }.toSet()
         tabListViewModel.clearThreadRemovalKeys(listUiState.removingThreadTabKeys - activeKeys)
+    }
+    LaunchedEffect(openBoardTabs, openThreadTabs) {
+        tabListViewModel.pruneSelection(
+            boardUrls = openBoardTabs.map(BoardTabInfo::boardUrl).toSet(),
+            threadIds = openThreadTabs.map(ThreadTabInfo::id).toSet(),
+        )
     }
     // --- Preview offset cleanup ---
     LaunchedEffect(listUiState.isInLongPressSelectionMode) {
@@ -202,7 +219,7 @@ fun TabScreenContent(
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
-            tabListViewModel.onPageChanged()
+            tabListViewModel.onPageChanged(page)
             onPageChanged(page)
         }
     }
@@ -211,6 +228,10 @@ fun TabScreenContent(
     if (isSearchMode) {
         BackHandler {
             exitSearchMode()
+        }
+    } else if (isSelectionMode) {
+        BackHandler {
+            tabListViewModel.exitSelectionMode()
         }
     }
 
@@ -261,10 +282,15 @@ fun TabScreenContent(
                          openThreadTabs = displayedThreadTabs,
                         filteredThreadTabs = filteredThreadTabs,
                         newResCounts = newResCounts,
-                        selectedBoardTab = listUiState.selectedBoardTab,
-                        selectedThreadTab = listUiState.selectedThreadTab,
+                         selectedBoardTab = listUiState.selectedBoardTab,
+                         selectedThreadTab = listUiState.selectedThreadTab,
+                         isSelectionMode = isSelectionMode,
+                         selectedBoardTabKeys = listUiState.selectedBoardTabKeys,
+                         selectedThreadTabIds = listUiState.selectedThreadTabIds,
                         onCloseBoardTab = { tabListViewModel.startBoardTabRemoval(it) },
-                        onCloseThreadTab = { tabListViewModel.startThreadTabRemoval(it) },
+                         onCloseThreadTab = { tabListViewModel.startThreadTabRemoval(it) },
+                         onBoardTabSelectionToggle = { tabListViewModel.toggleBoardTabSelection(it) },
+                         onThreadTabSelectionToggle = { tabListViewModel.toggleThreadTabSelection(it) },
                         onSwipeDeleteBoardTab = { tabSessionStore.closeBoardTab(it) },
                         onSwipeDeleteThreadTab = createThreadTabCloseHandler(tabSessionStore),
                           onBoardTabLongPressed = { tab, bounds ->
@@ -319,7 +345,7 @@ fun TabScreenContent(
                         removingBoardTabKeys = listUiState.removingBoardTabKeys,
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,
                         tabSessionStore = tabSessionStore,
-                         isInLongPressSelectionMode = listUiState.isTabGestureLocked,
+                         isInLongPressSelectionMode = listUiState.isTabGestureLocked || isSelectionMode,
                         currentScreenRoute = currentScreenRoute,
                     )
                 }
@@ -334,6 +360,8 @@ fun TabScreenContent(
                 hazeState = hazeState,
                 isRefreshing = isRefreshing,
                 isSearchMode = isSearchMode,
+                isSelectionMode = isSelectionMode,
+                selectedTabCount = listUiState.selectedTabCount,
                 refreshProgress = refreshProgress,
                 onCreateTabClick = {
                     tabListViewModel.setUrlErrorMessage(null)
@@ -349,16 +377,19 @@ fun TabScreenContent(
                     .padding(top = innerPadding.calculateTopPadding()),
                 hazeState = hazeState,
                 isSearchMode = isSearchMode,
+                isSelectionMode = isSelectionMode,
+                selectedTabCount = listUiState.selectedTabCount,
                 searchInputValue = listUiState.searchInputValue,
                 searchFocusRequestId = listUiState.pendingSearchFocusRequestId,
                 onSearchClick = { enterSearchMode() },
-                onMoreClick = { bounds -> tabListViewModel.showBulkCloseMenu(bounds) },
+                 onMoreClick = { bounds -> tabListViewModel.showBulkCloseMenu(bounds) },
                 onSearchInputChange = { inputValue: TextFieldValue ->
                     tabListViewModel.updateSearchInput(inputValue, pagerState.currentPage)
                 },
                 onSearchFocusRequestConsumed = { tabListViewModel.consumePendingSearchFocusRequest() },
-                onCloseSearch = { exitSearchMode() },
-            )
+                 onCloseSearch = { exitSearchMode() },
+                 onBackFromSelection = { tabListViewModel.exitSelectionMode() },
+             )
 
             // --- Bulk close menu ---
             AnchoredTabActionMenu(
@@ -366,13 +397,27 @@ fun TabScreenContent(
                 anchorBoundsInWindow = listUiState.bulkCloseMenuBounds,
                 hazeState = hazeState,
                 onDismissRequest = { tabListViewModel.dismissBulkCloseMenu() },
-                onCloseAllClick = {
+                 onCloseAllClick = {
                     // Pager state is the source of truth for the page acted on by the menu.
                     TabPage.fromIndex(pagerState.currentPage)?.let {
                         tabListViewModel.closeAllUnpinnedTabs(it)
-                    }
-                },
-            )
+                     }
+                 },
+                 isSelectionMode = isSelectionMode,
+                 selectedTabCount = listUiState.selectedTabCount,
+                 allSelectedPinned = allSelectedPinned,
+                 onSelectClick = {
+                     TabPage.fromIndex(pagerState.currentPage)?.let { page ->
+                         tabListViewModel.startSelectionMode(page)
+                     }
+                 },
+                 onCloseSelectedClick = {
+                     selectionPage?.let(tabListViewModel::closeSelectedTabs)
+                 },
+                 onPinSelectedClick = {
+                     selectionPage?.let { tabListViewModel.setSelectedTabsPinned(it) }
+                 },
+             )
 
             // --- Long-press overlay layer ---
             TabLongPressOverlayLayer(
@@ -384,8 +429,22 @@ fun TabScreenContent(
                     tabListViewModel.cancelTabSelection()
                 },
                 onDetailClick = { tabListViewModel.openSelectedTabDetail() },
-                onPinClick = { tabListViewModel.toggleSelectedTabPin() },
-                onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
+                 onPinClick = { tabListViewModel.toggleSelectedTabPin() },
+                 onCloseClick = { tabListViewModel.requestCloseSelectedTab() },
+                 onSelectClick = {
+                     val selectedBoardTab = tabListViewModel.uiState.value.selectedBoardTab
+                     val selectedThreadTab = tabListViewModel.uiState.value.selectedThreadTab
+                     when {
+                         selectedBoardTab != null -> tabListViewModel.startSelectionMode(
+                             page = TabPage.BOARD,
+                             initialBoardUrl = selectedBoardTab.boardUrl,
+                         )
+                         selectedThreadTab != null -> tabListViewModel.startSelectionMode(
+                             page = TabPage.THREAD,
+                             initialThreadId = selectedThreadTab.id,
+                         )
+                     }
+                 },
                 isBackHandlerEnabled = !isSearchMode,
                 previewOffset = longPressPreviewOffset,
             )
@@ -521,6 +580,7 @@ private fun TabLongPressOverlayLayer(
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
+    onSelectClick: () -> Unit,
     isBackHandlerEnabled: Boolean,
     previewOffset: Offset,
 ) {
@@ -649,6 +709,7 @@ private fun TabLongPressOverlayLayer(
             onDetailClick = onDetailClick,
             onPinClick = onPinClick,
             onCloseClick = onCloseClick,
+            onSelectClick = onSelectClick,
         )
     }
 

@@ -38,6 +38,9 @@ fun OpenBoardsList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     selectedBoardTab: BoardTabInfo? = null,
+    isSelectionMode: Boolean = false,
+    selectedBoardTabKeys: Set<String> = emptySet(),
+    onBoardTabSelectionToggle: (String) -> Unit = {},
     removingKeys: Set<String> = emptySet(),
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     onBoardTabLongPressMoved: (Offset) -> Unit = {},
@@ -73,8 +76,15 @@ fun OpenBoardsList(
         OpenBoardCard(
             tab = tab,
             isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
+            isSelectionMode = isSelectionMode,
+            isSelectedForSelectionMode = tab.boardUrl in selectedBoardTabKeys,
+            onSelectionToggle = { onBoardTabSelectionToggle(tab.boardUrl) },
             onClick = {
                 if (isRemoving) return@OpenBoardCard
+                if (isSelectionMode) {
+                    onBoardTabSelectionToggle(tab.boardUrl)
+                    return@OpenBoardCard
+                }
                 closeDrawer()
                 val route = AppRoute.Board(
                     boardId = tab.boardId,
@@ -107,7 +117,7 @@ fun OpenBoardsList(
                 { onReorderAccessibilityMove(tab, 1) }
             } else null,
             isDragging = isDragging,
-            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
+            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenBoardCard
                 onSwipeDelete(tab)
@@ -128,6 +138,9 @@ fun OpenBoardsList(
 private fun OpenBoardCard(
     tab: BoardTabInfo,
     isSelected: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelectedForSelectionMode: Boolean = false,
+    onSelectionToggle: () -> Unit = {},
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
     onLongPressMoved: (Offset) -> Unit = {},
@@ -155,6 +168,9 @@ private fun OpenBoardCard(
         onLongPressMoved = onLongPressMoved,
         onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
+        isSelectionMode = isSelectionMode,
+        isSelectedForSelectionMode = isSelectedForSelectionMode,
+        onSelectionToggle = onSelectionToggle,
         isPinned = tab.isPinned,
         isRemoving = isRemoving,
         headerTitle = serviceName,

@@ -402,8 +402,18 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.togglePinBoardTab(boardUrl)
     }
 
+    /** 指定板タブ集合の pin 状態を明示値へ揃える。 */
+    fun setBoardTabsPinned(tabs: List<BoardTabInfo>, isPinned: Boolean) {
+        boardTabsCoordinator.setBoardTabsPinned(tabs, isPinned)
+    }
+
     suspend fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
         threadTabsCoordinator.togglePinThreadTab(threadId)
+    }
+
+    /** 指定スレッドタブ集合の pin 状態を明示値へ揃える。 */
+    suspend fun setThreadTabsPinned(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
+        threadTabsCoordinator.setThreadTabsPinned(tabs, isPinned)
     }
 
     // --- Per-tab session holders ---
