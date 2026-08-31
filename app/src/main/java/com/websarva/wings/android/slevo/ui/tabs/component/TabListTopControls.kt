@@ -52,7 +52,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TabListTopSearchArea(
+fun TabListTopControls(
     modifier: Modifier = Modifier,
     hazeState: HazeState,
     isSearchMode: Boolean,
@@ -214,8 +214,8 @@ private fun MoreButton(
 
 @Preview(showBackground = true)
 @Composable
-private fun SearchModeTrueFalse() {
-    TabListTopSearchArea(
+private fun TabListTopControlsDefaultPreview() {
+    TabListTopControls(
         hazeState = HazeState(),
         isSearchMode = false,
         isSelectionMode = false,
@@ -233,8 +233,8 @@ private fun SearchModeTrueFalse() {
 
 @Preview(showBackground = true)
 @Composable
-private fun SearchModeTruePreview() {
-    TabListTopSearchArea(
+private fun TabListTopControlsSearchPreview() {
+    TabListTopControls(
         hazeState = HazeState(),
         isSearchMode = true,
         isSelectionMode = false,

@@ -43,7 +43,7 @@ class TabBulkCloseMenuTest {
         var moreButtonBounds: IntRect? = null
         composeRule.setContent {
             SlevoTheme {
-                TabListTopSearchArea(
+                TabListTopControls(
                     hazeState = HazeState(),
                     isSearchMode = false,
                     searchInputValue = androidx.compose.ui.text.input.TextFieldValue(""),
@@ -71,7 +71,7 @@ class TabBulkCloseMenuTest {
     fun topSearchArea_hidesActionsInSearchMode() {
         composeRule.setContent {
             SlevoTheme {
-                TabListTopSearchArea(
+                TabListTopControls(
                     hazeState = HazeState(),
                     isSearchMode = true,
                     searchInputValue = androidx.compose.ui.text.input.TextFieldValue(""),

@@ -4,7 +4,7 @@
 
 タブ一覧の表示データは`TabSessionStore.openBoardTabs`／`openThreadTabs`から供給され、`TabScreenContent`が検索と並び替えdraftを反映して`TabsPagerContent`以下へ渡す。単体固定はCoordinatorのtoggle API、一括削除はBoard／Threadそれぞれの専用bulk commandから`TabsRepository`のtransactional deleteへ流れる。複数対象の固定状態を明示値へ揃えるbulk APIは存在しない。
 
-上部検索UIは`TabListTopSearchArea`の外側で検索欄をスライド＋フェード表示し、非検索時の操作列をフェード表示する。検索UIの既存アニメーションは維持する。通常／選択操作の切り替えだけをフェードにする。
+上部操作UIは`TabListTopControls`の外側で検索欄をスライド＋フェード表示し、非検索時の操作列をフェード表示する。検索UIの既存アニメーションは維持する。通常／選択操作の切り替えだけをフェードにする。
 
 ## Goals / Non-Goals
 
@@ -76,7 +76,7 @@
 
 ### 5. 検索アニメーションを外側に残して通常／選択操作だけをフェードする
 
-`TabListTopSearchArea`の`isSearchMode`用`AnimatedVisibility`（スライド＋フェード）はそのまま残す。`!isSearchMode`側の内容を通常操作列と選択操作列を重ねる`Box`にし、両者を`fadeIn`／`fadeOut`で切り替える。
+`TabListTopControls`の`isSearchMode`用`AnimatedVisibility`（スライド＋フェード）はそのまま残す。`!isSearchMode`側の内容を通常操作列と選択操作列を重ねる`Box`にし、両者を`fadeIn`／`fadeOut`で切り替える。
 
 選択操作列は左にBack、右に検索とその他を配置する。その他ボタンは選択0件で`enabled=false`とし、無効状態を色／alphaとsemanticsで判別できるようにする。アンカーboundsは通常メニューと選択メニューで混同しない。
 
@@ -118,7 +118,7 @@ Room DAOには対象ID集合の固定状態を更新するqueryを追加する�
 1. `TabListUiState`の長押し単一対象フィールドを削除・改名せず、複数選択フィールドを別に追加する。
 2. `TabListViewModel.enterSearchMode()`／`closeSearchMode()`は複数選択集合を変更しない。長押しoverlayとreorder draftの解除は維持する。
 3. 選択対象の照合は検索結果ではなく`TabSessionStore`の公開全一覧を使い、Boardは`boardUrl`、Threadは`ThreadId`で行う。
-4. `TabListTopSearchArea`の検索欄に対する既存スライド＋フェード指定を変更しない。通常操作列と選択操作列にだけフェード切り替えを追加する。
+4. `TabListTopControls`の検索欄に対する既存スライド＋フェード指定を変更しない。通常操作列と選択操作列にだけフェード切り替えを追加する。
 5. 選択モード中の固定カードでは、ピンを状態アイコンの左に同時表示する。ピンで空丸／チェックを置換しない。
 6. 選択中の一括クローズでは固定タブを除外しない。通常時の「全てのタブを閉じる」は引き続き未固定だけを対象にする。
 7. 一括固定／解除はtoggleのloopで実装せず、target pinned値を持つbulk commandとtransactional repository APIを追加する。
