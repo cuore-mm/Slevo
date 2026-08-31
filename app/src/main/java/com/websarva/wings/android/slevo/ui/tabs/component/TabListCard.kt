@@ -1,11 +1,11 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
@@ -33,8 +33,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -71,8 +71,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -212,15 +212,6 @@ internal fun TabListCard(
         },
         animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
         label = "tabSelectionColor",
-    )
-    val bodyCardColor by animateColorAsState(
-        targetValue = if (isSelectionMode && isSelectedForSelectionMode) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerLow
-        },
-        animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
-        label = "tabSelectionBodyColor",
     )
     val cardInteractionSource = remember { MutableInteractionSource() }
 
@@ -438,7 +429,7 @@ internal fun TabListCard(
                     ),
             ) {
                 val hapticFeedback = LocalHapticFeedback.current
-    val detector = reorderHandle?.takeUnless { isSelectionMode }?.let {
+                val detector = reorderHandle?.takeUnless { isSelectionMode }?.let {
                     SlevoTabDragGestureDetector(
                         onLongPress = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -484,8 +475,10 @@ internal fun TabListCard(
                         )
                         .semantics {
                             selected = isSelectedForSelectionMode
-                            stateDescription = if (isSelectedForSelectionMode) "選択済み" else "未選択"
+                            stateDescription =
+                                if (isSelectedForSelectionMode) "選択済み" else "未選択"
                         }
+
                     detector != null -> Modifier
                         .clickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
@@ -495,6 +488,7 @@ internal fun TabListCard(
                         )
                         .then(reorderHandle(detector))
                         .then(accessibilityModifier)
+
                     else -> Modifier
                         .combinedClickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
@@ -603,7 +597,7 @@ internal fun TabListCard(
                                     .padding(horizontal = 2.dp),
                                 shape = MaterialTheme.shapes.largeIncreased,
                                 colors = CardDefaults.cardColors(
-                                    containerColor = bodyCardColor,
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                                 ),
                             ) {
                                 val bodyStyle = MaterialTheme.typography.bodyMedium
