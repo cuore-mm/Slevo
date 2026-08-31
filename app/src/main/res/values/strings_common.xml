@@ -32,4 +32,6 @@
     <string name="tab_action_close_all">全てのタブを閉じる</string>
     <string name="tab_action_select">タブを選択</string>
     <string name="tab_selection_count">%1$d個選択中</string>
+    <string name="tab_selected">選択済み</string>
+    <string name="tab_unselected">未選択</string>
 </resources>

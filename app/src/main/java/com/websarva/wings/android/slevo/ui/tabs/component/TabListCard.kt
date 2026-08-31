@@ -204,6 +204,9 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = TabListAnimationDefaults.DRAGGING_ALPHA_MILLIS),
         label = "tabDraggingAlpha",
     )
+    val selectionDescription = stringResource(
+        if (isSelectedForSelectionMode) R.string.tab_selected else R.string.tab_unselected,
+    )
     val cardColor by animateColorAsState(
         targetValue = if (isSelectionMode && isSelectedForSelectionMode) {
             MaterialTheme.colorScheme.primaryContainer
@@ -475,8 +478,7 @@ internal fun TabListCard(
                         )
                         .semantics {
                             selected = isSelectedForSelectionMode
-                            stateDescription =
-                                if (isSelectedForSelectionMode) "選択済み" else "未選択"
+                            stateDescription = selectionDescription
                         }
 
                     detector != null -> Modifier
@@ -682,11 +684,7 @@ internal fun TabListCard(
                                     } else {
                                         Icons.Outlined.Circle
                                     },
-                                    contentDescription = if (isSelectedForSelectionMode) {
-                                        "選択済み"
-                                    } else {
-                                        "未選択"
-                                    },
+                                    contentDescription = selectionDescription,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
                                 )
