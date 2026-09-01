@@ -151,7 +151,8 @@ internal fun TabListBottomControls(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(TabListLayoutDefaults.bottomProgressHeight),
+                        // 選択数は進捗線ではなく、通常操作行と同じ高さで表示する。
+                        .height(TabListLayoutDefaults.bottomControlHeight),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
