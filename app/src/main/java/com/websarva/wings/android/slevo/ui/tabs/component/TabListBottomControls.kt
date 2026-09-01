@@ -110,57 +110,70 @@ internal fun TabListBottomControls(
             verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         ) {
             AnimatedVisibility(
-                visible = !isSearchMode && !isSelectionMode,
-                enter = fadeIn(
-                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
-                ),
-            ) {
-                TabListInlineSection(
-                    modifier = Modifier.padding(horizontal = TabListLayoutDefaults.controlsHorizontalPadding),
-                    selectedIndex = pagerState.currentPage,
-                    isBoardPage = isBoardPage,
-                    isRefreshing = isRefreshing,
-                    onSelect = { index ->
-                        if (pagerState.currentPage != index) {
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                        }
-                    },
-                    onCreateTabClick = onCreateTabClick,
-                    onRefreshClick = onRefreshClick,
-                    onCancelRefreshClick = onCancelRefreshClick,
-                )
-            }
-            AnimatedVisibility(
-                visible = !isSearchMode && !isSelectionMode,
-                enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
-                exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
-            ) {
-                TabListRefreshProgressSlot(
-                    isVisible = isRefreshing,
-                    progress = indicatorProgress,
-                )
-            }
-            AnimatedVisibility(
-                visible = isSelectionMode,
+                visible = !isSearchMode || isSelectionMode,
                 enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
                 exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // 選択数は進捗線ではなく、通常操作行と同じ高さで表示する。
-                        .height(TabListLayoutDefaults.bottomControlHeight),
-                    contentAlignment = Alignment.Center,
+                        .height(TabListLayoutDefaults.bottomContentHeight),
                 ) {
-                    Text(
-                        text = stringResource(R.string.tab_selection_count, selectedTabCount),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    // 通常操作と選択数表示を同じフットプリントに重ね、切り替え時の上下移動を防ぐ。
+                    AnimatedVisibility(
+                        modifier = Modifier.matchParentSize(),
+                        visible = !isSearchMode && !isSelectionMode,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
+                        ) {
+                            TabListInlineSection(
+                                modifier = Modifier.padding(horizontal = TabListLayoutDefaults.controlsHorizontalPadding),
+                                selectedIndex = pagerState.currentPage,
+                                isBoardPage = isBoardPage,
+                                isRefreshing = isRefreshing,
+                                onSelect = { index ->
+                                    if (pagerState.currentPage != index) {
+                                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                    }
+                                },
+                                onCreateTabClick = onCreateTabClick,
+                                onRefreshClick = onRefreshClick,
+                                onCancelRefreshClick = onCancelRefreshClick,
+                            )
+                            TabListRefreshProgressSlot(
+                                isVisible = isRefreshing,
+                                progress = indicatorProgress,
+                            )
+                        }
+                    }
+                    AnimatedVisibility(
+                        modifier = Modifier.matchParentSize(),
+                        visible = isSelectionMode,
+                        enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                        exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(TabListLayoutDefaults.bottomControlHeight),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tab_selection_count, selectedTabCount),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
                 }
             }
         }
