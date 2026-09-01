@@ -120,7 +120,7 @@ internal fun TabListBottomControls(
                         .height(TabListLayoutDefaults.bottomContentHeight),
                 ) {
                     // 通常操作と選択数表示を同じフットプリントに重ね、切り替え時の上下移動を防ぐ。
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         modifier = Modifier.matchParentSize(),
                         visible = !isSearchMode && !isSelectionMode,
                         enter = fadeIn(
@@ -154,7 +154,7 @@ internal fun TabListBottomControls(
                             )
                         }
                     }
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         modifier = Modifier.matchParentSize(),
                         visible = isSelectionMode,
                         enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
