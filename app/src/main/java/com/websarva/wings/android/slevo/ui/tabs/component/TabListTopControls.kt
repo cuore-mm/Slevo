@@ -129,8 +129,9 @@ fun TabListTopControls(
             enter = fadeIn(animationSpec = visibilityAnimationSpec),
             exit = fadeOut(animationSpec = visibilityAnimationSpec),
         ) {
-            Box {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 AnimatedVisibility(
+                    modifier = Modifier.align(Alignment.CenterEnd),
                     visible = !isSelectionMode,
                     enter = fadeIn(animationSpec = visibilityAnimationSpec),
                     exit = fadeOut(animationSpec = visibilityAnimationSpec),
