@@ -131,53 +131,31 @@ fun TabListTopControls(
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 AnimatedVisibility(
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                    visible = !isSelectionMode,
-                    enter = fadeIn(animationSpec = visibilityAnimationSpec),
-                    exit = fadeOut(animationSpec = visibilityAnimationSpec),
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TabActionButton(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = stringResource(R.string.search),
-                            onClick = onSearchClick,
-                        )
-                        MoreButton(
-                            moreButtonBounds = moreButtonBounds,
-                            enabled = true,
-                            onMoreClick = onMoreClick,
-                        )
-                    }
-                }
-                AnimatedVisibility(
+                    modifier = Modifier.align(Alignment.CenterStart),
                     visible = isSelectionMode,
                     enter = fadeIn(animationSpec = visibilityAnimationSpec),
                     exit = fadeOut(animationSpec = visibilityAnimationSpec),
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Box(modifier = Modifier.align(Alignment.CenterStart)) {
-                            TabActionButton(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.back),
-                                onClick = onBackFromSelection,
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.align(Alignment.CenterEnd),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            TabActionButton(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = stringResource(R.string.search),
-                                onClick = onSearchClick,
-                            )
-                            MoreButton(
-                                moreButtonBounds = moreButtonBounds,
-                                enabled = selectedTabCount > 0,
-                                onMoreClick = onMoreClick,
-                            )
-                        }
-                    }
+                    TabActionButton(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        onClick = onBackFromSelection,
+                    )
+                }
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TabActionButton(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = stringResource(R.string.search),
+                        onClick = onSearchClick,
+                    )
+                    MoreButton(
+                        moreButtonBounds = moreButtonBounds,
+                        enabled = !isSelectionMode || selectedTabCount > 0,
+                        onMoreClick = onMoreClick,
+                    )
                 }
             }
         }

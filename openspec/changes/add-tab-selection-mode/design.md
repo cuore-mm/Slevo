@@ -74,11 +74,11 @@
 
 空丸、チェック、ピンにはcontent descriptionまたはカードsemanticsを付け、選択済み状態はComposeの`selected` semanticsでも公開する。通常カードの固定ピン／閉じる表示は変更しない。
 
-### 5. 検索アニメーションを外側に残して通常／選択操作だけをフェードする
+### 5. 検索アニメーションを外側に残して選択固有操作だけをフェードする
 
-`TabListTopControls`の`isSearchMode`用`AnimatedVisibility`（スライド＋フェード）はそのまま残す。`!isSearchMode`側の内容を通常操作列と選択操作列を重ねる`Box`にし、両者を`fadeIn`／`fadeOut`で切り替える。
+`TabListTopControls`の`isSearchMode`用`AnimatedVisibility`（スライド＋フェード）はそのまま残す。`!isSearchMode`側は固定幅の`Box`にし、検索／その他ボタンの共通Rowを通常モードと選択モードで同じ位置に配置する。選択モード固有の戻るボタンだけを`fadeIn`／`fadeOut`で切り替える。
 
-選択操作列は左にBack、右に検索とその他を配置する。その他ボタンは選択0件で`enabled=false`とし、無効状態を色／alphaとsemanticsで判別できるようにする。アンカーboundsは通常メニューと選択メニューで混同しない。
+選択モードでは左にBackを表示し、右の検索／その他Rowは通常モードと共通利用する。その他ボタンは通常モードでは有効、選択モードでは選択0件の場合に`enabled=false`とし、無効状態を色／alphaとsemanticsで判別できるようにする。共通Rowのその他ボタンboundsを両モードのアンカーに利用し、メニュー種別はstateで分岐する。
 
 `TabListBottomControls`は次の表示条件へ変更する。
 
@@ -118,7 +118,7 @@ Room DAOには対象ID集合の固定状態を更新するqueryを追加する�
 1. `TabListUiState`の長押し単一対象フィールドを削除・改名せず、複数選択フィールドを別に追加する。
 2. `TabListViewModel.enterSearchMode()`／`closeSearchMode()`は複数選択集合を変更しない。長押しoverlayとreorder draftの解除は維持する。
 3. 選択対象の照合は検索結果ではなく`TabSessionStore`の公開全一覧を使い、Boardは`boardUrl`、Threadは`ThreadId`で行う。
-4. `TabListTopControls`の検索欄に対する既存スライド＋フェード指定を変更しない。通常操作列と選択操作列にだけフェード切り替えを追加する。
+4. `TabListTopControls`の検索欄に対する既存スライド＋フェード指定を変更しない。検索／その他ボタンは通常モードと選択モードで位置を変えず、選択モード固有の戻るボタンだけにフェード切り替えを適用する。
 5. 選択モード中の固定カードでは、ピンを状態アイコンの左に同時表示する。ピンで空丸／チェックを置換しない。
 6. 選択中の一括クローズでは固定タブを除外しない。通常時の「全てのタブを閉じる」は引き続き未固定だけを対象にする。
 7. 一括固定／解除はtoggleのloopで実装せず、target pinned値を持つbulk commandとtransactional repository APIを追加する。

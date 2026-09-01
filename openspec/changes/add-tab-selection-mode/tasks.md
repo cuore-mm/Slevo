@@ -32,7 +32,7 @@
 
 - [x] 5.1 `AnchoredTabActionMenu`と文字列resourceへ「タブを選択」を追加し、通常の右上メニューと長押しメニューの既存項目を維持したまま新項目が表示・通知されることをinstrumented testで検証する
 - [x] 5.2 選択モード専用メニューへ「タブを閉じる」と状態依存の「タブを固定」／「タブの固定を解除」を追加し、選択0件では右上その他ボタンが視覚的・操作上無効になることをinstrumented testで検証する
-- [x] 5.3 `TabListTopControls`へ左Back、右Search／Moreの選択操作列を追加し、通常列との切り替えだけがfadeで、既存検索欄のslide＋fade指定が維持されることをCompose testまたはanimation設定のテストで検証する
+- [x] 5.3 `TabListTopControls`へ選択モード時だけfade表示する左Backと、通常／選択モードで共通利用する右Search／Moreを追加し、Search／Moreの位置を変えず、既存検索欄のslide＋fade指定が維持されることをCompose testまたはanimation設定のテストで検証する
 - [x] 5.4 `TabListBottomControls`へ中央の「n個選択中」を追加し、通常操作は通常時のみ、検索のみでは両方非表示、選択および選択＋検索では件数表示となる4状態をCompose testで検証する
 - [x] 5.5 `TabScreenContent`で検索Backを選択Backより優先し、検索欄の戻る操作でも選択を維持するよう接続し、選択＋検索→選択→通常の順序をinstrumented testで検証する
 - [x] 5.6 `TabScreenContent`から選択メニュー、bulk close、bulk pin、canonical pruningを接続し、アクション後に選択モードを終了しない統合テストを追加する
