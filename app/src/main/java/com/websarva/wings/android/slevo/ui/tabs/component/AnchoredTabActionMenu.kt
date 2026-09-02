@@ -173,10 +173,20 @@ fun AnchoredTabActionMenu(
         verticalSpacing = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {
-        if (isSelectionMode) {
+        // メニューのexit中は表示開始時の項目を維持し、外部state更新で内容を差し替えない。
+        var displayedIsSelectionMode by remember { mutableStateOf(isSelectionMode) }
+        var displayedAllSelectedPinned by remember { mutableStateOf(allSelectedPinned) }
+        LaunchedEffect(expanded) {
+            if (expanded) {
+                displayedIsSelectionMode = isSelectionMode
+                displayedAllSelectedPinned = allSelectedPinned
+            }
+        }
+
+        if (displayedIsSelectionMode) {
             AnchoredOverlayMenuItem(
                 text = stringResource(
-                    if (allSelectedPinned) R.string.tab_action_unpin else R.string.tab_action_pin,
+                    if (displayedAllSelectedPinned) R.string.tab_action_unpin else R.string.tab_action_pin,
                 ),
                 leadingIcon = {
                     Icon(
