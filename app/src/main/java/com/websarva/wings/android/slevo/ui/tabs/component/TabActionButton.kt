@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -10,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,20 +31,39 @@ fun TabActionButton(
     tint: Color = MaterialTheme.colorScheme.primary,
     enabled: Boolean = true,
 ) {
+    val iconTint by animateColorAsState(
+        targetValue = if (enabled) {
+            tint
+        } else {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        },
+        animationSpec = tween(150),
+        label = "tabActionIconTint",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (enabled) {
+            MaterialTheme.colorScheme.outlineVariant
+        } else {
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)
+        },
+        animationSpec = tween(150),
+        label = "tabActionBorderColor",
+    )
+
     Surface(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.size(TabListLayoutDefaults.bottomControlHeight),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, borderColor),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 modifier = Modifier.size(TabListLayoutDefaults.bottomActionIconSize),
                 imageVector = imageVector,
                 contentDescription = contentDescription,
-                tint = tint,
+                tint = iconTint,
             )
         }
     }

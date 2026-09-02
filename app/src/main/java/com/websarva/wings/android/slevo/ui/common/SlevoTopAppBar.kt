@@ -1,8 +1,6 @@
 package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -11,10 +9,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
-import androidx.compose.ui.res.stringResource
+import com.websarva.wings.android.slevo.ui.icon.ArrowBackIosCentered
 
 /**
  * 設定系画面で使用する共通トップバーを表示する。
@@ -45,7 +44,7 @@ fun SlevoTopAppBar(
                     onClick = onNavigateUp,
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                        imageVector = ArrowBackIosCentered,
                         contentDescription = stringResource(R.string.back)
                     )
                 }

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
@@ -41,6 +40,7 @@ import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.ImageActionMenuGroup
 import com.websarva.wings.android.slevo.ui.common.ImageActionMenuState
 import com.websarva.wings.android.slevo.ui.common.VerticalAnchorAlignment
+import com.websarva.wings.android.slevo.ui.icon.ArrowBackIosCentered
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.sheet.ImageMenuAction
 import dev.chrisbanes.haze.HazeState
@@ -89,7 +89,7 @@ internal fun ImageViewerTopBar(
                     onClick = onNavigateUp,
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                        imageVector = ArrowBackIosCentered,
                         contentDescription = stringResource(R.string.back),
                     )
                 }

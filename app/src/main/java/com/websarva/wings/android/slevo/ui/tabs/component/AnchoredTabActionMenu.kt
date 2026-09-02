@@ -175,20 +175,6 @@ fun AnchoredTabActionMenu(
     ) {
         if (isSelectionMode) {
             AnchoredOverlayMenuItem(
-                text = stringResource(R.string.tab_action_close),
-                textColor = MaterialTheme.colorScheme.error,
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp),
-                    )
-                },
-                enabled = selectedTabCount > 0,
-                onClick = onCloseSelectedClick,
-            )
-            AnchoredOverlayMenuItem(
                 text = stringResource(
                     if (allSelectedPinned) R.string.tab_action_unpin else R.string.tab_action_pin,
                 ),
@@ -203,7 +189,33 @@ fun AnchoredTabActionMenu(
                 enabled = selectedTabCount > 0,
                 onClick = onPinSelectedClick,
             )
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_close),
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                enabled = selectedTabCount > 0,
+                onClick = onCloseSelectedClick,
+            )
         } else {
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_select),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = onSelectClick,
+            )
             AnchoredOverlayMenuItem(
                 text = stringResource(R.string.tab_action_close_all),
                 textColor = MaterialTheme.colorScheme.error,
@@ -216,18 +228,6 @@ fun AnchoredTabActionMenu(
                     )
                 },
                 onClick = onCloseAllClick,
-            )
-            AnchoredOverlayMenuItem(
-                text = stringResource(R.string.tab_action_select),
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp),
-                    )
-                },
-                onClick = onSelectClick,
             )
         }
     }

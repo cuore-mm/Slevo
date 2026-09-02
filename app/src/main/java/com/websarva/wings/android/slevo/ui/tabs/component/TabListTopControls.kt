@@ -10,12 +10,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SearchInputField
+import com.websarva.wings.android.slevo.ui.icon.ArrowBackIosCentered
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -92,8 +92,10 @@ fun TabListTopControls(
             ),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        val visibilityAnimationSpec = tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
-        val slideAnimationSpec = tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+        val visibilityAnimationSpec =
+            tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+        val slideAnimationSpec =
+            tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
 
         AnimatedVisibility(
             visible = isSearchMode,
@@ -137,7 +139,7 @@ fun TabListTopControls(
                     exit = fadeOut(animationSpec = visibilityAnimationSpec),
                 ) {
                     TabActionButton(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = ArrowBackIosCentered,
                         contentDescription = stringResource(R.string.back),
                         onClick = onBackFromSelection,
                     )
@@ -220,6 +222,25 @@ private fun TabListTopControlsSearchPreview() {
         selectedTabCount = 0,
         searchInputValue = TextFieldValue(""),
         searchFocusRequestId = 1L,
+        onSearchClick = {},
+        onMoreClick = {},
+        onSearchInputChange = {},
+        onSearchFocusRequestConsumed = {},
+        onCloseSearch = {},
+        onBackFromSelection = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TabListTopControlsSelectionPreview() {
+    TabListTopControls(
+        hazeState = HazeState(),
+        isSearchMode = false,
+        isSelectionMode = true,
+        selectedTabCount = 0,
+        searchInputValue = TextFieldValue(""),
+        searchFocusRequestId = null,
         onSearchClick = {},
         onMoreClick = {},
         onSearchInputChange = {},
