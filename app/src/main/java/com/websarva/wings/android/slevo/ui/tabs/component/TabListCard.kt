@@ -60,6 +60,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -209,7 +210,11 @@ internal fun TabListCard(
     )
     val cardColor by animateColorAsState(
         targetValue = if (isSelectionMode && isSelectedForSelectionMode) {
-            MaterialTheme.colorScheme.primaryContainer
+            lerp(
+                MaterialTheme.colorScheme.primaryContainer,
+                MaterialTheme.colorScheme.primary,
+                0.2f,
+            )
         } else {
             MaterialTheme.colorScheme.surfaceContainerHighest
         },
@@ -745,13 +750,29 @@ fun TabListCardPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun ColoredTabListCardPreview() {
+fun BookmarkedTabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
         bookmarkColor = MaterialTheme.colorScheme.primary,
         onClick = {},
         headerTitle = "example.com",
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 0),
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TabListCardSelectionPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        bookmarkColor = null,
+        onClick = {},
+        isSelectionMode = true,
+        isSelectedForSelectionMode = true,
+        headerTitle = "example.com",
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
         bodyTitle = "カードのタイトル",
         onCloseClick = {},
     )
