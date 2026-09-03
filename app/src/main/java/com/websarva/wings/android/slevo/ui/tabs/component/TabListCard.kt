@@ -686,7 +686,7 @@ internal fun TabListCard(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = selectionDescription,
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
+                                        modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize + 2.dp),
                                     )
                                 }
                             }
