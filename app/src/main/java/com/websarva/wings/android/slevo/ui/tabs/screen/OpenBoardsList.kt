@@ -18,10 +18,10 @@ import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelec
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
-import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
+import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import kotlinx.coroutines.launch
 
 /**
@@ -158,7 +158,7 @@ private fun OpenBoardCard(
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
-    val serviceName = tab.serviceName.ifBlank { extractServiceName(tab.boardUrl) }
+    val serviceName = tab.serviceName.ifBlank { parseServiceName(tab.boardUrl) }
 
     TabListCard(
         modifier = Modifier.padding(horizontal = 12.dp),

@@ -87,7 +87,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
-import java.net.URI
 import kotlin.math.abs
 
 /**
@@ -776,14 +775,4 @@ fun TabListCardSelectionPreview() {
         bodyTitle = "カードのタイトル",
         onCloseClick = {},
     )
-}
-
-/**
- * 板URLからサービス名に相当するホスト名を取り出す。
- */
-internal fun extractServiceName(boardUrl: String): String {
-    return runCatching { URI(boardUrl).host }
-        .getOrNull()
-        ?.takeIf { it.isNotBlank() }
-        ?: boardUrl // URL解析に失敗した場合はそのまま表示する。
 }

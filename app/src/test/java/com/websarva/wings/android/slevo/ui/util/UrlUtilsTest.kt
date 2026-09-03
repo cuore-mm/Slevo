@@ -39,4 +39,24 @@ class UrlUtilsTest {
 
         assertNull(info)
     }
+
+    /**
+     * URLから登録ドメイン形式のサービス名を抽出できることを確認する。
+     */
+    @Test
+    fun parseServiceName_extractsRegistrableDomain() {
+        val serviceName = parseServiceName("https://agree.5ch.net/operate/")
+
+        assertEquals("5ch.net", serviceName)
+    }
+
+    /**
+     * ホストを持たないURLでは空文字を返すことを確認する。
+     */
+    @Test
+    fun parseServiceName_returnsEmptyForInvalidUrl() {
+        val serviceName = parseServiceName("not a url")
+
+        assertEquals("", serviceName)
+    }
 }
