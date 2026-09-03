@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -682,16 +681,14 @@ internal fun TabListCard(
                                     .size(TabListCardDefaults.trailingActionSize),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    imageVector = if (isSelectedForSelectionMode) {
-                                        Icons.Default.Check
-                                    } else {
-                                        Icons.Outlined.Circle
-                                    },
-                                    contentDescription = selectionDescription,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
-                                )
+                                if (isSelectedForSelectionMode) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = selectionDescription,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
+                                    )
+                                }
                             }
                         }
                     } else if (isPinned) {
@@ -764,6 +761,21 @@ fun BookmarkedTabListCardPreview() {
 @Preview(showBackground = true)
 @Composable
 fun TabListCardSelectionPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        bookmarkColor = null,
+        onClick = {},
+        isSelectionMode = true,
+        headerTitle = "example.com",
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SelectedTabListCardSelectionPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
         bookmarkColor = null,
