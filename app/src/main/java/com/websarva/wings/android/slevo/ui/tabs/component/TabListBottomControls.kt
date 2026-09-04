@@ -181,12 +181,25 @@ internal fun TabListBottomControls(
                                 .height(TabListLayoutDefaults.bottomControlHeight),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = stringResource(R.string.tab_selection_count, displayedSelectedTabCount),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+                                        shape = MaterialTheme.shapes.extraLarge,
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.tab_selection_count,
+                                        displayedSelectedTabCount
+                                    ),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                 }
@@ -438,6 +451,34 @@ private fun TabListBottomControlsRefreshingPreview() {
         isRefreshing = true,
         isSearchMode = false,
         isSelectionMode = false,
+        selectedTabCount = 0,
+        refreshProgress = ThreadTabRefreshProgress(
+            completedCount = 3,
+            totalCount = 8,
+        ),
+        onCreateTabClick = {},
+        onRefreshClick = {},
+        onCancelRefreshClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TabListBottomControlsSelectionPreview() {
+    val pagerState = rememberPagerState(
+        initialPage = TabPage.THREAD.index,
+        pageCount = { TabPage.count },
+    )
+    val hazeState = rememberHazeState()
+    TabListBottomControls(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        pagerState = pagerState,
+        hazeState = hazeState,
+        isRefreshing = true,
+        isSearchMode = false,
+        isSelectionMode = true,
         selectedTabCount = 0,
         refreshProgress = ThreadTabRefreshProgress(
             completedCount = 3,
