@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -668,7 +667,7 @@ internal fun TabListCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     // --- Pinned state ---
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .padding(start = TabListCardDefaults.trailingActionInnerPadding),
@@ -695,7 +694,7 @@ internal fun TabListCard(
                     }
 
                     // --- Close action ---
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         modifier = Modifier.align(Alignment.Center),
                         visible = !isSelectionMode && !isPinned,
                         enter = fadeIn(
@@ -738,7 +737,7 @@ internal fun TabListCard(
                     }
 
                     // --- Selection state ---
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .padding(end = animatedSelectionActionEndPadding),
@@ -771,7 +770,7 @@ internal fun TabListCard(
                             contentAlignment = Alignment.Center,
                         ) {
                             // 外側の円形ボーダーを維持し、選択状態の変化はチェックだけで表現する。
-                            AnimatedVisibility(
+                            androidx.compose.animation.AnimatedVisibility(
                                 visible = isSelectedForSelectionMode,
                                 enter = fadeIn(
                                     animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
