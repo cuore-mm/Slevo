@@ -232,15 +232,9 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
         label = "tabTrailingActionWidth",
     )
-    val trailingActionProgress = (
-        (animatedTrailingActionWidth.value - TabListCardDefaults.trailingActionSize.value) /
-                (TabListCardDefaults.selectionTrailingActionWidth.value - TabListCardDefaults.trailingActionSize.value)
-        ).coerceIn(0f, 1f)
     val animatedHeaderEndPadding = TabListCardDefaults.trailingActionEndPadding +
             animatedTrailingActionWidth +
             TabListCardDefaults.trailingActionContentSpacing
-    val animatedSelectionActionEndPadding =
-        TabListCardDefaults.trailingActionInnerPadding * trailingActionProgress
     val cardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Swipe-to-delete state ---
@@ -738,9 +732,7 @@ internal fun TabListCard(
 
                     // --- Selection state ---
                     androidx.compose.animation.AnimatedVisibility(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(end = animatedSelectionActionEndPadding),
+                        modifier = Modifier.align(Alignment.CenterEnd),
                         visible = isSelectionMode,
                         enter = fadeIn(
                             animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
