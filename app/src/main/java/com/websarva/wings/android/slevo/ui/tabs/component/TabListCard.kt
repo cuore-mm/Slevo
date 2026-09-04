@@ -1,13 +1,19 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -128,17 +134,13 @@ private object TabListCardDefaults {
     val trailingActionTopPadding = 2.dp
     val trailingActionEndPadding = 8.dp
     val trailingActionContentSpacing = 8.dp
+    val trailingActionInnerPadding = 4.dp
 
     val headerMinHeight: Dp
         get() = trailingActionSize
 
-    val headerEndPadding: Dp
-        get() = trailingActionEndPadding +
-                trailingActionSize +
-                trailingActionContentSpacing
-
-    val selectionHeaderEndPadding: Dp
-        get() = trailingActionEndPadding + trailingActionSize * 2 + 4.dp + trailingActionContentSpacing
+    val selectionTrailingActionWidth: Dp
+        get() = trailingActionSize * 2 + trailingActionInnerPadding
 }
 
 /**
@@ -219,6 +221,27 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
         label = "tabSelectionColor",
     )
+
+    // --- Trailing action animation ---
+    val targetTrailingActionWidth = if (isSelectionMode && isPinned) {
+        TabListCardDefaults.selectionTrailingActionWidth
+    } else {
+        TabListCardDefaults.trailingActionSize
+    }
+    val animatedTrailingActionWidth by animateDpAsState(
+        targetValue = targetTrailingActionWidth,
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
+        label = "tabTrailingActionWidth",
+    )
+    val trailingActionProgress = (
+        (animatedTrailingActionWidth.value - TabListCardDefaults.trailingActionSize.value) /
+                (TabListCardDefaults.selectionTrailingActionWidth.value - TabListCardDefaults.trailingActionSize.value)
+        ).coerceIn(0f, 1f)
+    val animatedHeaderEndPadding = TabListCardDefaults.trailingActionEndPadding +
+            animatedTrailingActionWidth +
+            TabListCardDefaults.trailingActionContentSpacing
+    val animatedSelectionActionEndPadding =
+        TabListCardDefaults.trailingActionInnerPadding * trailingActionProgress
     val cardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Swipe-to-delete state ---
@@ -526,11 +549,7 @@ internal fun TabListCard(
                                     .heightIn(min = TabListCardDefaults.headerMinHeight)
                                     .padding(
                                         start = 8.dp,
-                                        end = if (isSelectionMode && isPinned) {
-                                            TabListCardDefaults.selectionHeaderEndPadding
-                                        } else {
-                                            TabListCardDefaults.headerEndPadding
-                                        },
+                                        end = animatedHeaderEndPadding,
                                     ),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -644,61 +663,54 @@ internal fun TabListCard(
                             top = TabListCardDefaults.trailingActionTopPadding,
                             end = TabListCardDefaults.trailingActionEndPadding,
                         )
-                        .width(
-                            if (isSelectionMode && isPinned) {
-                                TabListCardDefaults.trailingActionSize * 2 + 4.dp
-                            } else {
-                                TabListCardDefaults.trailingActionSize
-                            }
-                        )
+                        .width(animatedTrailingActionWidth)
                         .height(TabListCardDefaults.trailingActionSize),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (isSelectionMode) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (isPinned) {
-                                Icon(
-                                    imageVector = Icons.Default.PushPin,
-                                    contentDescription = stringResource(R.string.pinned),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .border(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.outlineVariant,
-                                        shape = CircleShape,
-                                    )
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        shape = CircleShape,
-                                    )
-                                    .size(TabListCardDefaults.trailingActionSize),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isSelectedForSelectionMode) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = selectionDescription,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize + 2.dp),
-                                    )
-                                }
-                            }
-                        }
-                    } else if (isPinned) {
+                    // --- Pinned state ---
+                    AnimatedVisibility(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = TabListCardDefaults.trailingActionInnerPadding),
+                        visible = isPinned,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            initialScale = 0.8f,
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            targetScale = 0.8f,
+                        ),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.PushPin,
                             contentDescription = stringResource(R.string.pinned),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
                         )
-                    } else {
+                    }
+
+                    // --- Close action ---
+                    AnimatedVisibility(
+                        modifier = Modifier.align(Alignment.Center),
+                        visible = !isSelectionMode && !isPinned,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            initialScale = 0.8f,
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            targetScale = 0.8f,
+                        ),
+                    ) {
                         IconButton(
                             enabled = !isRemoving && !isFlyingOut,
                             modifier = Modifier
@@ -722,6 +734,65 @@ internal fun TabListCard(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.close),
                             )
+                        }
+                    }
+
+                    // --- Selection state ---
+                    AnimatedVisibility(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = animatedSelectionActionEndPadding),
+                        visible = isSelectionMode,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            initialScale = 0.8f,
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            targetScale = 0.8f,
+                        ),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape,
+                                )
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape,
+                                )
+                                .size(TabListCardDefaults.trailingActionSize),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // 外側の円形ボーダーを維持し、選択状態の変化はチェックだけで表現する。
+                            AnimatedVisibility(
+                                visible = isSelectedForSelectionMode,
+                                enter = fadeIn(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                ) + scaleIn(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                    initialScale = 0.6f,
+                                ),
+                                exit = fadeOut(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                ) + scaleOut(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                    targetScale = 0.6f,
+                                ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = selectionDescription,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize + 2.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -782,6 +853,23 @@ fun SelectedTabListCardSelectionPreview() {
         onClick = {},
         isSelectionMode = true,
         isSelectedForSelectionMode = true,
+        headerTitle = "example.com",
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PinnedTabListCardSelectionPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        bookmarkColor = null,
+        onClick = {},
+        isSelectionMode = true,
+        isSelectedForSelectionMode = true,
+        isPinned = true,
         headerTitle = "example.com",
         headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
         bodyTitle = "カードのタイトル",

@@ -23,10 +23,11 @@
 ## 4. カード選択UIとジェスチャー制御
 
 - [x] 4.1 `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList`、`RemovableTabList`から`TabListCard`へ選択モード、選択済み、toggle callbackを伝播し、Previewがコンパイル・描画できることを確認する
-- [x] 4.2 `TabListCard`で未選択の空丸、選択済みのチェック、固定時の左側ピン、選択時`primaryContainer`を実装し、固定ピンと状態アイコンが同時表示されるCompose testを追加する
+- [x] 4.2 `TabListCard`で既存の円形ボーダーを未選択状態領域として維持し、選択済み時のチェック、固定時の左側ピン、選択時`primaryContainer`を実装し、固定ピンと状態領域が同時表示されるCompose testを追加する
 - [x] 4.3 `TabListCard`の選択モードclickを選択toggleへ切り替え、通常のタブ遷移とcloseを発火しないことをCompose testで検証する
 - [x] 4.4 選択モード中は長押しpointer input、reorder、横スワイプ削除を無効化し、haptic、メニュー、カードoffset、削除callbackが発生しないことをCompose testで検証する
 - [x] 4.5 カードへ選択済み／固定済みsemanticsとcontent descriptionを追加し、Compose semantics testで支援技術から両状態を識別できることを検証する
+- [x] 4.6 `TabListCard`の固定タブ右側領域を同じアニメーション進行度で移動させ、状態領域とチェックをfade＋scaleで切り替え、開始／終了／選択切り替えの中間フレームをCompose testで検証する
 
 ## 5. 上部・下部UIとメニュー
 

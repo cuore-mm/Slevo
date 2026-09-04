@@ -67,12 +67,15 @@
 
 - カードclickを通常遷移ではなく選択切り替えへ接続する。
 - `primaryContainer`と通常色を短いcolor animationで切り替える。
-- 右端に空丸／チェックを表示し、固定タブではその左に表示専用ピンを併記する。
+- 右端に円形ボーダーの状態領域を表示し、選択済みの場合だけその内側へチェックを表示する。固定タブでは状態領域の左に表示専用ピンを併記する。
+- 固定タブのヘッダー右側余白とtrailing領域幅を同じアニメーション値から導出し、レス数と固定ピンの左移動を同期する。状態領域とチェックはfade＋scaleで切り替え、サイズ展開による親レイアウトの跳ねを発生させない。
 - close button、長押しpointer input、reorder handle、横スワイプoffset処理を構成しない、またはenabled=falseにする。
 
 親でcallbackを空実装にするだけの案は採用しない。pointer detector自体を無効化し、長押しhaptic、カード移動、削除しきい値判定が起きないことを保証するためである。
 
-空丸、チェック、ピンにはcontent descriptionまたはカードsemanticsを付け、選択済み状態はComposeの`selected` semanticsでも公開する。通常カードの固定ピン／閉じる表示は変更しない。
+円形ボーダーの状態領域、チェック、ピンにはcontent descriptionまたはカードsemanticsを付け、選択済み状態はComposeの`selected` semanticsでも公開する。通常カードの固定ピン／閉じる表示は位置を維持し、表示切り替え時だけ短いfade＋scaleを適用する。
+
+固定タブの選択モード遷移では、最大幅のtrailing領域を基準にして、通常時の24dpから固定ピン併記時の52dpまで幅を補間する。ヘッダーのend paddingはこの幅から計算し、レス数・固定ピン・状態領域の位置関係を同じ進行度で更新する。状態領域の外側の円形ボーダーは選択モード中の未選択状態を表すため常設し、チェックだけを内側でfade＋scale表示する。
 
 ### 5. 検索アニメーションを外側に残して選択固有操作だけをフェードする
 
@@ -124,6 +127,7 @@ Room DAOには対象ID集合の固定状態を更新するqueryを追加する�
 7. 一括固定／解除はtoggleのloopで実装せず、target pinned値を持つbulk commandとtransactional repository APIを追加する。
 8. 一括アクション後は選択モード終了関数を呼ばない。削除されたkeyは公開一覧との差分で除去し、固定変更対象keyは維持する。
 9. 新規class／interfaceと非自明関数にはリポジトリ規約どおりKDocを付け、30行を超える関数は処理区分コメントで分割する。
+10. `TabListCard`の状態領域は空丸アイコンへ置き換えず、既存の円形ボーダーBoxを維持する。trailing領域の幅とヘッダーend paddingは同じアニメーション進行度から導出し、状態領域とチェックの出現／切り替えにはfade＋scaleを使う。
 
 ## Error Cases and Compatibility
 
