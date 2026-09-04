@@ -261,9 +261,9 @@ class TabListViewModelTest {
         assertFalse(viewModel.uiState.first().isInSelectionMode)
     }
 
-    /** 一括固定は表示順のsnapshotをtarget pinned値とともにStoreへ一度渡すことを確認する。 */
+    /** 一括固定後に選択集合だけをクリアし、選択モードを維持することを確認する。 */
     @Test
-    fun setSelectedTabsPinned_setsAllSelectedTabsToPinned() = runTest {
+    fun setSelectedTabsPinned_clearsBoardSelectionAndKeepsMode() = runTest {
         val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
         val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com", isPinned = true)
         openBoardTabs.value = listOf(first, second)
@@ -276,7 +276,35 @@ class TabListViewModelTest {
         verify {
             tabSessionStore.setBoardTabsPinned(listOf(first, second), true)
         }
-        assertTrue(viewModel.uiState.first().isInSelectionMode)
+        val state = viewModel.uiState.first()
+        assertTrue(state.isInSelectionMode)
+        assertTrue(state.selectedBoardTabKeys.isEmpty())
+        assertEquals(0, state.selectedTabCount)
+    }
+
+    /** 一括固定解除後にスレッドの選択集合だけをクリアし、選択モードを維持することを確認する。 */
+    @Test
+    fun setSelectedTabsPinned_clearsThreadSelectionAndKeepsMode() = runTest {
+        val tab = ThreadTabInfo(
+            id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "1"),
+            title = "Thread",
+            boardName = "board",
+            boardUrl = "https://example.com/board/",
+            boardId = 1L,
+            isPinned = true,
+        )
+        openThreadTabs.value = listOf(tab)
+
+        viewModel.startSelectionMode(TabPage.THREAD)
+        viewModel.toggleThreadTabSelection(tab.id)
+        viewModel.setSelectedTabsPinned(TabPage.THREAD)
+        runCurrent()
+
+        coVerify { tabSessionStore.setThreadTabsPinned(listOf(tab), false) }
+        val state = viewModel.uiState.first()
+        assertTrue(state.isInSelectionMode)
+        assertTrue(state.selectedThreadTabIds.isEmpty())
+        assertEquals(0, state.selectedTabCount)
     }
 
     /** 固定タブを含む選択対象を一覧順のsnapshotで一括closeし、選択モードを維持することを確認する。 */

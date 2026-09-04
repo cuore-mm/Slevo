@@ -472,6 +472,7 @@ class TabListViewModel @Inject constructor(
                 if (targets.isEmpty()) return
                 val shouldPin = targets.any { !it.isPinned }
                 tabSessionStore.setBoardTabsPinned(targets, shouldPin)
+                clearSelectedTabKeys()
             }
 
             TabPage.THREAD -> {
@@ -480,8 +481,21 @@ class TabListViewModel @Inject constructor(
                 }
                 if (targets.isEmpty()) return
                 val shouldPin = targets.any { !it.isPinned }
-                viewModelScope.launch { tabSessionStore.setThreadTabsPinned(targets, shouldPin) }
+                viewModelScope.launch {
+                    tabSessionStore.setThreadTabsPinned(targets, shouldPin)
+                    clearSelectedTabKeys()
+                }
             }
+        }
+    }
+
+    /** 一括固定または固定解除後に選択集合だけをクリアし、選択モードを維持する。 */
+    private fun clearSelectedTabKeys() {
+        uiStateMutable.update { state ->
+            state.copy(
+                selectedBoardTabKeys = emptySet(),
+                selectedThreadTabIds = emptySet(),
+            )
         }
     }
 
