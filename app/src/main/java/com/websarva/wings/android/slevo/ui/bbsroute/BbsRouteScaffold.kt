@@ -198,7 +198,12 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
 
         // PendingMissingではsettled pageを優先し、selection keyを直接表示に使わない。
         val settledPage = pagerState.settledPage
-        val settledTab = tabs.getOrNull(settledPage) ?: tabs.first()
+        val settledTab = tabs.getOrNull(settledPage)
+        if (settledTab == null) {
+            // タブ削除・並べ替え中の範囲外pageでは、別タブを暗黙に表示しない。
+            Box(modifier = Modifier.fillMaxSize())
+            return
+        }
         val settledUiState by getUiState(settledTab).collectAsState()
         val settledTabKey = getKey(settledTab)
         val settledProgress = actionProgressStates.getOrPut(settledTabKey) { mutableStateOf(1f) }
@@ -440,11 +445,13 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
             .clipToBounds(),
     ) {
         val pageDistance = pagerState.layoutInfo.pageSize.toFloat()
-        val firstPage = (pagerState.currentPage - 1).coerceAtLeast(0)
-        val lastPage = (pagerState.currentPage + 1).coerceAtMost(tabs.lastIndex)
+        val visiblePages = pagerTitlePageRange(
+            currentPage = pagerState.currentPage,
+            pageCount = tabs.size,
+        )
 
         // --- Page-specific title cards ---
-        for (page in firstPage..lastPage) {
+        for (page in visiblePages) {
             val tab = tabs[page]
             val uiState by getUiState(tab).collectAsState()
             val tabKey = getKey(tab)
@@ -469,4 +476,15 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
             }
         }
     }
+}
+
+/**
+ * 現在ページ前後のタイトルカードを描画する範囲へ制限する。
+ *
+ * page削除・reorder直後にPagerが一時的な範囲外indexを返した場合は空範囲を返し、先頭ページへ暗黙に戻さない。
+ */
+internal fun pagerTitlePageRange(currentPage: Int, pageCount: Int): IntRange {
+    if (pageCount <= 0 || currentPage !in 0 until pageCount) return 0 until 0
+
+    return (currentPage - 1).coerceAtLeast(0)..(currentPage + 1).coerceAtMost(pageCount - 1)
 }

@@ -12,12 +12,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.waitForIdle
 import org.junit.Rule
 import org.junit.Test
@@ -106,6 +108,92 @@ class BbsRouteScaffoldTest {
         composeRule.onNodeWithText("target").assertDoesNotExist()
     }
 
+    /** 現在ページを往復するdrag cancelでは隣接tabを選択通知しないことを確認する。 */
+    @Test
+    fun dragAwayAndBack_doesNotNotifyIntermediateSelection() {
+        var callbackCount = 0
+        composeRule.setContent {
+            PresentationHarness(
+                initialState = TabPresentationState(
+                    listOf("zero", "current", "last"),
+                    TabSelectionResolution.Selected("current"),
+                ),
+                onTabSelected = { callbackCount++ },
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("pager").performTouchInput {
+            val start = center
+            down(start)
+            moveTo(start + Offset(-size.width * 0.35f, 0f), durationMillis = 500)
+            moveTo(start, durationMillis = 500)
+            up()
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("current-current").assertExists()
+        assertEquals(0, callbackCount)
+    }
+
+    /** 選択中tabの削除中は先頭tabへ暗黙にfallbackせず、例外なく再構成できることを確認する。 */
+    @Test
+    fun removingSelectedTab_doesNotFallbackToFirstPage() {
+        lateinit var update: (TabPresentationState<String, String>) -> Unit
+        composeRule.setContent {
+            var state by remember {
+                mutableStateOf(
+                    TabPresentationState(
+                        listOf("zero", "current", "removed"),
+                        TabSelectionResolution.Selected("removed"),
+                    )
+                )
+            }
+            update = { state = it }
+            PresentationHarness(state, onTabSelected = {})
+        }
+        composeRule.waitForIdle()
+
+        update(
+            TabPresentationState(
+                listOf("zero", "current"),
+                TabSelectionResolution.PendingMissing("removed"),
+            )
+        )
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("current-zero").assertDoesNotExist()
+    }
+
+    /** tabを並べ替えた後も選択keyに対応するページを維持することを確認する。 */
+    @Test
+    fun reorderingTabs_preservesSelectedKey() {
+        lateinit var update: (TabPresentationState<String, String>) -> Unit
+        composeRule.setContent {
+            var state by remember {
+                mutableStateOf(
+                    TabPresentationState(
+                        listOf("first", "selected", "last"),
+                        TabSelectionResolution.Selected("selected"),
+                    )
+                )
+            }
+            update = { state = it }
+            PresentationHarness(state, onTabSelected = {})
+        }
+        composeRule.waitForIdle()
+
+        update(
+            TabPresentationState(
+                listOf("last", "selected", "first"),
+                TabSelectionResolution.Selected("selected"),
+            )
+        )
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("current-selected").assertExists()
+    }
+
     /** selection state を最小の Pager content へ投影するテスト用 composable。 */
     @Composable
     private fun PresentationHarness(
@@ -140,12 +228,21 @@ class BbsRouteScaffoldTest {
                     if (pagerState.settledPage != selectedPage) onTabSelected(tabs[pagerState.settledPage])
                 }
         }
-        HorizontalPager(state = pagerState, key = { tabs[it] }) { page ->
-            Box(Modifier.fillMaxSize().testTag("page-${tabs[page]}"))
+        HorizontalPager(
+            modifier = Modifier.fillMaxSize().testTag("pager"),
+            state = pagerState,
+            key = { tabs.getOrNull(it) ?: "out-of-range-$it" },
+        ) { page ->
+            tabs.getOrNull(page)?.let { tab ->
+                Box(Modifier.fillMaxSize().testTag("page-$tab"))
+            }
         }
-        Text(
-            text = tabs[pagerState.currentPage],
-            modifier = Modifier.testTag("current-${tabs[pagerState.currentPage]}"),
-        )
+        val currentPage = pagerState.currentPage.takeIf { it in tabs.indices }
+        if (currentPage != null) {
+            Text(
+                text = tabs[currentPage],
+                modifier = Modifier.testTag("current-${tabs[currentPage]}"),
+            )
+        }
     }
 }
