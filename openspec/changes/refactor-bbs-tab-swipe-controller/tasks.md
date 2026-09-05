@@ -18,6 +18,7 @@
 - [x] 3.3 `TabToolBar.kt` のツールバー全幅`LinearProgressIndicator`を削除し、各タイトル`Card`内の`Box`下端へCard幅のindicatorをoverlayする。縮退時の56dp高を増やさず、各カード自身の`isLoading`/`loadProgress`がカードと一緒に移動するテストを追加する。
 - [x] 3.4 タイトルviewportだけをclipし、Board右側「スレ」、Thread左側「板」、下段アクション群にはPager offsetを適用しない。途中dragとfling中も固定要素の画面座標が変化しないUIテストを追加する。
 - [x] 3.5 `ui/board/components/BoardToolBar.kt` を新設し、`BoardScaffold.kt` のBoard固有action構成とタイトル設定を専用adapterへ抽出する。`ThreadToolBar`と同じく共通`TabToolBar`へ委譲し、Board固有のPreviewと既存callbackの維持を確認する。
+- [x] 3.6 `TabToolBar`、`BoardToolBar`、`ThreadToolBar`の`titleCardContent`を必須`titleContent` slotへ整理する。静的タイトル用のnull fallbackと重複するタイトル・ブックマーク・更新・ロード進捗引数を削除し、各Previewは明示的なタイトルカードを渡す。
 
 ## 4. 下部コントローラーによるPager操作
 

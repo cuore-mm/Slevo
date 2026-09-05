@@ -44,17 +44,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
 /**
  * タブ型ボトムバーに並べる単体アクションの表示情報を保持する。
@@ -85,38 +81,43 @@ private val ExpandedTitleVerticalPadding = 0.dp
 /**
  * TabToolBar のレイアウト計算結果をまとめて保持する。
  *
- * 縮退率に応じた高さ・フォントサイズ・表示閾値を共有するために使う。
- * カード内外のアイコン枠幅もここでまとめて管理する。
+ * 縮退率に応じたバーの高さ、カード外アイコン枠、アクション行の移動量を保持する。
  */
 data class TabToolBarLayoutState(
     val clampedProgress: Float,
     val collapsedAlpha: Float,
     val expandedHeight: Dp,
     val sideSlotWidth: Dp,
+    val actionTranslationPx: Float,
+    val collapsedTranslationPx: Float,
+    val collapsedIconEnabled: Boolean,
+)
+
+/**
+ * タイトルカード内部の表示計算結果を保持する。
+ *
+ * カード内アクション枠、文字レイアウト、展開時の操作可否をToolbar本体から分離して管理する。
+ */
+private data class TabTitleCardLayoutState(
+    val clampedProgress: Float,
     val cardSideSlotWidth: Dp,
     val titleFontSize: TextUnit,
     val titleFontWeight: FontWeight,
     val titleMaxLines: Int,
     val titleHorizontalPadding: Dp,
     val titleVerticalPadding: Dp,
-    val actionTranslationPx: Float,
-    val collapsedTranslationPx: Float,
     val expandedTranslationPx: Float,
-    val collapsedIconEnabled: Boolean,
     val expandedIconEnabled: Boolean,
 )
 
 /**
  * TabToolBar の表示補間に使うレイアウト値を計算する。
  *
- * 進捗値とテキストスタイルから高さ・文字サイズ・太さ・行数・余白・表示閾値を導出する。
+ * 進捗値からバーの高さ、カード外アイコンの幅、アクション行の移動量を導出する。
  */
 @Composable
 fun rememberTabToolBarLayoutState(
     actionsProgress: Float,
-    titleStyle: TextStyle,
-    titleFontWeight: FontWeight,
-    titleMaxLines: Int,
 ): TabToolBarLayoutState {
     // --- Progress ---
     val clampedProgress = actionsProgress.coerceIn(0f, 1f)
@@ -132,6 +133,40 @@ fun rememberTabToolBarLayoutState(
         targetValue = SideSlotMaxWidth * collapsedAlpha,
         label = "CollapsedSideSlotWidth",
     )
+    // --- Translations ---
+    val density = LocalDensity.current
+    val actionTranslationPx = with(density) { ActionRowTranslation.toPx() }
+    val collapsedTranslationPx = with(density) { CollapsedIconTranslation.toPx() }
+
+    // --- Thresholds ---
+    val collapsedIconEnabled = collapsedAlpha > IconEnableThreshold
+
+    return TabToolBarLayoutState(
+        clampedProgress = clampedProgress,
+        collapsedAlpha = collapsedAlpha,
+        expandedHeight = expandedHeight,
+        sideSlotWidth = sideSlotWidth,
+        actionTranslationPx = actionTranslationPx,
+        collapsedTranslationPx = collapsedTranslationPx,
+        collapsedIconEnabled = collapsedIconEnabled,
+    )
+}
+
+/**
+ * タイトルカードの表示補間に使うレイアウト値を計算する。
+ *
+ * 縮退率とタイトルの文字設定から、カード内の操作枠・文字サイズ・余白を導出する。
+ */
+@Composable
+private fun rememberTabTitleCardLayoutState(
+    actionsProgress: Float,
+    titleStyle: TextStyle,
+    titleFontWeight: FontWeight,
+    titleMaxLines: Int,
+): TabTitleCardLayoutState {
+    // --- Progress and action slot ---
+    val clampedProgress = actionsProgress.coerceIn(0f, 1f)
+    val collapsedAlpha = 1f - clampedProgress
     val cardSideSlotWidth by animateDpAsState(
         targetValue = SideSlotMaxWidth * clampedProgress,
         label = "ExpandedCardSideSlotWidth",
@@ -162,31 +197,20 @@ fun rememberTabToolBarLayoutState(
         collapsedAlpha,
     )
 
-    // --- Translations ---
+    // --- Translation and threshold ---
     val density = LocalDensity.current
-    val actionTranslationPx = with(density) { ActionRowTranslation.toPx() }
-    val collapsedTranslationPx = with(density) { CollapsedIconTranslation.toPx() }
     val expandedTranslationPx = with(density) { ExpandedIconTranslation.toPx() }
-
-    // --- Thresholds ---
-    val collapsedIconEnabled = collapsedAlpha > IconEnableThreshold
     val expandedIconEnabled = clampedProgress > IconEnableThreshold
 
-    return TabToolBarLayoutState(
+    return TabTitleCardLayoutState(
         clampedProgress = clampedProgress,
-        collapsedAlpha = collapsedAlpha,
-        expandedHeight = expandedHeight,
-        sideSlotWidth = sideSlotWidth,
         cardSideSlotWidth = cardSideSlotWidth,
         titleFontSize = titleFontSize,
         titleFontWeight = resolvedTitleFontWeight,
         titleMaxLines = resolvedTitleMaxLines,
         titleHorizontalPadding = titleHorizontalPadding,
         titleVerticalPadding = titleVerticalPadding,
-        actionTranslationPx = actionTranslationPx,
-        collapsedTranslationPx = collapsedTranslationPx,
         expandedTranslationPx = expandedTranslationPx,
-        collapsedIconEnabled = collapsedIconEnabled,
         expandedIconEnabled = expandedIconEnabled,
     )
 }
@@ -197,36 +221,23 @@ fun rememberTabToolBarLayoutState(
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
  * `actionsProgress` でアクション群の縮退率を制御する。
  * 縮退時はタイトルを小さくし、カード外にタブ/書き込みアイコンを表示する。
+ * タイトル領域は必須の`titleContent` slotから受け取る。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TabToolBar(
     modifier: Modifier = Modifier,
-    title: String,
-    bookmarkState: BookmarkStatusState,
-    onBookmarkClick: () -> Unit,
     actions: List<TabToolBarAction>,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
     tabIconContentDescriptionRes: Int,
     postIconContentDescriptionRes: Int,
     actionsProgress: Float = 1f,
-    onTitleClick: (() -> Unit),
-    onRefreshClick: (() -> Unit),
-    isLoading: Boolean = false,
-    loadProgress: Float = 0f,
-    titleStyle: TextStyle = MaterialTheme.typography.titleSmall,
-    titleFontWeight: FontWeight = FontWeight.Bold,
-    titleMaxLines: Int = 2,
-    titleTextAlign: TextAlign = TextAlign.Start,
-    titleCardContent: (@Composable (Modifier) -> Unit)? = null,
+    titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Layout state ---
     val layoutState = rememberTabToolBarLayoutState(
         actionsProgress = actionsProgress,
-        titleStyle = titleStyle,
-        titleFontWeight = titleFontWeight,
-        titleMaxLines = titleMaxLines,
     )
     val cardModifier = Modifier
         .fillMaxWidth()
@@ -244,22 +255,13 @@ fun TabToolBar(
             ) {
                 // --- Header ---
                 TabToolBarHeader(
-                    title = title,
-                    bookmarkState = bookmarkState,
-                    onBookmarkClick = onBookmarkClick,
                     onTabListClick = onTabListClick,
                     onPostClick = onPostClick,
-                    onTitleClick = onTitleClick,
-                    onRefreshClick = onRefreshClick,
                     tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
-                    titleStyle = titleStyle,
-                    titleTextAlign = titleTextAlign,
                     layoutState = layoutState,
                     cardModifier = cardModifier,
-                    titleCardContent = titleCardContent,
-                    isLoading = isLoading,
-                    loadProgress = loadProgress,
+                    titleContent = titleContent,
                 )
 
                 // --- Actions row ---
@@ -281,22 +283,13 @@ fun TabToolBar(
 @Composable
 private fun TabToolBarHeader(
     modifier: Modifier = Modifier,
-    title: String,
-    bookmarkState: BookmarkStatusState,
-    onBookmarkClick: () -> Unit,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
-    onTitleClick: (() -> Unit),
-    onRefreshClick: () -> Unit,
     @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
-    titleStyle: TextStyle,
-    titleTextAlign: TextAlign,
     layoutState: TabToolBarLayoutState,
     cardModifier: Modifier,
-    titleCardContent: (@Composable (Modifier) -> Unit)?,
-    isLoading: Boolean,
-    loadProgress: Float,
+    titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Fixed side actions and title slot ---
     Row(
@@ -317,23 +310,7 @@ private fun TabToolBarHeader(
             )
         }
 
-        if (titleCardContent != null) {
-            titleCardContent(cardModifier.weight(1f))
-        } else {
-            TabTitleCard(
-                modifier = cardModifier.weight(1f),
-                title = title,
-                bookmarkState = bookmarkState,
-                onTitleClick = onTitleClick,
-                onBookmarkClick = onBookmarkClick,
-                onRefreshClick = onRefreshClick,
-                titleStyle = titleStyle,
-                titleTextAlign = titleTextAlign,
-                providedLayoutState = layoutState,
-                isLoading = isLoading,
-                loadProgress = loadProgress,
-            )
-        }
+        titleContent(cardModifier.weight(1f))
 
         CollapsedSideAction(
             slotWidth = layoutState.sideSlotWidth,
@@ -373,10 +350,9 @@ fun TabTitleCard(
     actionsProgress: Float = 1f,
     isLoading: Boolean = false,
     loadProgress: Float = 0f,
-    providedLayoutState: TabToolBarLayoutState? = null,
 ) {
     // --- Layout state ---
-    val layoutState = providedLayoutState ?: rememberTabToolBarLayoutState(
+    val layoutState = rememberTabTitleCardLayoutState(
         actionsProgress = actionsProgress,
         titleStyle = titleStyle,
         titleFontWeight = titleFontWeight,
@@ -624,57 +600,4 @@ private fun BottomActionsRow(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
-@Composable
-fun ThreadToolBarPreview() {
-    ThreadToolBar(
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(
-                title = "スレッドのタイトル"
-            ),
-            bookmarkStatusState = BookmarkStatusState(
-                isBookmarked = false,
-                selectedGroup = null
-            )
-        ),
-        isTreeSort = false,
-        onSortClick = {},
-        onPostClick = {},
-        onTabListClick = {},
-        onRefreshClick = {},
-        onSearchClick = {},
-        onBookmarkClick = {},
-        onThreadInfoClick = {},
-        onMoreClick = {},
-        onAutoScrollClick = {}
-    )
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
-@Preview(showBackground = true, name = "ThreadToolBar Collapsed")
-@Composable
-fun ThreadToolBarCollapsedPreview() {
-    ThreadToolBar(
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(title = "スレッドのタイトル"),
-            bookmarkStatusState = BookmarkStatusState(
-                isBookmarked = false,
-                selectedGroup = null
-            )
-        ),
-        isTreeSort = false,
-        onSortClick = {},
-        onPostClick = {},
-        onTabListClick = {},
-        onRefreshClick = {},
-        onSearchClick = {},
-        onBookmarkClick = {},
-        onThreadInfoClick = {},
-        onMoreClick = {},
-        onAutoScrollClick = {},
-        actionsProgress = 0f,
-    )
 }

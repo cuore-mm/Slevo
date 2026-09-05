@@ -170,18 +170,14 @@ fun BoardScaffold(
                     }
                     BoardToolBar(
                         modifier = modifier,
-                        uiState = uiState,
                         onSortClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                         onTabListClick = openTabListSheet,
-                        onRefreshClick = { routeViewModel.refreshBoard(tab.boardUrl) },
                         onSearchClick = { routeViewModel.setSearchMode(tab.boardUrl, true) },
-                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.boardUrl) },
-                        onBoardInfoClick = { routeViewModel.openBoardInfoSheet(tab.boardUrl) },
                         actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
                         canOpenThread = selectedThread != null,
                         onOpenThreadClick = openSelectedThread,
-                        titleCardContent = titleContent,
+                        titleContent = titleContent,
                     )
                 }
             )

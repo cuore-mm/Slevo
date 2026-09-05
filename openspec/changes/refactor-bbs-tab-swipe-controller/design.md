@@ -93,6 +93,8 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 
 各専用Toolbarは単独のPreview入口を持つ。Previewは画面固有のaction構成とタイトル領域を確認するために使用し、Pager連動そのものの状態は `BbsRouteScaffold` のUIテストで検証する。
 
+Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Toolbarが静的 `TabTitleCard` を生成するnullフォールバックは設けず、タイトル、ブックマーク、更新、ロード進捗などのカード固有引数をToolbar APIへ重複して持たせない。
+
 ## Implementation Contract
 
 実装担当は次の境界を維持すること。
@@ -107,6 +109,7 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 8. Board の「スレ」はSelected `ThreadTabInfo`だけを対象とし、normalize、register-and-select、push navigateの順序を省略しない。Threadの「板」はSelected `BoardTabInfo`だけを対象とし、normalize、register-and-select、`showBoardScreenForTabSelection`による現在Threadの置換順序を省略しない。
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
 10. Board/Thread固有のToolbar構成はそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。
+11. Pager連動タイトルカードは必須の`titleContent` slotで受け渡し、`TabToolBar`および専用Toolbarに静的タイトル用のnullable fallback APIを残さない。
 
 ## Error Cases and Compatibility
 

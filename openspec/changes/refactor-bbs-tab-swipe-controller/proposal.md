@@ -9,6 +9,7 @@
 - タイトルカードを本文と同じ Pager offset から描画し、ブックマーク、タイトル、更新、カード下端のロード進捗を本文と同期して移動させる。タイトル専用の PagerState は作成しない。
 - 下部ツール群と画面種別ボタンを固定し、Board ではタイトルカード右に「スレ」、Thread では左に「板」を配置する。
 - Board/Thread固有のアクション構成は各画面の専用Toolbar adapterへ分離し、共通描画は`TabToolBar`へ委譲する。
+- Pager連動タイトルカードは専用Toolbarを経由する必須`titleContent` slotとして渡し、静的タイトルへのnullフォールバックを持たない。
 - Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は `TabSessionStore.boardPresentationState` の現在選択済み Board を対象とし、現在の Thread destination を破棄して Board 画面へ置換遷移する。
 - Pager が settle した時点で選択タブを確定し、ドラッグ途中では `TabSessionStore` の selected key を更新しない。
 - Pager ページ内の Scaffold/BottomBar を共通ホストへ再編し、検索モード、ツールバー縮退、シート・ポップアップ、タブ別スクロール位置保存を維持する。

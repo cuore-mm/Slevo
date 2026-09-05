@@ -212,16 +212,13 @@ fun ThreadScaffold(
                         onSortClick = { routeViewModel.toggleSortType(tab.id.value) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
                         onTabListClick = openTabListSheet,
-                        onRefreshClick = { routeViewModel.reloadThread(tab.id.value) },
                         onSearchClick = { routeViewModel.startSearch(tab.id.value) },
-                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.id.value) },
-                        onThreadInfoClick = { routeViewModel.openThreadInfoSheet(tab.id.value) },
                         onMoreClick = { routeViewModel.openMoreSheet(tab.id.value) },
                         onAutoScrollClick = { routeViewModel.toggleAutoScroll(tab.id.value) },
                         actionsProgress = if (uiState.isSearchMode) 0f else actionProgress,
                         canOpenBoard = selectedBoard != null,
                         onOpenBoardClick = openSelectedBoard,
-                        titleCardContent = titleContent,
+                        titleContent = titleContent,
                     )
                 }
             )

@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Create
@@ -12,15 +13,15 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
+import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -29,7 +30,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 /**
  * スレッド画面のソート、検索、投稿、タブ操作を共通TabToolBarへ渡す。
  *
- * タイトルカードの描画は必要に応じて外部Pager由来のcontentへ差し替える。
+ * Pager連動中のタイトルカードは必須のtitleContentとして受け取り、「板」ボタンをカード外へ固定する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -40,16 +41,13 @@ fun ThreadToolBar(
     onSortClick: () -> Unit,
     onPostClick: () -> Unit,
     onTabListClick: () -> Unit,
-    onRefreshClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onBookmarkClick: () -> Unit,
-    onThreadInfoClick: () -> Unit,
     onMoreClick: () -> Unit,
     onAutoScrollClick: () -> Unit,
     actionsProgress: Float = 1f,
-    canOpenBoard: Boolean = false,
-    onOpenBoardClick: () -> Unit = {},
-    titleCardContent: (@Composable (Modifier) -> Unit)? = null,
+    canOpenBoard: Boolean,
+    onOpenBoardClick: () -> Unit,
+    titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Actions ---
     val sortIcon = if (isTreeSort) Icons.Filled.AccountTree else Icons.Filled.FormatListNumbered
@@ -59,20 +57,18 @@ fun ThreadToolBar(
         if (uiState.isAutoScroll) R.string.stop_auto_scroll else R.string.start_auto_scroll
 
     // --- Title and destination slot ---
-    val titleContent = titleCardContent?.let { content ->
-        @Composable { cardModifier: Modifier ->
-            Row(
-                modifier = cardModifier,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TabDestinationButton(
-                    labelRes = R.string.open_board_screen,
-                    contentDescriptionRes = R.string.open_board_screen_description,
-                    enabled = canOpenBoard,
-                    onClick = onOpenBoardClick,
-                )
-                content(Modifier.weight(1f))
-            }
+    val titleWithDestination: @Composable (Modifier) -> Unit = { cardModifier ->
+        Row(
+            modifier = cardModifier,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TabDestinationButton(
+                labelRes = R.string.open_board_screen,
+                contentDescriptionRes = R.string.open_board_screen_description,
+                enabled = canOpenBoard,
+                onClick = onOpenBoardClick,
+            )
+            titleContent(Modifier.weight(1f))
         }
     }
 
@@ -111,23 +107,13 @@ fun ThreadToolBar(
 
     TabToolBar(
         modifier = modifier,
-        title = uiState.threadInfo.title,
-        bookmarkState = uiState.bookmarkStatusState,
-        onBookmarkClick = onBookmarkClick,
         actions = actions,
         onTabListClick = onTabListClick,
         onPostClick = onPostClick,
         tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.post,
         actionsProgress = actionsProgress,
-        onTitleClick = onThreadInfoClick,
-        onRefreshClick = onRefreshClick,
-        isLoading = uiState.isLoading,
-        loadProgress = uiState.loadProgress,
-        titleStyle = MaterialTheme.typography.titleSmall,
-        titleFontWeight = FontWeight.Bold,
-        titleMaxLines = 2,
-        titleCardContent = titleContent,
+        titleContent = titleWithDestination,
     )
 }
 
@@ -149,11 +135,56 @@ fun ThreadToolBarPreview() {
         onSortClick = {},
         onPostClick = {},
         onTabListClick = {},
-        onRefreshClick = {},
         onSearchClick = {},
-        onBookmarkClick = {},
-        onThreadInfoClick = {},
         onMoreClick = {},
-        onAutoScrollClick = {}
+        onAutoScrollClick = {},
+        canOpenBoard = false,
+        onOpenBoardClick = {},
+        titleContent = { modifier ->
+            TabTitleCard(
+                modifier = modifier,
+                title = "スレッドのタイトル",
+                bookmarkState = BookmarkStatusState(),
+                onTitleClick = {},
+                onBookmarkClick = {},
+                onRefreshClick = {},
+                titleStyle = MaterialTheme.typography.titleSmall,
+                titleTextAlign = TextAlign.Start,
+            )
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, name = "ThreadToolBar Collapsed")
+@Composable
+fun ThreadToolBarCollapsedPreview() {
+    ThreadToolBar(
+        uiState = ThreadUiState(
+            threadInfo = ThreadInfo(title = "スレッドのタイトル"),
+            bookmarkStatusState = BookmarkStatusState(),
+        ),
+        isTreeSort = false,
+        onSortClick = {},
+        onPostClick = {},
+        onTabListClick = {},
+        onSearchClick = {},
+        onMoreClick = {},
+        onAutoScrollClick = {},
+        actionsProgress = 0f,
+        canOpenBoard = false,
+        onOpenBoardClick = {},
+        titleContent = { modifier ->
+            TabTitleCard(
+                modifier = modifier,
+                title = "スレッドのタイトル",
+                bookmarkState = BookmarkStatusState(),
+                onTitleClick = {},
+                onBookmarkClick = {},
+                onRefreshClick = {},
+                titleStyle = MaterialTheme.typography.titleSmall,
+                titleTextAlign = TextAlign.Start,
+            )
+        },
     )
 }

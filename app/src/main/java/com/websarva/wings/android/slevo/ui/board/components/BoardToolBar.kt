@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
@@ -32,18 +32,14 @@ import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 @Composable
 fun BoardToolBar(
     modifier: Modifier = Modifier,
-    uiState: BoardUiState,
     onSortClick: () -> Unit,
     onPostClick: () -> Unit,
     onTabListClick: () -> Unit,
-    onRefreshClick: () -> Unit,
     onSearchClick: () -> Unit,
-    onBookmarkClick: () -> Unit,
-    onBoardInfoClick: () -> Unit,
     actionsProgress: Float = 1f,
     canOpenThread: Boolean,
     onOpenThreadClick: () -> Unit,
-    titleCardContent: (@Composable (Modifier) -> Unit)? = null,
+    titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Board actions ---
     val actions = listOf(
@@ -70,43 +66,30 @@ fun BoardToolBar(
     )
 
     // --- Title and destination slot ---
-    val titleContent = titleCardContent?.let { content ->
-        @Composable { cardModifier: Modifier ->
-            Row(
-                modifier = cardModifier,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                content(Modifier.weight(1f))
-                TabDestinationButton(
-                    labelRes = R.string.open_thread_screen,
-                    contentDescriptionRes = R.string.open_thread_screen_description,
-                    enabled = canOpenThread,
-                    onClick = onOpenThreadClick,
-                )
-            }
+    val titleWithDestination: @Composable (Modifier) -> Unit = { cardModifier ->
+        Row(
+            modifier = cardModifier,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            titleContent(Modifier.weight(1f))
+            TabDestinationButton(
+                labelRes = R.string.open_thread_screen,
+                contentDescriptionRes = R.string.open_thread_screen_description,
+                enabled = canOpenThread,
+                onClick = onOpenThreadClick,
+            )
         }
     }
 
     TabToolBar(
         modifier = modifier,
-        title = uiState.boardInfo.name,
-        bookmarkState = uiState.bookmarkStatusState,
-        onBookmarkClick = onBookmarkClick,
         actions = actions,
         onTabListClick = onTabListClick,
         onPostClick = onPostClick,
         tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.create_thread,
         actionsProgress = actionsProgress,
-        onTitleClick = onBoardInfoClick,
-        onRefreshClick = onRefreshClick,
-        isLoading = uiState.isLoading,
-        loadProgress = uiState.loadProgress,
-        titleStyle = MaterialTheme.typography.titleMedium,
-        titleFontWeight = FontWeight.Bold,
-        titleMaxLines = 1,
-        titleTextAlign = TextAlign.Center,
-        titleCardContent = titleContent,
+        titleContent = titleWithDestination,
     )
 }
 
@@ -114,29 +97,25 @@ fun BoardToolBar(
 @Preview(showBackground = true)
 @Composable
 fun BoardToolBarPreview() {
-    val uiState = BoardUiState(
-        boardInfo = BoardInfo(
-            boardId = 1L,
-            name = "板のタイトル",
-            url = "https://example.com/board/",
-        ),
+    val title = "板のタイトル"
+    val bookmarkState = BookmarkStatusState()
+    val boardInfo = BoardInfo(
+        boardId = 1L,
+        name = title,
+        url = "https://example.com/board/",
     )
     BoardToolBar(
-        uiState = uiState,
         onSortClick = {},
         onPostClick = {},
         onTabListClick = {},
-        onRefreshClick = {},
         onSearchClick = {},
-        onBookmarkClick = {},
-        onBoardInfoClick = {},
         canOpenThread = true,
         onOpenThreadClick = {},
-        titleCardContent = { modifier ->
+        titleContent = { modifier ->
             TabTitleCard(
                 modifier = modifier,
-                title = uiState.boardInfo.name,
-                bookmarkState = uiState.bookmarkStatusState,
+                title = boardInfo.name,
+                bookmarkState = bookmarkState,
                 onTitleClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
