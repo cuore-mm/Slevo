@@ -118,7 +118,7 @@ fun BoardScaffold(
                 modifier = modifier,
                 tab = tab,
                 uiState = uiState,
-                actionsProgress = actionProgress,
+                actionProgress = actionProgress,
                 onTitleClick = { selectedTab ->
                     routeViewModel.openBoardInfoSheet(selectedTab.boardUrl)
                 },

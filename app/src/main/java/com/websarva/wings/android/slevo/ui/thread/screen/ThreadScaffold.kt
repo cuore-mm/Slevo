@@ -156,7 +156,7 @@ fun ThreadScaffold(
                 modifier = modifier,
                 tab = tab,
                 uiState = uiState,
-                actionsProgress = actionProgress,
+                actionProgress = actionProgress,
                 onTitleClick = { selectedTab ->
                     routeViewModel.openThreadInfoSheet(selectedTab.id.value)
                 },
