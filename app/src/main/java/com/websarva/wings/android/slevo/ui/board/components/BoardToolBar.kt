@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.board.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
@@ -40,7 +41,7 @@ fun BoardTabTitleCard(
     onRefreshClick: (BoardTabInfo) -> Unit,
 ) {
     TabTitleCard(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         title = uiState.boardInfo.name,
         bookmarkState = uiState.bookmarkStatusState,
         onTitleClick = { onTitleClick(tab) },
@@ -129,8 +130,13 @@ fun BoardToolBar(
             modifier = cardModifier,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            titleContent(Modifier.weight(1f))
+            titleContent(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            )
             TabDestinationButton(
+                modifier = Modifier.fillMaxHeight(),
                 labelRes = R.string.open_thread_screen,
                 contentDescriptionRes = R.string.open_thread_screen_description,
                 enabled = canOpenThread,

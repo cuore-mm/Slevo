@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -66,8 +68,11 @@ data class TabToolBarAction(
 
 private const val CollapsedTitleScale = 0.85f
 private const val IconEnableThreshold = 0.5f
-private val ExpandedHeight = 96.dp
+private val ExpandedHeight = 108.dp
 private val CollapsedHeight = 56.dp
+private val TitleRowHeight = 48.dp
+private val ActionRowHeight = 48.dp
+private val ActionRowSpacing = 4.dp
 private val SideSlotMaxWidth = 48.dp
 private val ActionRowTranslation = 24.dp
 private val CollapsedIconTranslation = 8.dp
@@ -221,6 +226,7 @@ private fun rememberTabTitleCardLayoutState(
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
  * `actionsProgress` でアクション群の縮退率を制御する。
  * 縮退時はタイトルを小さくし、カード外にタブ/書き込みアイコンを表示する。
+ * 縮退時は56dp、展開時はタイトル行と下段アクションが収まる108dpで表示する。
  * タイトル領域は必須の`titleContent` slotから受け取る。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
@@ -239,9 +245,7 @@ fun TabToolBar(
     val layoutState = rememberTabToolBarLayoutState(
         actionsProgress = actionsProgress,
     )
-    val cardModifier = Modifier
-        .fillMaxWidth()
-        .padding(vertical = 4.dp)
+    val titleModifier = Modifier.fillMaxWidth()
 
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
@@ -260,7 +264,7 @@ fun TabToolBar(
                     tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
                     layoutState = layoutState,
-                    cardModifier = cardModifier,
+                    titleModifier = titleModifier,
                     titleContent = titleContent,
                 )
 
@@ -288,12 +292,14 @@ private fun TabToolBarHeader(
     @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
     layoutState: TabToolBarLayoutState,
-    cardModifier: Modifier,
+    titleModifier: Modifier,
     titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Fixed side actions and title slot ---
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(TitleRowHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CollapsedSideAction(
@@ -310,7 +316,11 @@ private fun TabToolBarHeader(
             )
         }
 
-        titleContent(cardModifier.weight(1f))
+        titleContent(
+            titleModifier
+                .weight(1f)
+                .fillMaxHeight(),
+        )
 
         CollapsedSideAction(
             slotWidth = layoutState.sideSlotWidth,
@@ -574,11 +584,12 @@ private fun BottomActionsRow(
         return
     }
 
-    Spacer(modifier = Modifier.padding(2.dp))
+    Spacer(modifier = Modifier.height(ActionRowSpacing))
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(ActionRowHeight)
             .graphicsLayer {
                 alpha = layoutState.clampedProgress
                 translationY =

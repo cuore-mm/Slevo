@@ -7,6 +7,7 @@
 - `AppRoute.Board` と `AppRoute.Thread` を別 destination のまま維持し、各画面内の同種タブ切替には既存の `HorizontalPager` と同じ `PagerState` を使用する。
 - 本文上の横スワイプを無効化し、固定された下部コントローラー全体の横ドラッグで本文 Pager を直接操作する。
 - タイトルカードを本文と同じ Pager offset から描画し、ブックマーク、タイトル、更新、カード下端のロード進捗を本文と同期して移動させる。タイトル専用の PagerState は作成しない。
+- 固定Toolbarの展開時はタイトル行と下段アクション群が同時に表示できる高さを確保し、タイトルカードと画面種別ボタンの高さを揃える。縮退時の56dpは維持する。
 - 下部ツール群と画面種別ボタンを固定し、Board ではタイトルカード右に「スレ」、Thread では左に「板」を配置する。
 - Board/Thread固有のアクション構成とタイトルカードの具体的な構成は各画面の専用Toolbar adapterへ分離し、共通描画は`TabToolBar`へ委譲する。
 - Pager連動タイトルカードは専用Toolbarを経由する必須`titleContent` slotとして渡し、静的タイトルへのnullフォールバックを持たない。

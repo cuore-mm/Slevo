@@ -20,6 +20,7 @@
 - [x] 3.5 `ui/board/components/BoardToolBar.kt` を新設し、`BoardScaffold.kt` のBoard固有action構成とタイトル設定を専用adapterへ抽出する。`ThreadToolBar`と同じく共通`TabToolBar`へ委譲し、Board固有のPreviewと既存callbackの維持を確認する。
 - [x] 3.6 `TabToolBar`、`BoardToolBar`、`ThreadToolBar`の`titleCardContent`を必須`titleContent` slotへ整理する。静的タイトル用のnull fallbackと重複するタイトル・ブックマーク・更新・ロード進捗引数を削除し、各Previewは明示的なタイトルカードを渡す。
 - [x] 3.7 `BoardToolBar.kt` に`BoardTabTitleCard`、`ThreadToolBar.kt` に`ThreadTabTitleCard`を配置し、Board/ThreadのScaffoldからカード本体の具体構成を移す。PagerTitleCardsの範囲・offset・stable key処理と必須`titleContent` slotの境界は維持し、Scaffoldには画面固有callbackの接続だけを残す。
+- [x] 3.8 `TabToolBar`の展開高を108dp、縮退高を56dpへ整理し、タイトル行48dp、間隔4dp、アクション行48dp、外側上下padding各4dpの収支に揃える。タイトルカードと`TabDestinationButton`へ同じタイトル行高を適用し、展開時に下段アクション群がクリップされない回帰テストを追加する。
 
 ## 4. 下部コントローラーによるPager操作
 

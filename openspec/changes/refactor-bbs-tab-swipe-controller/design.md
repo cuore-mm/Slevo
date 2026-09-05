@@ -69,6 +69,8 @@ selected key から Pager を同期する既存 `scrollToPage`、`animateToPageF
 
 各カードはそのタブ自身の `isLoading` と `loadProgress` を受け取る。現在のツールバー全幅の進捗描画は削除する。これにより隣接カードが見えた場合も、ロード状態がカードと一緒に移動し、固定ツール群へ残らない。
 
+`TabToolBar` の高さは縮退時56dp、展開時108dpとする。展開時は外側の上下padding各4dp、タイトル行48dp、下段との間隔4dp、アクション行48dpで構成し、固定高の内側へ全要素を収める。`TabToolBarHeader`はタイトル行を48dpに固定し、Board/Threadのタイトルカードと画面種別ボタンは`fillMaxHeight()`で同じ行高へ揃える。タイトルslotへ渡すmodifierには追加の上下paddingを重ねない。
+
 ### 6. タイトルカード外の要素は settled page に固定する
 
 Board はタイトル viewport の右に「スレ」、Thread は左に「板」の固定ボタンを置く。既存の下段 `BottomActionsRow`、タブ一覧、投稿などタイトルカード外の操作要素も Pager offset を適用しない。ドラッグ中は最後に settle したタブの action callback と縮退 progress を維持し、settle 完了後に新しいタブへ一度に切り替える。
@@ -110,6 +112,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
 10. Board/Thread固有のToolbar構成とタイトルカードrendererはそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。各ScaffoldにはPager用rendererへのcallback接続だけを残す。
 11. Pager連動タイトルカードは必須の`titleContent` slotで受け渡し、`TabToolBar`および専用Toolbarに静的タイトル用のnullable fallback APIを残さない。
+12. `TabToolBar`の展開高は108dp、縮退高は56dpとし、タイトル行48dp・間隔4dp・アクション行48dp・外側上下padding各4dpの測定収支を維持する。タイトルカードと画面種別ボタンをタイトル行の高さへ揃え、下段アクション群を固定高の外へ押し出さない。
 
 ## Error Cases and Compatibility
 
@@ -126,6 +129,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 - Compose UI テストで本文drag非反応、コントローラーdrag、途中復帰、fling、既存 animateToPageFlow、タイトルカードと本文の追従、固定ツール群を検証する。
 - タイトルカードテストでブックマーク・タイトル・更新・ロード進捗が同じ semantics subtree/移動単位に属し、進捗がCard下端かつCard幅に収まることを検証する。
 - Board/Thread両方で展開・縮退、検索開始・終了、IME入力、popup中のスワイプ無効、タブ別縮退状態、スクロール位置保存・復元を検証する。
+- Toolbarの展開時にタイトル行と下段アクション群が同時に表示され、タイトルカードと画面種別ボタンの高さが揃うこと、縮退時に56dpへ収まることを寸法またはUIテストで検証する。
 - NavigationテストでBoard「スレ」のSelected/Loading/Empty/PendingMissing、push後のBack復帰、Thread「板」のSelected/Loading/Empty/PendingMissing、登録失敗、現在Threadの破棄を検証する。
 - LTR/RTL、ドラッグキャンセル、連続drag、drag中tab削除、TalkBack向けラベルとdisabled semanticsをinstrumented testまたは手動確認項目に含める。
 - 実装後に `./gradlew assembleDebug` と `./gradlew testDebugUnitTest` を実行し、両方成功させる。

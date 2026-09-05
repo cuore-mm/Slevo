@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Create
@@ -46,7 +47,7 @@ fun ThreadTabTitleCard(
     onRefreshClick: (ThreadTabInfo) -> Unit,
 ) {
     TabTitleCard(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         title = uiState.threadInfo.title,
         bookmarkState = uiState.bookmarkStatusState,
         onTitleClick = { onTitleClick(tab) },
@@ -121,12 +122,17 @@ fun ThreadToolBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TabDestinationButton(
+                modifier = Modifier.fillMaxHeight(),
                 labelRes = R.string.open_board_screen,
                 contentDescriptionRes = R.string.open_board_screen_description,
                 enabled = canOpenBoard,
                 onClick = onOpenBoardClick,
             )
-            titleContent(Modifier.weight(1f))
+            titleContent(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            )
         }
     }
 
