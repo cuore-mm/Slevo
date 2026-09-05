@@ -46,6 +46,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -611,4 +612,49 @@ private fun BottomActionsRow(
             }
         }
     }
+}
+
+private val TabToolBarPreviewActions = listOf(
+    TabToolBarAction(
+        icon = Icons.Filled.CropSquare,
+        contentDescriptionRes = R.string.open_tablist,
+        onClick = {},
+    ),
+    TabToolBarAction(
+        icon = Icons.Filled.Create,
+        contentDescriptionRes = R.string.post,
+        onClick = {},
+    ),
+    TabToolBarAction(
+        icon = Icons.Filled.Refresh,
+        contentDescriptionRes = R.string.refresh,
+        onClick = {},
+    ),
+)
+
+private val TabToolBarPreviewTitleContent: @Composable (Modifier) -> Unit = { modifier ->
+    TabTitleCard(
+        modifier = modifier,
+        title = "共通Toolbarのタイトル",
+        bookmarkState = BookmarkStatusState(),
+        onTitleClick = {},
+        onBookmarkClick = {},
+        onRefreshClick = {},
+        titleStyle = MaterialTheme.typography.titleSmall,
+        titleTextAlign = TextAlign.Start,
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, name = "TabToolBar Expanded")
+@Composable
+fun TabToolBarPreview() {
+    TabToolBar(
+        actions = TabToolBarPreviewActions,
+        onTabListClick = {},
+        onPostClick = {},
+        tabIconContentDescriptionRes = R.string.open_tablist,
+        postIconContentDescriptionRes = R.string.post,
+        titleContent = TabToolBarPreviewTitleContent,
+    )
 }
