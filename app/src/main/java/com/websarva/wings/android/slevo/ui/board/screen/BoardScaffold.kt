@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
@@ -19,18 +20,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
+import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -61,8 +67,12 @@ fun BoardScaffold(
     val routeViewModel: BoardRouteViewModel = hiltViewModel()
     // --- Tab/state ---
     val boardPresentationState by tabSessionStore.boardPresentationState.collectAsState()
+    val threadPresentationState by tabSessionStore.threadPresentationState.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val selectedThread = (threadPresentationState.selection as? TabSelectionResolution.Selected)
+        ?.key
+        ?.let { key -> threadPresentationState.tabs.firstOrNull { it.id.value == key } }
 
     LaunchedEffect(boardRoute, boardPresentationState) {
         if (boardPresentationState.selection is com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution.Loading ||
@@ -115,7 +125,24 @@ fun BoardScaffold(
         },
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
-        bottomBar = { tab, uiState, actionProgress, openTabListSheet ->
+        titleCard = { tab, uiState, actionProgress, modifier ->
+            TabTitleCard(
+                modifier = modifier,
+                title = uiState.boardInfo.name,
+                bookmarkState = uiState.bookmarkStatusState,
+                onTitleClick = { routeViewModel.openBoardInfoSheet(tab.boardUrl) },
+                onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.boardUrl) },
+                onRefreshClick = { routeViewModel.refreshBoard(tab.boardUrl) },
+                titleStyle = MaterialTheme.typography.titleMedium,
+                titleTextAlign = TextAlign.Center,
+                titleFontWeight = FontWeight.Bold,
+                titleMaxLines = 1,
+                actionsProgress = actionProgress,
+                isLoading = uiState.isLoading,
+                loadProgress = uiState.loadProgress,
+            )
+        },
+        bottomBar = { tab, uiState, actionProgress, openTabListSheet, controllerModifier, titleContent ->
             val actions = listOf(
                 TabToolBarAction(
                     icon = Icons.AutoMirrored.Filled.Sort,
@@ -140,6 +167,7 @@ fun BoardScaffold(
             )
 
             BbsRouteBottomBar(
+                modifier = controllerModifier,
                 isSearchMode = uiState.isSearchActive,
                 onCloseSearch = { routeViewModel.setSearchMode(tab.boardUrl, false) },
                 animationLabel = "BoardBottomBarAnimation",
@@ -153,6 +181,24 @@ fun BoardScaffold(
                     )
                 },
                 defaultContent = { modifier ->
+                    val openSelectedThread = {
+                        selectedThread?.let { thread ->
+                            coroutineScope.launch {
+                                val route = tabSessionStore.normalizeThreadRouteForNavigation(
+                                    AppRoute.Thread(
+                                        threadKey = thread.threadKey,
+                                        boardUrl = thread.boardUrl,
+                                        boardName = thread.boardName,
+                                        boardId = thread.boardId,
+                                        threadTitle = thread.title,
+                                        resCount = thread.resCount,
+                                    ),
+                                )
+                                val index = tabSessionStore.registerAndSelectThreadRoute(route)
+                                if (index >= 0) navController.navigateToThreadScreen(route)
+                            }
+                        }
+                    }
                     TabToolBar(
                         modifier = modifier,
                         title = uiState.boardInfo.name,
@@ -172,6 +218,20 @@ fun BoardScaffold(
                         titleFontWeight = FontWeight.Bold,
                         titleMaxLines = 1,
                         titleTextAlign = TextAlign.Center,
+                        titleCardContent = { cardModifier ->
+                            Row(
+                                modifier = cardModifier,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                titleContent(Modifier.weight(1f))
+                                TabDestinationButton(
+                                    labelRes = R.string.open_thread_screen,
+                                    contentDescriptionRes = R.string.open_thread_screen_description,
+                                    enabled = selectedThread != null,
+                                    onClick = openSelectedThread,
+                                )
+                            }
+                        },
                     )
                 }
             )
@@ -228,8 +288,9 @@ fun BoardScaffold(
                             onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
                             onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
                             onOpenNewTab = openUrlDialog,
-                            onSwitchToNextTab = { tabSessionStore.animateBoardPage(1) },
-                            onSwitchToPreviousTab = { tabSessionStore.animateBoardPage(-1) },
+                            // タブ切替は下部コントローラーへ集約し、本文の横ジェスチャーでは変更しない。
+                            onSwitchToNextTab = {},
+                            onSwitchToPreviousTab = {},
                             onCloseTab = {
                                 if (uiState.boardInfo.url.isNotBlank()) {
                                     tabSessionStore.closeBoardTabByUrl(uiState.boardInfo.url)

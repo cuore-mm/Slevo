@@ -27,15 +27,19 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -215,6 +219,7 @@ fun TabToolBar(
     titleFontWeight: FontWeight = FontWeight.Bold,
     titleMaxLines: Int = 2,
     titleTextAlign: TextAlign = TextAlign.Start,
+    titleCardContent: (@Composable (Modifier) -> Unit)? = null,
 ) {
     // --- Layout state ---
     val layoutState = rememberTabToolBarLayoutState(
@@ -252,6 +257,9 @@ fun TabToolBar(
                     titleTextAlign = titleTextAlign,
                     layoutState = layoutState,
                     cardModifier = cardModifier,
+                    titleCardContent = titleCardContent,
+                    isLoading = isLoading,
+                    loadProgress = loadProgress,
                 )
 
                 // --- Actions row ---
@@ -260,17 +268,6 @@ fun TabToolBar(
                     layoutState = layoutState,
                 )
             }
-        }
-        if (isLoading) {
-            LinearProgressIndicator(
-                progress = { loadProgress },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth(),
-                color = ProgressIndicatorDefaults.linearColor,
-                trackColor = ProgressIndicatorDefaults.linearTrackColor,
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-            )
         }
     }
 }
@@ -297,7 +294,11 @@ private fun TabToolBarHeader(
     titleTextAlign: TextAlign,
     layoutState: TabToolBarLayoutState,
     cardModifier: Modifier,
+    titleCardContent: (@Composable (Modifier) -> Unit)?,
+    isLoading: Boolean,
+    loadProgress: Float,
 ) {
+    // --- Fixed side actions and title slot ---
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -316,17 +317,23 @@ private fun TabToolBarHeader(
             )
         }
 
-        ExpandedTitleActions(
-            modifier = cardModifier.weight(1f),
-            title = title,
-            bookmarkState = bookmarkState,
-            onTitleClick = onTitleClick,
-            onBookmarkClick = onBookmarkClick,
-            onRefreshClick = onRefreshClick,
-            titleStyle = titleStyle,
-            titleTextAlign = titleTextAlign,
-            layoutState = layoutState,
-        )
+        if (titleCardContent != null) {
+            titleCardContent(cardModifier.weight(1f))
+        } else {
+            TabTitleCard(
+                modifier = cardModifier.weight(1f),
+                title = title,
+                bookmarkState = bookmarkState,
+                onTitleClick = onTitleClick,
+                onBookmarkClick = onBookmarkClick,
+                onRefreshClick = onRefreshClick,
+                titleStyle = titleStyle,
+                titleTextAlign = titleTextAlign,
+                providedLayoutState = layoutState,
+                isLoading = isLoading,
+                loadProgress = loadProgress,
+            )
+        }
 
         CollapsedSideAction(
             slotWidth = layoutState.sideSlotWidth,
@@ -345,14 +352,14 @@ private fun TabToolBarHeader(
 }
 
 /**
- * タイトルカードの展開アイコンとタイトル文字列を描画する。
+ * タブのタイトル・ブックマーク・更新操作とロード進捗を一枚のカードとして描画する。
  *
- * 展開率に応じてカード内アイコンの表示とタイトル文字スタイルを切り替える。
- * アイコン用の幅を維持してタイトル幅の急変を防ぐ。
+ * `actionsProgress` に応じたカード内レイアウトを共有し、Pagerから渡されたModifier全体へ
+ * 平行移動を適用できるようにする。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ExpandedTitleActions(
+fun TabTitleCard(
     modifier: Modifier = Modifier,
     title: String,
     bookmarkState: BookmarkStatusState,
@@ -361,80 +368,138 @@ private fun ExpandedTitleActions(
     onRefreshClick: () -> Unit,
     titleStyle: TextStyle,
     titleTextAlign: TextAlign,
-    layoutState: TabToolBarLayoutState,
+    titleFontWeight: FontWeight = FontWeight.Bold,
+    titleMaxLines: Int = 2,
+    actionsProgress: Float = 1f,
+    isLoading: Boolean = false,
+    loadProgress: Float = 0f,
+    providedLayoutState: TabToolBarLayoutState? = null,
 ) {
+    // --- Layout state ---
+    val layoutState = providedLayoutState ?: rememberTabToolBarLayoutState(
+        actionsProgress = actionsProgress,
+        titleStyle = titleStyle,
+        titleFontWeight = titleFontWeight,
+        titleMaxLines = titleMaxLines,
+    )
+
+    // --- Card content ---
     Card(
         modifier = modifier,
         shape = MaterialTheme.shapes.largeIncreased,
         onClick = onTitleClick,
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize(),
-            verticalAlignment = Alignment.CenterVertically,
+                .clip(MaterialTheme.shapes.largeIncreased),
         ) {
-            ExpandedCardAction(
-                slotWidth = layoutState.cardSideSlotWidth,
-                alpha = layoutState.clampedProgress,
-                translationY = layoutState.expandedTranslationPx,
-                enabled = layoutState.expandedIconEnabled,
-                tooltipText = stringResource(R.string.bookmark),
-                onClick = onBookmarkClick,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (bookmarkState.isBookmarked) {
-                    val tintColor =
-                        bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
-                            ?: LocalContentColor.current
-                    Box {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            tint = tintColor,
-                        )
+                ExpandedCardAction(
+                    slotWidth = layoutState.cardSideSlotWidth,
+                    alpha = layoutState.clampedProgress,
+                    translationY = layoutState.expandedTranslationPx,
+                    enabled = layoutState.expandedIconEnabled,
+                    tooltipText = stringResource(R.string.bookmark),
+                    onClick = onBookmarkClick,
+                ) {
+                    if (bookmarkState.isBookmarked) {
+                        val tintColor =
+                            bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
+                                ?: LocalContentColor.current
+                        Box {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = tintColor,
+                            )
+                            Icon(
+                                imageVector = Icons.Outlined.StarOutline,
+                                contentDescription = stringResource(R.string.bookmark),
+                            )
+                        }
+                    } else {
                         Icon(
                             imageVector = Icons.Outlined.StarOutline,
                             contentDescription = stringResource(R.string.bookmark),
                         )
                     }
-                } else {
+                }
+
+                Text(
+                    text = title,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(
+                            horizontal = layoutState.titleHorizontalPadding,
+                            vertical = layoutState.titleVerticalPadding,
+                        )
+                        .animateContentSize(),
+                    fontWeight = layoutState.titleFontWeight,
+                    style = titleStyle.copy(fontSize = layoutState.titleFontSize),
+                    maxLines = layoutState.titleMaxLines,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = titleTextAlign,
+                )
+
+                ExpandedCardAction(
+                    slotWidth = layoutState.cardSideSlotWidth,
+                    alpha = layoutState.clampedProgress,
+                    translationY = layoutState.expandedTranslationPx,
+                    enabled = layoutState.expandedIconEnabled,
+                    tooltipText = stringResource(R.string.refresh),
+                    onClick = onRefreshClick,
+                ) {
                     Icon(
-                        imageVector = Icons.Outlined.StarOutline,
-                        contentDescription = stringResource(R.string.bookmark),
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
                     )
                 }
             }
 
-            Text(
-                text = title,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        horizontal = layoutState.titleHorizontalPadding,
-                        vertical = layoutState.titleVerticalPadding,
-                    )
-                    .animateContentSize(),
-                fontWeight = layoutState.titleFontWeight,
-                style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-                maxLines = layoutState.titleMaxLines,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = titleTextAlign,
-            )
-
-            ExpandedCardAction(
-                slotWidth = layoutState.cardSideSlotWidth,
-                alpha = layoutState.clampedProgress,
-                translationY = layoutState.expandedTranslationPx,
-                enabled = layoutState.expandedIconEnabled,
-                tooltipText = stringResource(R.string.refresh),
-                onClick = onRefreshClick,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = stringResource(R.string.refresh),
+            // --- Loading progress ---
+            if (isLoading) {
+                LinearProgressIndicator(
+                    progress = { loadProgress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                    color = ProgressIndicatorDefaults.linearColor,
+                    trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                 )
             }
         }
+    }
+}
+
+/**
+ * タイトルカード外に置く画面種別切替ボタンを描画する。
+ *
+ * disabled時は遷移先のタブが解決できない状態を意味し、既存のボタン意味論を維持する。
+ */
+@Composable
+fun TabDestinationButton(
+    modifier: Modifier = Modifier,
+    @StringRes labelRes: Int,
+    @StringRes contentDescriptionRes: Int = labelRes,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val contentDescription = stringResource(contentDescriptionRes)
+    TextButton(
+        modifier = modifier.semantics {
+            this.contentDescription = contentDescription
+        },
+        enabled = enabled,
+        onClick = onClick,
+    ) {
+        Text(text = stringResource(labelRes))
     }
 }
 

@@ -10,6 +10,10 @@
     <string name="group_name">グループ名</string>
     <string name="board">板</string>
     <string name="thread">スレッド</string>
+    <string name="open_thread_screen">スレ</string>
+    <string name="open_thread_screen_description">選択中のスレッドを開く</string>
+    <string name="open_board_screen">板</string>
+    <string name="open_board_screen_description">選択中の板を開く</string>
     <string name="no_registered_boards">登録されている板がありません</string>
     <string name="no_bookmarked_threads">ブックマークのスレがありません</string>
     <string name="dialog_confirm_delete_group">グループ「%1$s」を削除しますか？</string>

@@ -1,13 +1,13 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
@@ -16,18 +16,25 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
@@ -43,11 +50,9 @@ import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import androidx.compose.ui.res.stringResource
 import com.websarva.wings.android.slevo.R
-
-import kotlin.math.abs
 
 /**
  * 板/スレ共通のタブUIと画面内シートを提供する。
@@ -70,11 +75,19 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     updateScrollPosition: (tab: TabInfo, index: Int, offset: Int) -> Unit,
     onTabSelected: (TabInfo) -> Unit,
     animateToPageFlow: Flow<Int>? = null,
+    titleCard: @Composable (
+        tabInfo: TabInfo,
+        uiState: UiState,
+        actionProgress: Float,
+        modifier: Modifier,
+    ) -> Unit,
     bottomBar: @Composable (
         tabInfo: TabInfo,
         uiState: UiState,
         actionProgress: Float,
         openTabListSheet: () -> Unit,
+        controllerModifier: Modifier,
+        titleContent: @Composable (Modifier) -> Unit,
     ) -> Unit,
     content: @Composable (
         tabInfo: TabInfo,
@@ -89,11 +102,6 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     bottomBarActionVisibilityEnabled: Boolean = true,
     optionalSheetContent: @Composable (tabInfo: TabInfo, uiState: UiState) -> Unit = { _, _ -> }
 ) {
-    // このComposableはタブベースの画面レイアウトを提供します。
-    // - HorizontalPagerで複数タブを左右にスワイプできる
-    // - 各タブごとのUiState購読とリストのスクロール位置を保持/復元する
-    // - 共通のボトムシートやダイアログを表示する
-
     val displayDecision = remember(presentationState) {
         deriveTabDisplayDecision(presentationState, getKey)
     }
@@ -123,14 +131,20 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     var lastSynchronizedSelectedKey by remember { mutableStateOf(selectedKey) }
 
     if (tabs.isNotEmpty()) {
-        // Pagerの状態。ページ数はタブ数に応じて動的に提供される。
+        // --- Pager state ---
         val pagerState =
             rememberPagerState(
                 initialPage = selectedPage.takeIf { it in tabs.indices } ?: 0,
                 pageCount = { tabs.size },
             )
+        val actionProgressStates = remember { mutableMapOf<Key, MutableState<Float>>() }
 
-        // selected key とタブ一覧から導出したページにのみ同期する。
+        SideEffect {
+            val currentKeys = tabs.map(getKey).toSet()
+            actionProgressStates.keys.retainAll(currentKeys)
+        }
+
+        // --- Selection synchronization ---
         LaunchedEffect(displayDecision, tabs.size) {
             if (displayDecision is TabDisplayDecision.Selected &&
                 selectedPage in tabs.indices &&
@@ -140,20 +154,23 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
             }
         }
 
-        LaunchedEffect(pagerState.currentPage, tabs, displayDecision) {
-            // PendingMissing 中は一覧の再bind による選択 callback を抑止する。
-            if (displayDecision !is TabDisplayDecision.Selected) return@LaunchedEffect
-            val page = pagerState.currentPage
-            val currentTab = tabs.getOrNull(page) ?: return@LaunchedEffect
-            val selectedTab = tabs.getOrNull(selectedPage) ?: return@LaunchedEffect
-            // 選択 key の変更に伴う programmatic scroll 中はユーザー選択として通知しない。
-            if (selectedKey != lastSynchronizedSelectedKey) {
-                if (page == selectedPage) lastSynchronizedSelectedKey = selectedKey
-                return@LaunchedEffect
-            }
-            if (getKey(currentTab) != getKey(selectedTab)) {
-                onTabSelected(currentTab)
-            }
+        LaunchedEffect(pagerState, tabs, displayDecision, selectedKey) {
+            snapshotFlow { pagerState.settledPage }
+                .distinctUntilChanged()
+                .collectLatest { page ->
+                    // PendingMissing中は一覧の再bindによる選択callbackを抑止する。
+                    if (displayDecision !is TabDisplayDecision.Selected) return@collectLatest
+                    val settledTab = tabs.getOrNull(page) ?: return@collectLatest
+                    val selectedTab = tabs.getOrNull(selectedPage) ?: return@collectLatest
+                    // selected key起因のprogrammatic scroll中はユーザー選択として通知しない。
+                    if (selectedKey != lastSynchronizedSelectedKey) {
+                        if (page == selectedPage) lastSynchronizedSelectedKey = selectedKey
+                        return@collectLatest
+                    }
+                    if (getKey(settledTab) != getKey(selectedTab)) {
+                        onTabSelected(settledTab)
+                    }
+                }
         }
 
         LaunchedEffect(animateToPageFlow, pagerState) {
@@ -168,10 +185,9 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
             }
         }
 
-        // 共通で使うボトムシートの状態
+        // --- Shared overlays and controller state ---
         val bookmarkSheetState = rememberModalBottomSheetState()
         val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        // --- Dialog state ---
         var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -179,73 +195,84 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
 
-        // PendingMissing では currentPage の tab を継続表示し、選択 key を表示導出に使わない。
-        val currentTabInfo = tabs.getOrNull(pagerState.currentPage) ?: tabs.first()
-        val currentUiState = currentTabInfo.let { tabInfo ->
-            getUiState(tabInfo).collectAsState().value
-        }
-        val pagerUserScrollEnabled = currentUiState?.isTabSwipeEnabled ?: true
-
-        HorizontalPager(
+        // PendingMissingではsettled pageを優先し、selection keyを直接表示に使わない。
+        val settledPage = pagerState.settledPage
+        val settledTab = tabs.getOrNull(settledPage) ?: tabs.first()
+        val settledUiState by getUiState(settledTab).collectAsState()
+        val settledTabKey = getKey(settledTab)
+        val settledProgress = actionProgressStates.getOrPut(settledTabKey) { mutableStateOf(1f) }
+        val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+        val controllerModifier = Modifier.scrollable(
             state = pagerState,
-            key = { page -> getKey(tabs[page]) },
-            userScrollEnabled = pagerUserScrollEnabled
-        ) { page ->
-            val tab = tabs[page]
-            val uiState by getUiState(tab).collectAsState()
-            val bookmarkSheetUiState = uiState.bookmarkSheetState
-            val bookmarkSheetHolder = getBookmarkSheetHolder(tab)
+            orientation = Orientation.Horizontal,
+            enabled = settledUiState.isTabSwipeEnabled,
+            reverseDirection = isRtl,
+            flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
+        )
 
-
-            val tabKey = getKey(tab)
-
-            // 各タブごとにLazyListStateを復元する。キーに基づいてrememberするため
-            // タブが切り替わっても正しいスクロール位置が再現される。
-            val listState = remember(tabKey) {
-                LazyListState(
-                    firstVisibleItemIndex = getScrollIndex(tab),
-                    firstVisibleItemScrollOffset = getScrollOffset(tab)
-                )
-            }
-
-            val isActive = pagerState.currentPage == page
-
-            ObserveScrollPositionPersistence(
-                tabKey = tabKey,
-                listState = listState,
-                isActive = isActive,
-                onSave = { index, offset ->
-                    updateScrollPosition(tab, index, offset)
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                bottomBar = {
+                    bottomBar(
+                        settledTab,
+                        settledUiState,
+                        settledProgress.value,
+                        { showTabListSheet = true },
+                        controllerModifier,
+                    ) { modifier ->
+                        PagerTitleCards(
+                            modifier = modifier,
+                            pagerState = pagerState,
+                            tabs = tabs,
+                            getUiState = getUiState,
+                            getKey = getKey,
+                            getActionProgress = { tab ->
+                                actionProgressStates.getOrPut(getKey(tab)) { mutableStateOf(1f) }.value
+                            },
+                            titleCard = titleCard,
+                        )
+                    }
                 },
-            )
-
-            val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
-            val actionVisibility = rememberBottomBarActionVisibility(
-                scrollEnabled = bottomBarActionVisibilityEnabled,
-            )
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                Scaffold(
+            ) { innerPadding ->
+                HorizontalPager(
                     modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    state = pagerState,
+                    key = { page -> getKey(tabs[page]) },
+                    userScrollEnabled = false,
+                ) { page ->
+                    val tab = tabs[page]
+                    val uiState by getUiState(tab).collectAsState()
+                    val tabKey = getKey(tab)
+                    val listState = remember(tabKey) {
+                        LazyListState(
+                            firstVisibleItemIndex = getScrollIndex(tab),
+                            firstVisibleItemScrollOffset = getScrollOffset(tab),
+                        )
+                    }
+                    val isActive = pagerState.settledPage == page
+
+                    ObserveScrollPositionPersistence(
+                        tabKey = tabKey,
+                        listState = listState,
+                        isActive = isActive,
+                        onSave = { index, offset -> updateScrollPosition(tab, index, offset) },
+                    )
+
+                    val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
+                    val actionProgressState = actionProgressStates.getOrPut(tabKey) { mutableStateOf(1f) }
+                    val actionVisibility = rememberBottomBarActionVisibility(
+                        progress = actionProgressState,
+                        scrollEnabled = bottomBarActionVisibilityEnabled,
+                    )
+                    val contentModifier = Modifier
+                        .fillMaxSize()
                         .nestedScroll(actionVisibility.nestedScrollConnection)
                         .let { modifier ->
-                            bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
-                                ?: modifier
-                        },
-                    bottomBar = {
-                        bottomBar(
-                            tab,
-                            uiState,
-                            actionVisibility.progress.value
-                        ) {
-                            showTabListSheet = true
+                            bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) } ?: modifier
                         }
-                    }
-                ) { innerPadding ->
-                    val contentModifier = Modifier
-                        .padding(innerPadding)
-                        .consumeTabSwipeByDragDirection()
-                    // 各画面の実際のコンテンツを呼び出す
+
                     content(
                         tab,
                         uiState,
@@ -258,142 +285,125 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             showUrlDialog = true
                         },
                     )
-
-                    // 共通のボトムシートとダイアログ
-                    BookmarkSheetHost(
-                        sheetState = bookmarkSheetState,
-                        holder = bookmarkSheetHolder,
-                        uiState = bookmarkSheetUiState,
-                    )
                 }
-                // 各画面固有のシートやダイアログをScaffoldの外側に重ねることでボトムバーも覆う
-                optionalSheetContent(tab, uiState)
             }
-        }
 
-        if (showTabListSheet) {
-            // ルートに応じてタブ選択シートの初期ページを設定
-            val initialPage = when (route) {
-                is AppRoute.Thread -> 1
-                else -> 0
-            }
-            TabsBottomSheet(
-                sheetState = tabListSheetState,
-                tabSessionStore = tabSessionStore,
-                navController = navController,
-                onDismissRequest = { showTabListSheet = false },
-                initialPage = initialPage,
-                currentScreenRoute = route,
+            BookmarkSheetHost(
+                sheetState = bookmarkSheetState,
+                holder = getBookmarkSheetHolder(settledTab),
+                uiState = settledUiState.bookmarkSheetState,
             )
-        }
+            // 現在settle済みタブのoverlayをScaffoldの後ろに描画し、固定barを覆う。
+            optionalSheetContent(settledTab, settledUiState)
 
-        if (showUrlDialog) {
-            UrlOpenDialog(
-                onDismissRequest = {
-                    showUrlDialog = false
-                    urlError = null
-                },
-                isError = urlError != null,
-                errorMessage = urlError,
-                isValidating = isUrlValidating,
-                onValueChange = {
-                    if (urlError != null) {
+            if (showTabListSheet) {
+                val initialPage = when (route) {
+                    is AppRoute.Thread -> 1
+                    else -> 0
+                }
+                TabsBottomSheet(
+                    sheetState = tabListSheetState,
+                    tabSessionStore = tabSessionStore,
+                    navController = navController,
+                    onDismissRequest = { showTabListSheet = false },
+                    initialPage = initialPage,
+                    currentScreenRoute = route,
+                )
+            }
+
+            if (showUrlDialog) {
+                UrlOpenDialog(
+                    onDismissRequest = {
+                        showUrlDialog = false
                         urlError = null
-                    }
-                },
-                onOpen = { url ->
-                    isUrlValidating = true
-                    val resolved = resolveUrl(url)
-                    // --- itest board handling ---
-                    if (resolved is ResolvedUrl.ItestBoard) {
-                        // itest URLはホスト解決が必要なため非同期で処理する。
-                        urlError = null
-                        coroutineScope.launch {
-                            try {
-                                val host = tabSessionStore.resolveBoardHost(
-                                    boardKey = resolved.boardKey,
-                                    sourceUrl = resolved.rawUrl,
-                                )
-                                if (host != null) {
-                                    val boardUrl = "https://$host/${resolved.boardKey}/"
-                                    val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
-                                        AppRoute.Board(
-                                            boardName = boardUrl,
-                                            boardUrl = boardUrl,
+                    },
+                    isError = urlError != null,
+                    errorMessage = urlError,
+                    isValidating = isUrlValidating,
+                    onValueChange = {
+                        if (urlError != null) urlError = null
+                    },
+                    onOpen = { url ->
+                        isUrlValidating = true
+                        val resolved = resolveUrl(url)
+                        if (resolved is ResolvedUrl.ItestBoard) {
+                            urlError = null
+                            coroutineScope.launch {
+                                try {
+                                    val host = tabSessionStore.resolveBoardHost(
+                                        boardKey = resolved.boardKey,
+                                        sourceUrl = resolved.rawUrl,
+                                    )
+                                    if (host != null) {
+                                        val boardUrl = "https://$host/${resolved.boardKey}/"
+                                        val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
+                                            AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl),
                                         )
-                                    )
-                                    tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
-                                    navController.showBoardScreenForTabSelection(
-                                        currentScreenRoute = route,
-                                        route = normalizedRoute,
-                                    )
-                                    urlError = null
-                                    showUrlDialog = false
-                                } else {
-                                    // URL解析に失敗したため、エラーを表示して閉じない。
-                                    urlError = invalidUrlMessage
+                                        tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
+                                        navController.showBoardScreenForTabSelection(
+                                            currentScreenRoute = route,
+                                            route = normalizedRoute,
+                                        )
+                                        urlError = null
+                                        showUrlDialog = false
+                                    } else {
+                                        urlError = invalidUrlMessage
+                                    }
+                                } finally {
+                                    isUrlValidating = false
                                 }
-                            } finally {
+                            }
+                            return@UrlOpenDialog
+                        }
+                        if (resolved is ResolvedUrl.Thread) {
+                            coroutineScope.launch {
+                                val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                                val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(
+                                    AppRoute.Thread(
+                                        threadKey = resolved.threadKey,
+                                        boardUrl = boardUrl,
+                                        boardName = resolved.boardKey,
+                                        threadTitle = null,
+                                    ),
+                                )
+                                val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                                if (index < 0) {
+                                    urlError = invalidUrlMessage
+                                    isUrlValidating = false
+                                    return@launch
+                                }
+                                navController.showThreadScreenForTabSelection(
+                                    currentScreenRoute = route,
+                                    route = normalizedRoute,
+                                )
+                                urlError = null
+                                showUrlDialog = false
                                 isUrlValidating = false
                             }
+                            return@UrlOpenDialog
                         }
-                        return@UrlOpenDialog
-                    }
-                    // --- Thread URL handling ---
-                    if (resolved is ResolvedUrl.Thread) {
-                        coroutineScope.launch {
-                            val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(
-                                AppRoute.Thread(
-                                    threadKey = resolved.threadKey,
-                                    boardUrl = boardUrl,
-                                    boardName = resolved.boardKey,
-                                    threadTitle = null
+                        if (resolved is ResolvedUrl.Board) {
+                            coroutineScope.launch {
+                                val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
+                                val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
+                                    AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl),
                                 )
-                            )
-                            val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
-                            if (index < 0) {
-                                urlError = invalidUrlMessage
+                                tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
+                                navController.showBoardScreenForTabSelection(
+                                    currentScreenRoute = route,
+                                    route = normalizedRoute,
+                                )
+                                urlError = null
+                                showUrlDialog = false
                                 isUrlValidating = false
-                                return@launch
                             }
-                            navController.showThreadScreenForTabSelection(
-                                currentScreenRoute = route,
-                                route = normalizedRoute,
-                            )
-                            urlError = null
-                            showUrlDialog = false
-                            isUrlValidating = false
+                            return@UrlOpenDialog
                         }
-                        return@UrlOpenDialog
-                    }
-                    // --- Board URL handling ---
-                    if (resolved is ResolvedUrl.Board) {
-                        coroutineScope.launch {
-                            val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                            val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
-                                AppRoute.Board(
-                                    boardName = boardUrl,
-                                    boardUrl = boardUrl,
-                                )
-                            )
-                            tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
-                            navController.showBoardScreenForTabSelection(
-                                currentScreenRoute = route,
-                                route = normalizedRoute,
-                            )
-                            urlError = null
-                            showUrlDialog = false
-                            isUrlValidating = false
-                        }
-                        return@UrlOpenDialog
-                    }
-                    // --- Invalid URL ---
-                    // URL解析に失敗したため、エラーを表示して閉じない。
-                    urlError = invalidUrlMessage
-                    isUrlValidating = false
-                }
-            )
+                        urlError = invalidUrlMessage
+                        isUrlValidating = false
+                    },
+                )
+            }
         }
     } else if (displayDecision is TabDisplayDecision.Loading) {
         // 初回 canonical snapshot 前だけローディング表示を出す。
@@ -407,97 +417,55 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
 }
 
 /**
- * 本文領域のドラッグ開始方向を分類し、タブ切り替えの誤伝播を抑止する。
+ * 本文 Pager の連続位置から、タイトルカードの表示列を構成する。
  *
- * 横優勢はジェスチャー用に消費し、縦優勢はLazyColumn側へ委譲する。
+ * 表示対象は現在ページと前後ページに限定し、同じ PagerState のページ距離で移動させる。
  */
-private fun Modifier.consumeTabSwipeByDragDirection(): Modifier {
-    return pointerInput(Unit) {
-        awaitEachGesture {
-            // --- Setup ---
-            val down = awaitFirstDown(
-                requireUnconsumed = false,
-                pass = PointerEventPass.Main,
-            )
-            val pointerId = down.id
-            var dragLock: DragLock? = null
-            val touchSlop = viewConfiguration.touchSlop
-            var totalOffset = Offset.Zero
-            var pendingHorizontalConsume = false
+@Composable
+private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitleCards(
+    modifier: Modifier,
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    tabs: List<TabInfo>,
+    getUiState: (TabInfo) -> StateFlow<UiState>,
+    getKey: (TabInfo) -> Key,
+    getActionProgress: (TabInfo) -> Float,
+    titleCard: @Composable (TabInfo, UiState, Float, Modifier) -> Unit,
+) {
+    // --- Visible page window ---
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds(),
+    ) {
+        val pageDistance = pagerState.layoutInfo.pageSize.toFloat()
+        val firstPage = (pagerState.currentPage - 1).coerceAtLeast(0)
+        val lastPage = (pagerState.currentPage + 1).coerceAtMost(tabs.lastIndex)
 
-            // --- Touch slop detection (LazyColumn感に合わせた軸優先判定) ---
-            while (true) {
-                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                if (!change.pressed) {
-                    // Guard: ポインタが離れたら終了する。
-                    return@awaitEachGesture
-                }
-                val delta = change.position - change.previousPosition
-                if (delta == Offset.Zero) {
-                    continue
-                }
-                totalOffset += delta
-
-                val absX = abs(totalOffset.x)
-                val absY = abs(totalOffset.y)
-                if (absX >= touchSlop || absY >= touchSlop) {
-                    // 縦横が同時到達した場合は縦を優先する。
-                    dragLock = if (absY >= absX) DragLock.Vertical else DragLock.Horizontal
-                    pendingHorizontalConsume = dragLock == DragLock.Horizontal
-                }
-
-                if (dragLock != null) {
-                    break
-                }
-            }
-
-            if (dragLock == null) {
-                // Guard: 方向が確定していない場合は処理を終了する。
-                return@awaitEachGesture
-            }
-
-            // --- Drag handling ---
-            if (dragLock == DragLock.Horizontal) {
-                // 横開始: 子要素のジェスチャー処理を優先し、MainでPagerだけを遮断する。
-                if (pendingHorizontalConsume) {
-                    // Guard: slop超過の初回移動をMainで消費してPagerの掴みを防ぐ。
-                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
-                    val change = event.changes.firstOrNull { it.id == pointerId }
-                    change?.consume()
-                    pendingHorizontalConsume = false
-                }
-                while (true) {
-                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
-                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                    if (!change.pressed) {
-                        break
-                    }
-                    change.consume()
-                }
-            } else {
-                // 縦開始: LazyColumn側へ委譲し、横成分が出た場合のみPagerを遮断する。
-                while (true) {
-                    val event = awaitPointerEvent(pass = PointerEventPass.Main)
-                    val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                    if (!change.pressed) {
-                        break
-                    }
-                    val delta = change.position - change.previousPosition
-                    if (abs(delta.x) > abs(delta.y)) {
-                        // Guard: 縦中の横ジッターがPagerへ伝播するのを防ぐ。
-                        change.consume()
-                    }
+        // --- Page-specific title cards ---
+        for (page in firstPage..lastPage) {
+            val tab = tabs[page]
+            val uiState by getUiState(tab).collectAsState()
+            val tabKey = getKey(tab)
+            val actionProgress = getActionProgress(tab)
+            key(tabKey) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            // Pagerと同じ一ページ分の距離でカードを連続移動させる。
+                            translationX = pagerState.getOffsetDistanceInPages(page) * pageDistance *
+                                if (isRtl) -1f else 1f
+                        },
+                ) {
+                    titleCard(
+                        tab,
+                        uiState,
+                        actionProgress,
+                        Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }
     }
-}
-
-/**
- * ドラッグ開始方向の固定分類を表す。
- */
-private enum class DragLock {
-    Horizontal,
-    Vertical,
 }

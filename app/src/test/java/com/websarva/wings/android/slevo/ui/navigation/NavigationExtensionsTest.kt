@@ -71,6 +71,56 @@ class NavigationExtensionsTest {
         assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
     }
 
+    @Test
+    fun showBoardScreenForTabSelection_replacesCurrentThreadScreen() {
+        val controller = createController()
+        val current = AppRoute.Thread(
+            threadKey = "123",
+            boardUrl = "https://example.com/a/",
+            boardName = "board-a",
+            threadTitle = "thread",
+        )
+        val route = AppRoute.Board(
+            boardName = "board-b",
+            boardUrl = "https://example.com/b/",
+        )
+
+        controller.navigateToThreadScreen(current)
+        controller.showBoardScreenForTabSelection(currentScreenRoute = current, route = route)
+
+        assertBoardRoute(route, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+    }
+
+    @Test
+    fun showBoardScreenForTabSelection_preservesBoardBehindThread() {
+        val controller = createController()
+        val previousBoard = AppRoute.Board(
+            boardName = "board-a",
+            boardUrl = "https://example.com/a/",
+        )
+        val currentThread = AppRoute.Thread(
+            threadKey = "123",
+            boardUrl = previousBoard.boardUrl,
+            boardName = previousBoard.boardName,
+            threadTitle = "thread",
+        )
+        val selectedBoard = AppRoute.Board(
+            boardName = "board-b",
+            boardUrl = "https://example.com/b/",
+        )
+
+        controller.navigateToBoardScreen(previousBoard)
+        controller.navigateToThreadScreen(currentThread)
+        controller.showBoardScreenForTabSelection(
+            currentScreenRoute = currentThread,
+            route = selectedBoard,
+        )
+
+        assertBoardRoute(selectedBoard, controller)
+        assertEquals(previousBoard.boardUrl, controller.previousBackStackEntry?.toRoute<AppRoute.Board>()?.boardUrl)
+    }
+
     private fun createController(): TestNavHostController {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         return TestNavHostController(context).apply {

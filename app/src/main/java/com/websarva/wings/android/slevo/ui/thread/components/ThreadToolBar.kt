@@ -23,6 +23,11 @@ import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
+/**
+ * スレッド画面のソート、検索、投稿、タブ操作を共通TabToolBarへ渡す。
+ *
+ * タイトルカードの描画は必要に応じて外部Pager由来のcontentへ差し替える。
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadToolBar(
@@ -39,6 +44,7 @@ fun ThreadToolBar(
     onMoreClick: () -> Unit,
     onAutoScrollClick: () -> Unit,
     actionsProgress: Float = 1f,
+    titleCardContent: (@Composable (Modifier) -> Unit)? = null,
 ) {
     // --- Actions ---
     val sortIcon = if (isTreeSort) Icons.Filled.AccountTree else Icons.Filled.FormatListNumbered
@@ -98,6 +104,7 @@ fun ThreadToolBar(
         titleStyle = MaterialTheme.typography.titleSmall,
         titleFontWeight = FontWeight.Bold,
         titleMaxLines = 2,
+        titleCardContent = titleCardContent,
     )
 }
 

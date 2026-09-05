@@ -116,6 +116,8 @@ class BbsRouteScaffoldTest {
         val tabs = initialState.tabs
         if (tabs.isEmpty()) return
         val selectedPage = (decision as? TabDisplayDecision.Selected)?.index ?: -1
+        val selectedKey = (initialState.selection as? TabSelectionResolution.Selected)?.key
+        var lastSynchronizedSelectedKey by remember { mutableStateOf(selectedKey) }
         val pagerState = rememberPagerState(
             initialPage = selectedPage.takeIf { it in tabs.indices } ?: 0,
             pageCount = { tabs.size },
@@ -125,10 +127,18 @@ class BbsRouteScaffoldTest {
                 pagerState.scrollToPage(selectedPage)
             }
         }
-        LaunchedEffect(pagerState.currentPage, decision) {
-            if (decision is TabDisplayDecision.Selected && pagerState.currentPage != selectedPage) {
-                onTabSelected(tabs[pagerState.currentPage])
-            }
+        LaunchedEffect(pagerState, decision, selectedPage, selectedKey) {
+            androidx.compose.runtime.snapshotFlow { pagerState.settledPage }
+                .collect {
+                    if (decision !is TabDisplayDecision.Selected) return@collect
+                    if (selectedKey != lastSynchronizedSelectedKey) {
+                        if (pagerState.settledPage == selectedPage) {
+                            lastSynchronizedSelectedKey = selectedKey
+                        }
+                        return@collect
+                    }
+                    if (pagerState.settledPage != selectedPage) onTabSelected(tabs[pagerState.settledPage])
+                }
         }
         HorizontalPager(state = pagerState, key = { tabs[it] }) { page ->
             Box(Modifier.fillMaxSize().testTag("page-${tabs[page]}"))

@@ -18,9 +18,15 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 
+/**
+ * 検索中と通常時の下部コントローラーを切り替える。
+ *
+ * 受け取ったmodifierは通常表示と検索表示の両方へ適用し、外部Pagerのドラッグ領域を維持する。
+ */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun BbsRouteBottomBar(
+    modifier: Modifier = Modifier,
     isSearchMode: Boolean,
     onCloseSearch: () -> Unit,
     animationLabel: String,
@@ -53,6 +59,7 @@ fun BbsRouteBottomBar(
     }
 
     AnimatedContent(
+        modifier = modifier,
         targetState = isSearchMode,
         transitionSpec = {
             slideInVertically { it } + fadeIn() togetherWith
