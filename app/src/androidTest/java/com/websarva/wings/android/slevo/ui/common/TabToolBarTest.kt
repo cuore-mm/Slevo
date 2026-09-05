@@ -30,7 +30,7 @@ class TabToolBarTest {
         }
 
         composeRule
-            .onNodeWithContentDescription("選択中のスレッドを開く")
+            .onNodeWithContentDescription("スレッドタブに移動")
             .assertTextEquals("スレ")
             .assertIsNotEnabled()
     }
