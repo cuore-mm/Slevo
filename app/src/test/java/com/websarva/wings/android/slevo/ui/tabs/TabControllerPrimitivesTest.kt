@@ -148,6 +148,23 @@ class TabControllerPrimitivesTest {
         assertEquals(listOf("fixed"), result)
     }
 
+    /** 複数keyの固定状態を一つのprojection operationで更新し、対象外の値を維持することを確認する。 */
+    @Test
+    fun foldEffectiveTabs_transformsMultipleKeysInOneOperation() {
+        val result = foldEffectiveTabs(
+            canonicalTabs = listOf("a:false", "fixed:true", "b:false"),
+            operations = listOf(
+                IndexedTabOperation(
+                    key = "a",
+                    transformKeys = setOf("a", "b"),
+                ) { current -> current?.substringBefore(':') + ":true" },
+            ),
+            keyOf = { it.substringBefore(':') },
+        )
+
+        assertEquals(listOf("a:true", "fixed:true", "b:true"), result)
+    }
+
     /** 複数削除でも単体closeを一覧順にfoldした最終選択と一致することを確認する。 */
     @Test
     fun selectionAfterTabRemovals_matchesSequentialSelectionForAllSubsets() {

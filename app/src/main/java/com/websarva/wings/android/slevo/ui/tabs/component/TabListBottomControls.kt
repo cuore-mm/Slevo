@@ -37,7 +37,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -69,6 +71,8 @@ internal fun TabListBottomControls(
     hazeState: HazeState,
     isRefreshing: Boolean,
     isSearchMode: Boolean,
+    isSelectionMode: Boolean = false,
+    selectedTabCount: Int = 0,
     refreshProgress: ThreadTabRefreshProgress?,
     onCreateTabClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -78,6 +82,19 @@ internal fun TabListBottomControls(
     val isBoardPage = pagerState.currentPage == TabPage.BOARD.index
     val coroutineScope = rememberCoroutineScope()
     val indicatorProgress = refreshProgress?.progress ?: 0f
+    val lastSelectedTabCount = remember { mutableIntStateOf(selectedTabCount) }
+
+    // 選択終了時は集合のクリアが先行するため、終了アニメーション中だけ最後の件数を保持する。
+    SideEffect {
+        if (isSelectionMode) {
+            lastSelectedTabCount.intValue = selectedTabCount
+        }
+    }
+    val displayedSelectedTabCount = if (isSelectionMode) {
+        selectedTabCount
+    } else {
+        lastSelectedTabCount.intValue
+    }
 
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
 
@@ -108,33 +125,85 @@ internal fun TabListBottomControls(
             verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
         ) {
             AnimatedVisibility(
-                visible = !isSearchMode,
-                enter = fadeIn(
-                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
-                ),
+                visible = !isSearchMode || isSelectionMode,
+                enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
             ) {
-                TabListInlineSection(
-                    modifier = Modifier.padding(horizontal = TabListLayoutDefaults.controlsHorizontalPadding),
-                    selectedIndex = pagerState.currentPage,
-                    isBoardPage = isBoardPage,
-                    isRefreshing = isRefreshing,
-                    onSelect = { index ->
-                        if (pagerState.currentPage != index) {
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(TabListLayoutDefaults.bottomContentHeight),
+                ) {
+                    // 通常操作と選択数表示を同じフットプリントに重ね、切り替え時の上下移動を防ぐ。
+                    androidx.compose.animation.AnimatedVisibility(
+                        modifier = Modifier.matchParentSize(),
+                        visible = !isSearchMode && !isSelectionMode,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(TabListLayoutDefaults.bottomSectionSpacing),
+                        ) {
+                            TabListInlineSection(
+                                modifier = Modifier.padding(horizontal = TabListLayoutDefaults.controlsHorizontalPadding),
+                                selectedIndex = pagerState.currentPage,
+                                isBoardPage = isBoardPage,
+                                isRefreshing = isRefreshing,
+                                onSelect = { index ->
+                                    if (pagerState.currentPage != index) {
+                                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                    }
+                                },
+                                onCreateTabClick = onCreateTabClick,
+                                onRefreshClick = onRefreshClick,
+                                onCancelRefreshClick = onCancelRefreshClick,
+                            )
+                            TabListRefreshProgressSlot(
+                                isVisible = isRefreshing,
+                                progress = indicatorProgress,
+                            )
                         }
-                    },
-                    onCreateTabClick = onCreateTabClick,
-                    onRefreshClick = onRefreshClick,
-                    onCancelRefreshClick = onCancelRefreshClick,
-                )
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        modifier = Modifier.matchParentSize(),
+                        visible = isSelectionMode,
+                        enter = fadeIn(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                        exit = fadeOut(animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(TabListLayoutDefaults.bottomControlHeight),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+                                        shape = MaterialTheme.shapes.extraLarge,
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.tab_selection_count,
+                                        displayedSelectedTabCount
+                                    ),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
+                }
             }
-            TabListRefreshProgressSlot(
-                isVisible = isRefreshing,
-                progress = indicatorProgress,
-            )
         }
     }
 }
@@ -331,6 +400,8 @@ private fun TabListBottomControlsBoardPreview() {
         hazeState = hazeState,
         isRefreshing = false,
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -354,6 +425,8 @@ private fun TabListBottomControlsThreadPreview() {
         hazeState = hazeState,
         isRefreshing = false,
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         refreshProgress = null,
         onCreateTabClick = {},
         onRefreshClick = {},
@@ -377,6 +450,36 @@ private fun TabListBottomControlsRefreshingPreview() {
         hazeState = hazeState,
         isRefreshing = true,
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
+        refreshProgress = ThreadTabRefreshProgress(
+            completedCount = 3,
+            totalCount = 8,
+        ),
+        onCreateTabClick = {},
+        onRefreshClick = {},
+        onCancelRefreshClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TabListBottomControlsSelectionPreview() {
+    val pagerState = rememberPagerState(
+        initialPage = TabPage.THREAD.index,
+        pageCount = { TabPage.count },
+    )
+    val hazeState = rememberHazeState()
+    TabListBottomControls(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        pagerState = pagerState,
+        hazeState = hazeState,
+        isRefreshing = true,
+        isSearchMode = false,
+        isSelectionMode = true,
+        selectedTabCount = 0,
         refreshProgress = ThreadTabRefreshProgress(
             completedCount = 3,
             totalCount = 8,

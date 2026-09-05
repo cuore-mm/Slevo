@@ -402,8 +402,38 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.togglePinBoardTab(boardUrl)
     }
 
+    /** 指定板タブ集合の pin 状態を明示値へ揃える。 */
+    fun setBoardTabsPinned(tabs: List<BoardTabInfo>, isPinned: Boolean) {
+        boardTabsCoordinator.setBoardTabsPinned(tabs, isPinned)
+    }
+
     suspend fun togglePinThreadTab(threadId: com.websarva.wings.android.slevo.data.model.ThreadId) {
         threadTabsCoordinator.togglePinThreadTab(threadId)
+    }
+
+    /** 指定スレッドタブ集合の pin 状態を retained scope で明示値へ揃える。 */
+    fun setThreadTabsPinned(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
+        if (tabs.isEmpty()) return
+        scope.launch {
+            setThreadTabsPinnedSafely(tabs, isPinned)
+        }
+    }
+
+    /** Thread bulk pin の非キャンセル例外をログへ記録し、retained scopeへ伝播させない。 */
+    private suspend fun setThreadTabsPinnedSafely(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
+        try {
+            threadTabsCoordinator.setThreadTabsPinned(tabs, isPinned)
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (exception: Throwable) {
+            runCatching {
+                appLogger.e(
+                    message = "Thread bulk pin failed for ${tabs.size} tabs",
+                    tag = "TabSessionStore",
+                    throwable = exception,
+                )
+            }
+        }
     }
 
     // --- Per-tab session holders ---

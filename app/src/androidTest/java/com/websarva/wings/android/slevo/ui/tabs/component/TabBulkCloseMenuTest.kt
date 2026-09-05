@@ -43,7 +43,7 @@ class TabBulkCloseMenuTest {
         var moreButtonBounds: IntRect? = null
         composeRule.setContent {
             SlevoTheme {
-                TabListTopSearchArea(
+                TabListTopControls(
                     hazeState = HazeState(),
                     isSearchMode = false,
                     searchInputValue = androidx.compose.ui.text.input.TextFieldValue(""),
@@ -71,7 +71,7 @@ class TabBulkCloseMenuTest {
     fun topSearchArea_hidesActionsInSearchMode() {
         composeRule.setContent {
             SlevoTheme {
-                TabListTopSearchArea(
+                TabListTopControls(
                     hazeState = HazeState(),
                     isSearchMode = true,
                     searchInputValue = androidx.compose.ui.text.input.TextFieldValue(""),
@@ -91,9 +91,9 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithContentDescription("その他").assertDoesNotExist()
     }
 
-    /** その他メニューが承認済みの一括クローズ項目だけを表示することを確認する。 */
+    /** 通常のその他メニューに一括クローズと選択開始を表示することを確認する。 */
     @Test
-    fun bulkMenu_showsOnlyCloseAllAction() {
+    fun bulkMenu_showsCloseAllAndSelectActions() {
         var expanded by mutableStateOf(true)
         composeRule.setContent {
             SlevoTheme {
@@ -110,6 +110,7 @@ class TabBulkCloseMenuTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("全てのタブを閉じる").assertExists()
+        composeRule.onNodeWithText("タブを選択").assertExists()
         composeRule.onNodeWithText("詳細").assertDoesNotExist()
         composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
         composeRule.onNodeWithText("タブを閉じる").assertDoesNotExist()
@@ -517,6 +518,103 @@ class TabBulkCloseMenuTest {
         composeRule.mainClock.advanceTimeBy(140)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
+    }
+
+    /** 固定タブの選択モード切り替えで、レス数と固定アイコンが連続して移動することを確認する。 */
+    @Test
+    fun pinnedTabSelection_animatesTrailingPositions() {
+        var isSelectionMode by mutableStateOf(false)
+        composeRule.setContent {
+            SlevoTheme {
+                TabListCard(
+                    bookmarkColor = null,
+                    onClick = {},
+                    isSelectionMode = isSelectionMode,
+                    isPinned = true,
+                    headerTitle = "example.com",
+                    headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
+                    bodyTitle = "Thread title",
+                    onCloseClick = {},
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        val initialResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
+        val initialPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+
+        composeRule.mainClock.autoAdvance = false
+        isSelectionMode = true
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(100)
+        composeRule.waitForIdle()
+        val halfwayResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
+        val halfwayPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+
+        composeRule.mainClock.advanceTimeBy(200)
+        composeRule.waitForIdle()
+        val selectedResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
+        val selectedPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+
+        assertTrue(halfwayResLeft < initialResLeft)
+        assertTrue(selectedResLeft < halfwayResLeft)
+        assertTrue(halfwayPinLeft < initialPinLeft)
+        assertTrue(selectedPinLeft < halfwayPinLeft)
+
+        isSelectionMode = false
+        composeRule.mainClock.advanceTimeBy(100)
+        composeRule.waitForIdle()
+        val returningResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
+        val returningPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+
+        assertTrue(returningResLeft > selectedResLeft)
+        assertTrue(returningPinLeft > selectedPinLeft)
+    }
+
+    /** 選択モードの円形ボーダーを維持したまま、チェックだけを表示・非表示にすることを確認する。 */
+    @Test
+    fun tabSelectionCheck_animatesInsideStableStateArea() {
+        var isSelected by mutableStateOf(false)
+        composeRule.setContent {
+            SlevoTheme {
+                TabListCard(
+                    bookmarkColor = null,
+                    onClick = {},
+                    isSelectionMode = true,
+                    isSelectedForSelectionMode = isSelected,
+                    headerTitle = "example.com",
+                    bodyTitle = "Thread title",
+                    onCloseClick = {},
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("選択済み").assertDoesNotExist()
+
+        composeRule.mainClock.autoAdvance = false
+        isSelected = true
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("選択済み").assertExists()
+
+        isSelected = false
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("選択済み").assertExists()
+        composeRule.mainClock.advanceTimeBy(200)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("選択済み").assertDoesNotExist()
     }
 
     /** 削除対象行が縮小し、残存行が通常レイアウトで詰まることを確認する。 */

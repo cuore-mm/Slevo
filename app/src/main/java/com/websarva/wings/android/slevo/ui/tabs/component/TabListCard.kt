@@ -1,12 +1,18 @@
 package com.websarva.wings.android.slevo.ui.tabs.component
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Star
@@ -57,6 +64,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -68,7 +76,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -81,7 +91,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.DragGestureDetector
-import java.net.URI
 import kotlin.math.abs
 
 /**
@@ -124,14 +133,13 @@ private object TabListCardDefaults {
     val trailingActionTopPadding = 2.dp
     val trailingActionEndPadding = 8.dp
     val trailingActionContentSpacing = 8.dp
+    val trailingActionInnerPadding = 4.dp
 
     val headerMinHeight: Dp
         get() = trailingActionSize
 
-    val headerEndPadding: Dp
-        get() = trailingActionEndPadding +
-                trailingActionSize +
-                trailingActionContentSpacing
+    val selectionTrailingActionWidth: Dp
+        get() = trailingActionSize * 2 + trailingActionInnerPadding
 }
 
 /**
@@ -164,6 +172,9 @@ internal fun TabListCard(
     onLongPressMoved: (Offset) -> Unit = {},
     onLongPressReleased: () -> Unit = {},
     isHiddenForSelection: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSelectedForSelectionMode: Boolean = false,
+    onSelectionToggle: () -> Unit = {},
     isPinned: Boolean = false,
     isRemoving: Boolean = false,
     headerTitle: String,
@@ -193,11 +204,42 @@ internal fun TabListCard(
         animationSpec = tween(durationMillis = TabListAnimationDefaults.DRAGGING_ALPHA_MILLIS),
         label = "tabDraggingAlpha",
     )
+    val selectionDescription = stringResource(
+        if (isSelectedForSelectionMode) R.string.tab_selected else R.string.tab_unselected,
+    )
+    val cardColor by animateColorAsState(
+        targetValue = if (isSelectionMode && isSelectedForSelectionMode) {
+            lerp(
+                MaterialTheme.colorScheme.primaryContainer,
+                MaterialTheme.colorScheme.primary,
+                0.2f,
+            )
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
+        label = "tabSelectionColor",
+    )
+
+    // --- Trailing action animation ---
+    val targetTrailingActionWidth = if (isSelectionMode && isPinned) {
+        TabListCardDefaults.selectionTrailingActionWidth
+    } else {
+        TabListCardDefaults.trailingActionSize
+    }
+    val animatedTrailingActionWidth by animateDpAsState(
+        targetValue = targetTrailingActionWidth,
+        animationSpec = tween(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS),
+        label = "tabTrailingActionWidth",
+    )
+    val animatedHeaderEndPadding = TabListCardDefaults.trailingActionEndPadding +
+            animatedTrailingActionWidth +
+            TabListCardDefaults.trailingActionContentSpacing
     val cardInteractionSource = remember { MutableInteractionSource() }
 
     // --- Swipe-to-delete state ---
     val canHandleSwipeGesture =
-        isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
+        !isSelectionMode && isSwipeDeleteEnabled && !isDragging && !isRemoving && onSwipeDelete != null
     val canDeleteBySwipe = canHandleSwipeGesture && !isPinned
     val offsetX = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -393,7 +435,7 @@ internal fun TabListCard(
                 },
             shape = MaterialTheme.shapes.largeIncreased,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                containerColor = cardColor,
             ),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 1.dp,
@@ -409,7 +451,7 @@ internal fun TabListCard(
                     ),
             ) {
                 val hapticFeedback = LocalHapticFeedback.current
-                val detector = reorderHandle?.let {
+                val detector = reorderHandle?.takeUnless { isSelectionMode }?.let {
                     SlevoTabDragGestureDetector(
                         onLongPress = {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -445,8 +487,20 @@ internal fun TabListCard(
                 } else {
                     Modifier
                 }
-                val gestureModifier = if (detector != null) {
-                    Modifier
+                val gestureModifier = when {
+                    isSelectionMode -> Modifier
+                        .clickable(
+                            enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
+                            interactionSource = cardInteractionSource,
+                            indication = null,
+                            onClick = onSelectionToggle,
+                        )
+                        .semantics {
+                            selected = isSelectedForSelectionMode
+                            stateDescription = selectionDescription
+                        }
+
+                    detector != null -> Modifier
                         .clickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
                             interactionSource = cardInteractionSource,
@@ -455,8 +509,8 @@ internal fun TabListCard(
                         )
                         .then(reorderHandle(detector))
                         .then(accessibilityModifier)
-                } else {
-                    Modifier
+
+                    else -> Modifier
                         .combinedClickable(
                             enabled = !isRemoving && !isFlyingOut && offsetX.value == 0f,
                             interactionSource = cardInteractionSource,
@@ -469,7 +523,7 @@ internal fun TabListCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(swipeGestureModifier)
+                        .then(if (isSelectionMode) Modifier else swipeGestureModifier)
                 ) {
                     Row(
                         modifier = gestureModifier
@@ -488,7 +542,7 @@ internal fun TabListCard(
                                     .heightIn(min = TabListCardDefaults.headerMinHeight)
                                     .padding(
                                         start = 8.dp,
-                                        end = TabListCardDefaults.headerEndPadding,
+                                        end = animatedHeaderEndPadding,
                                     ),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -602,17 +656,54 @@ internal fun TabListCard(
                             top = TabListCardDefaults.trailingActionTopPadding,
                             end = TabListCardDefaults.trailingActionEndPadding,
                         )
-                        .size(TabListCardDefaults.trailingActionSize),
+                        .width(animatedTrailingActionWidth)
+                        .height(TabListCardDefaults.trailingActionSize),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (isPinned) {
+                    // --- Pinned state ---
+                    androidx.compose.animation.AnimatedVisibility(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = TabListCardDefaults.trailingActionInnerPadding),
+                        visible = isPinned,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            initialScale = 0.8f,
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            targetScale = 0.8f,
+                        ),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.PushPin,
                             contentDescription = stringResource(R.string.pinned),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize),
                         )
-                    } else {
+                    }
+
+                    // --- Close action ---
+                    androidx.compose.animation.AnimatedVisibility(
+                        modifier = Modifier.align(Alignment.Center),
+                        visible = !isSelectionMode && !isPinned,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            initialScale = 0.8f,
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            targetScale = 0.8f,
+                        ),
+                    ) {
                         IconButton(
                             enabled = !isRemoving && !isFlyingOut,
                             modifier = Modifier
@@ -638,6 +729,63 @@ internal fun TabListCard(
                             )
                         }
                     }
+
+                    // --- Selection state ---
+                    androidx.compose.animation.AnimatedVisibility(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        visible = isSelectionMode,
+                        enter = fadeIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleIn(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            initialScale = 0.8f,
+                        ),
+                        exit = fadeOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                        ) + scaleOut(
+                            animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                            targetScale = 0.8f,
+                        ),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape,
+                                )
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape,
+                                )
+                                .size(TabListCardDefaults.trailingActionSize),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // 外側の円形ボーダーを維持し、選択状態の変化はチェックだけで表現する。
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isSelectedForSelectionMode,
+                                enter = fadeIn(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                ) + scaleIn(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                    initialScale = 0.6f,
+                                ),
+                                exit = fadeOut(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                ) + scaleOut(
+                                    animationSpec = tween(TabListAnimationDefaults.VISIBILITY_MILLIS),
+                                    targetScale = 0.6f,
+                                ),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = selectionDescription,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(TabListCardDefaults.trailingActionIconSize + 2.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -660,7 +808,7 @@ fun TabListCardPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun ColoredTabListCardPreview() {
+fun BookmarkedTabListCardPreview() {
     TabListCard(
         modifier = Modifier.padding(12.dp),
         bookmarkColor = MaterialTheme.colorScheme.primary,
@@ -672,12 +820,50 @@ fun ColoredTabListCardPreview() {
     )
 }
 
-/**
- * 板URLからサービス名に相当するホスト名を取り出す。
- */
-internal fun extractServiceName(boardUrl: String): String {
-    return runCatching { URI(boardUrl).host }
-        .getOrNull()
-        ?.takeIf { it.isNotBlank() }
-        ?: boardUrl // URL解析に失敗した場合はそのまま表示する。
+@Preview(showBackground = true)
+@Composable
+fun TabListCardSelectionPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        bookmarkColor = null,
+        onClick = {},
+        isSelectionMode = true,
+        headerTitle = "example.com",
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SelectedTabListCardSelectionPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        bookmarkColor = null,
+        onClick = {},
+        isSelectionMode = true,
+        isSelectedForSelectionMode = true,
+        headerTitle = "example.com",
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PinnedTabListCardSelectionPreview() {
+    TabListCard(
+        modifier = Modifier.padding(12.dp),
+        bookmarkColor = null,
+        onClick = {},
+        isSelectionMode = true,
+        isSelectedForSelectionMode = true,
+        isPinned = true,
+        headerTitle = "example.com",
+        headerTrailingContent = TabHeaderTrailingContent.ThreadResCount(120, 3),
+        bodyTitle = "カードのタイトル",
+        onCloseClick = {},
+    )
 }

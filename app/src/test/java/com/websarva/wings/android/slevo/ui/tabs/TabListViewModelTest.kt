@@ -226,6 +226,121 @@ class TabListViewModelTest {
         assertFalse(state.showBoardInfoBottomSheet)
     }
 
+    /** 複数選択を開始すると起点だけが選択され、カード操作で選択を切り替えられることを確認する。 */
+    @Test
+    fun selectionMode_startsWithInitialTabAndTogglesKeys() = runTest {
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com")
+        openBoardTabs.value = listOf(first, second)
+
+        viewModel.startSelectionMode(TabPage.BOARD, initialBoardUrl = first.boardUrl)
+        viewModel.toggleBoardTabSelection(second.boardUrl)
+        viewModel.toggleBoardTabSelection(first.boardUrl)
+
+        val state = viewModel.uiState.first()
+        assertTrue(state.isInSelectionMode)
+        assertEquals(setOf(second.boardUrl), state.selectedBoardTabKeys)
+        assertEquals(1, state.selectedTabCount)
+    }
+
+    /** 選択と検索を重ねても、検索を先に閉じ、選択集合を維持することを確認する。 */
+    @Test
+    fun selectionMode_coexistsWithSearchAndClosesInHierarchyOrder() = runTest {
+        val tab = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        openBoardTabs.value = listOf(tab)
+
+        viewModel.startSelectionMode(TabPage.BOARD, initialBoardUrl = tab.boardUrl)
+        viewModel.enterSearchMode()
+        assertTrue(viewModel.uiState.first().isInSelectionMode)
+
+        viewModel.closeSearchMode()
+        assertFalse(viewModel.uiState.first().isSearchMode)
+        assertTrue(viewModel.uiState.first().isInSelectionMode)
+
+        viewModel.exitSelectionMode()
+        assertFalse(viewModel.uiState.first().isInSelectionMode)
+    }
+
+    /** 一括固定後に選択集合だけをクリアし、選択モードを維持することを確認する。 */
+    @Test
+    fun setSelectedTabsPinned_clearsBoardSelectionAndKeepsMode() = runTest {
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com", isPinned = true)
+        openBoardTabs.value = listOf(first, second)
+
+        viewModel.startSelectionMode(TabPage.BOARD)
+        viewModel.toggleBoardTabSelection(first.boardUrl)
+        viewModel.toggleBoardTabSelection(second.boardUrl)
+        viewModel.setSelectedTabsPinned(TabPage.BOARD)
+
+        verify {
+            tabSessionStore.setBoardTabsPinned(listOf(first, second), true)
+        }
+        val state = viewModel.uiState.first()
+        assertTrue(state.isInSelectionMode)
+        assertTrue(state.selectedBoardTabKeys.isEmpty())
+        assertEquals(0, state.selectedTabCount)
+    }
+
+    /** 一括固定解除後に新たな選択を維持し、選択モードを維持することを確認する。 */
+    @Test
+    fun setSelectedTabsPinned_clearsAcceptedThreadSelectionAndKeepsNewSelection() = runTest {
+        val first = ThreadTabInfo(
+            id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "1"),
+            title = "Thread",
+            boardName = "board",
+            boardUrl = "https://example.com/board/",
+            boardId = 1L,
+            isPinned = true,
+        )
+        val second = first.copy(
+            id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "2"),
+            title = "Thread 2",
+            isPinned = false,
+        )
+        openThreadTabs.value = listOf(first, second)
+
+        viewModel.startSelectionMode(TabPage.THREAD)
+        viewModel.toggleThreadTabSelection(first.id)
+        viewModel.setSelectedTabsPinned(TabPage.THREAD)
+        viewModel.toggleThreadTabSelection(second.id)
+        runCurrent()
+
+        verify { tabSessionStore.setThreadTabsPinned(listOf(first), false) }
+        val state = viewModel.uiState.first()
+        assertTrue(state.isInSelectionMode)
+        assertEquals(setOf(second.id), state.selectedThreadTabIds)
+        assertEquals(1, state.selectedTabCount)
+    }
+
+    /** 固定タブを含む選択対象を一覧順のsnapshotで一括closeし、選択モードを維持することを確認する。 */
+    @Test
+    fun closeSelectedTabs_includesPinnedTabsAndKeepsSelectionMode() = runTest {
+        val first = BoardTabInfo(1, "A", "https://example.com/a/", "example.com")
+        val second = BoardTabInfo(2, "B", "https://example.com/b/", "example.com", isPinned = true)
+        openBoardTabs.value = listOf(first, second)
+        every {
+            tabSessionStore.closeBoardTabsAfterDelay(
+                targets = listOf(first, second),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        } answers { }
+
+        viewModel.startSelectionMode(TabPage.BOARD)
+        viewModel.toggleBoardTabSelection(first.boardUrl)
+        viewModel.toggleBoardTabSelection(second.boardUrl)
+        viewModel.closeSelectedTabs(TabPage.BOARD)
+
+        verify {
+            tabSessionStore.closeBoardTabsAfterDelay(
+                targets = listOf(first, second),
+                delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+            )
+        }
+        assertTrue(viewModel.uiState.first().isInSelectionMode)
+        assertEquals(setOf(first.boardUrl, second.boardUrl), viewModel.uiState.first().removingBoardTabKeys)
+    }
+
     /**
      * 詳細表示時に選択タブが detail 状態へ移行し、選択状態が解除されることを確認する。
      */
@@ -408,6 +523,16 @@ class TabListViewModelTest {
         val state = viewModel.uiState.first()
         assertTrue(state.isBulkCloseMenuVisible)
         assertEquals(IntRect(10, 20, 110, 120), state.bulkCloseMenuBounds)
+    }
+
+    /** 選択0件の選択モードではその他メニューを開かないことを確認する。 */
+    @Test
+    fun showBulkCloseMenu_ignoresEmptySelectionMode() = runTest {
+        viewModel.startSelectionMode(TabPage.BOARD)
+
+        showBulkCloseMenu()
+
+        assertFalse(viewModel.uiState.first().isBulkCloseMenuVisible)
     }
 
     /** dismiss 時に一括クローズメニューの表示状態とアンカーがクリアされることを確認する。 */

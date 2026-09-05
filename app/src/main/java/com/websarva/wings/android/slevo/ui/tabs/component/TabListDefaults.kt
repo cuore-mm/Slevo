@@ -29,11 +29,14 @@ internal object TabListLayoutDefaults {
     val emptyStateHorizontalPadding: Dp = 16.dp
     val emptyStateVerticalPadding: Dp = 40.dp
 
+    val bottomContentHeight: Dp
+        get() = bottomControlHeight + bottomSectionSpacing + bottomProgressHeight
+
     /**
      * リストが下部操作群に隠れないために必要な bottom padding を返す。
      */
     val listBottomPadding: Dp
-        get() = bottomHazeOverlap + bottomControlHeight + bottomSectionSpacing + bottomProgressHeight + bottomPadding
+        get() = bottomHazeOverlap + bottomContentHeight + bottomPadding
 
     /**
      * 空状態プレビューで使う標準余白を返す。

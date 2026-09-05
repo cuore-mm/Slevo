@@ -63,6 +63,7 @@ class BoardTabsCoordinator @Inject constructor(
         data class Delete(val boardUrl: String, val requestedSelection: String?) : Operation
         data class BulkDelete(val boardUrls: List<String>, val requestedSelection: String?) : Operation
         data class Pin(val boardUrl: String, val isPinned: Boolean) : Operation
+        data class BulkPin(val boardUrls: List<String>, val isPinned: Boolean) : Operation
         data class Info(val tab: BoardTabInfo) : Operation
         data class Scroll(val boardUrl: String, val index: Int, val offset: Int) : Operation
         data class Reorder(val boardUrls: List<String>) : Operation
@@ -254,6 +255,23 @@ class BoardTabsCoordinator @Inject constructor(
         }
     }
 
+    /** 指定板タブ集合の pin 状態を明示値へ揃える。 */
+    fun setBoardTabsPinned(tabs: List<BoardTabInfo>, isPinned: Boolean) {
+        val boardUrls = tabs.map(BoardTabInfo::boardUrl).distinct()
+        if (boardUrls.isEmpty()) return
+        if (boundScope == null) {
+            _state.update { state ->
+                state.copy(
+                    canonicalTabs = state.canonicalTabs.map { tab ->
+                        if (tab.boardUrl in boardUrls) tab.copy(isPinned = isPinned) else tab
+                    },
+                ).rebuildPresentation()
+            }
+        } else {
+            acceptWithoutWaiting(Operation.BulkPin(boardUrls, isPinned))
+        }
+    }
+
     /** Board の対象行だけの scroll command を受理する。 */
     fun updateBoardScrollPosition(boardUrl: String, firstVisibleIndex: Int, scrollOffset: Int) {
         if (boundScope == null) {
@@ -378,6 +396,7 @@ class BoardTabsCoordinator @Inject constructor(
                 is Operation.Delete -> tabsRepository.deleteOpenBoardTab(operation.boardUrl)
                 is Operation.BulkDelete -> tabsRepository.deleteOpenBoardTabs(operation.boardUrls)
                 is Operation.Pin -> tabsRepository.setBoardTabPinned(operation.boardUrl, operation.isPinned)
+                is Operation.BulkPin -> tabsRepository.setBoardTabsPinned(operation.boardUrls, operation.isPinned)
                 is Operation.Info -> tabsRepository.updateBoardTabInfo(operation.tab)
                 is Operation.Scroll -> tabsRepository.updateBoardTabScrollPosition(operation.boardUrl, operation.index, operation.offset)
                 is Operation.Reorder -> tabsRepository.reorderOpenBoardTabs(operation.boardUrls)
@@ -404,6 +423,7 @@ class BoardTabsCoordinator @Inject constructor(
         is Operation.Delete -> null
         is Operation.BulkDelete -> null
         is Operation.Pin -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Pin)
+        is Operation.BulkPin -> null
         is Operation.Info -> BoardSupersessionKey(tab.boardUrl, BoardSupersessionKey.Kind.Info)
         is Operation.Scroll -> BoardSupersessionKey(boardUrl, BoardSupersessionKey.Kind.Scroll)
         is Operation.Reorder -> BoardSupersessionKey("__all__", BoardSupersessionKey.Kind.Reorder)
@@ -441,6 +461,7 @@ class BoardTabsCoordinator @Inject constructor(
             is Operation.Delete -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
             is Operation.BulkDelete -> null
             is Operation.Pin -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
+            is Operation.BulkPin -> null
             is Operation.Info -> canonical.firstOrNull { it.boardUrl == operation.tab.boardUrl }
             is Operation.Scroll -> canonical.firstOrNull { it.boardUrl == operation.boardUrl }
             is Operation.Reorder -> null
@@ -450,6 +471,9 @@ class BoardTabsCoordinator @Inject constructor(
             is Operation.Delete -> actual == null
             is Operation.BulkDelete -> canonical.none { it.boardUrl in operation.boardUrls }
             is Operation.Pin -> actual?.isPinned == operation.isPinned
+            is Operation.BulkPin -> canonical
+                .filter { it.boardUrl in operation.boardUrls }
+                .all { it.isPinned == operation.isPinned }
             is Operation.Info -> actual != null && actual.boardId == operation.tab.boardId && actual.boardName == operation.tab.boardName
             is Operation.Scroll -> actual?.firstVisibleItemIndex == operation.index && actual.firstVisibleItemScrollOffset == operation.offset
             is Operation.Reorder -> {
@@ -482,6 +506,11 @@ class BoardTabsCoordinator @Inject constructor(
                         removeKeys = operation.boardUrls.toSet(),
                     ) { current -> current }
                     is Operation.Pin -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(isPinned = operation.isPinned) }
+                    is Operation.BulkPin -> IndexedTabOperation(
+                        key = operation.boardUrls.first(),
+                        transform = { current -> current?.copy(isPinned = operation.isPinned) },
+                        transformKeys = operation.boardUrls.toSet(),
+                    )
                     is Operation.Info -> IndexedTabOperation(operation.tab.boardUrl) { current -> mergeBoardTabMetadata(current, operation.tab) }
                     is Operation.Scroll -> IndexedTabOperation(operation.boardUrl) { current -> current?.copy(firstVisibleItemIndex = operation.index, firstVisibleItemScrollOffset = operation.offset) }
                     is Operation.Reorder -> IndexedTabOperation(

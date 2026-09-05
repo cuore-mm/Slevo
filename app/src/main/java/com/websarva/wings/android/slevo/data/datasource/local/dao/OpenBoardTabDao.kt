@@ -42,6 +42,10 @@ interface OpenBoardTabDao {
     @Query("UPDATE open_board_tabs SET isPinned = :isPinned WHERE boardUrl = :boardUrl")
     suspend fun updatePinned(boardUrl: String, isPinned: Boolean): Int
 
+    /** 指定 URL 集合の板タブだけの pin 列を更新し、更新行数を返す。 */
+    @Query("UPDATE open_board_tabs SET isPinned = :isPinned WHERE boardUrl IN (:boardUrls)")
+    suspend fun updatePinnedByBoardUrls(boardUrls: List<String>, isPinned: Boolean): Int
+
     /** 指定板タブのスクロール列だけを更新する。 */
     @Query(
         "UPDATE open_board_tabs SET firstVisibleItemIndex = :firstVisibleItemIndex, " +

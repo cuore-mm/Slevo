@@ -40,6 +40,9 @@ fun OpenThreadsList(
     listState: LazyListState = rememberLazyListState(),
     newResCounts: Map<String, Int> = emptyMap(),
     selectedThreadTab: ThreadTabInfo? = null,
+    isSelectionMode: Boolean = false,
+    selectedThreadTabIds: Set<ThreadId> = emptySet(),
+    onThreadTabSelectionToggle: (ThreadId) -> Unit = {},
     removingKeys: Set<String> = emptySet(),
     onThreadTabLongPressed: (ThreadTabInfo, IntRect) -> Unit = { _, _ -> },
     onThreadTabLongPressMoved: (Offset) -> Unit = {},
@@ -77,8 +80,15 @@ fun OpenThreadsList(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
             isSelected = selectedThreadTab?.id == tab.id,
+            isSelectionMode = isSelectionMode,
+            isSelectedForSelectionMode = tab.id in selectedThreadTabIds,
+            onSelectionToggle = { onThreadTabSelectionToggle(tab.id) },
             onClick = {
                 if (isRemoving) return@OpenThreadCard
+                if (isSelectionMode) {
+                    onThreadTabSelectionToggle(tab.id)
+                    return@OpenThreadCard
+                }
                 closeDrawer()
                 onClearNewResCount(tab.id)
                 val route = AppRoute.Thread(
@@ -117,7 +127,7 @@ fun OpenThreadsList(
                 { onReorderAccessibilityMove(tab, 1) }
             } else null,
             isDragging = isDragging,
-            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
+            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenThreadCard
                 onSwipeDelete(tab)
@@ -139,6 +149,9 @@ private fun OpenThreadCard(
     tab: ThreadTabInfo,
     newResCount: Int,
     isSelected: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelectedForSelectionMode: Boolean = false,
+    onSelectionToggle: () -> Unit = {},
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
     onLongPressMoved: (Offset) -> Unit = {},
@@ -165,6 +178,9 @@ private fun OpenThreadCard(
         onLongPressMoved = onLongPressMoved,
         onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
+        isSelectionMode = isSelectionMode,
+        isSelectedForSelectionMode = isSelectedForSelectionMode,
+        onSelectionToggle = onSelectionToggle,
         isPinned = tab.isPinned,
         isRemoving = isRemoving,
         headerTitle = tab.boardName,

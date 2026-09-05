@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
@@ -36,7 +37,7 @@ import dev.chrisbanes.haze.HazeState
  * タブ専用のアンカードアクションメニュー。
  *
  * `AnchoredOverlayMenu` を再利用し、長押ししたタブ位置に紐づく
- * 「詳細」「固定切替」「閉じる」を表示する。
+ * 「詳細」「固定切替」「閉じる」「選択」を表示する。
  * 「タブを閉じる」は破壊的操作として赤字で表示する。
  * メニューはタブ左端揃え・上下自動配置でタブと重ならないように表示する。
  */
@@ -51,6 +52,7 @@ fun AnchoredTabActionMenu(
     onDetailClick: () -> Unit,
     onPinClick: () -> Unit,
     onCloseClick: () -> Unit,
+    onSelectClick: () -> Unit = {},
 ) {
     val iconSize = 20.dp
 
@@ -113,6 +115,19 @@ fun AnchoredTabActionMenu(
             onClick = onPinClick,
         )
         AnchoredOverlayMenuItem(
+            text = stringResource(R.string.tab_action_select),
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = onSurfaceColor,
+                    modifier = Modifier.size(iconSize),
+                )
+            },
+            enabled = interactive,
+            onClick = onSelectClick,
+        )
+        AnchoredOverlayMenuItem(
             text = stringResource(R.string.tab_action_close),
             textColor = errorColor,
             leadingIcon = {
@@ -142,6 +157,12 @@ fun AnchoredTabActionMenu(
     hazeState: HazeState?,
     onDismissRequest: () -> Unit,
     onCloseAllClick: () -> Unit,
+    isSelectionMode: Boolean = false,
+    selectedTabCount: Int = 0,
+    allSelectedPinned: Boolean = false,
+    onSelectClick: () -> Unit = {},
+    onCloseSelectedClick: () -> Unit = {},
+    onPinSelectedClick: () -> Unit = {},
 ) {
     AnchoredOverlayMenu(
         expanded = expanded,
@@ -152,19 +173,73 @@ fun AnchoredTabActionMenu(
         verticalSpacing = 8.dp,
         onDismissRequest = onDismissRequest,
     ) {
-        AnchoredOverlayMenuItem(
-            text = stringResource(R.string.tab_action_close_all),
-            textColor = MaterialTheme.colorScheme.error,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp),
-                )
-            },
-            onClick = onCloseAllClick,
-        )
+        // メニューのexit中は表示開始時の項目を維持し、外部state更新で内容を差し替えない。
+        var displayedIsSelectionMode by remember { mutableStateOf(isSelectionMode) }
+        var displayedAllSelectedPinned by remember { mutableStateOf(allSelectedPinned) }
+        LaunchedEffect(expanded) {
+            if (expanded) {
+                displayedIsSelectionMode = isSelectionMode
+                displayedAllSelectedPinned = allSelectedPinned
+            }
+        }
+
+        if (displayedIsSelectionMode) {
+            AnchoredOverlayMenuItem(
+                text = stringResource(
+                    if (displayedAllSelectedPinned) R.string.tab_action_unpin else R.string.tab_action_pin,
+                ),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.PushPin,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                enabled = selectedTabCount > 0,
+                onClick = onPinSelectedClick,
+            )
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_close),
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                enabled = selectedTabCount > 0,
+                onClick = onCloseSelectedClick,
+            )
+        } else {
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_select),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = onSelectClick,
+            )
+            AnchoredOverlayMenuItem(
+                text = stringResource(R.string.tab_action_close_all),
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                onClick = onCloseAllClick,
+            )
+        }
     }
 }
 

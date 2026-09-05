@@ -26,6 +26,9 @@ internal sealed interface ThreadTabPendingOperation {
     /** Room が確認するまで要求された pin 値を投影する。 */
     data class Pin(val threadId: ThreadId, val isPinned: Boolean) : ThreadTabPendingOperation
 
+    /** 指定された複数スレッドの pin 列を要求値へ揃える。 */
+    data class BulkPin(val threadIds: List<ThreadId>, val isPinned: Boolean) : ThreadTabPendingOperation
+
     /** JOIN された Room query に反映されるまで共通 ThreadState 更新を投影する。 */
     data class Info(val tab: ThreadTabInfo) : ThreadTabPendingOperation
 
@@ -56,6 +59,11 @@ internal fun projectThreadTabs(
             is ThreadTabPendingOperation.Pin -> IndexedTabOperation(operation.threadId) { current ->
                 current?.copy(isPinned = operation.isPinned)
             }
+            is ThreadTabPendingOperation.BulkPin -> IndexedTabOperation(
+                key = operation.threadIds.first(),
+                transformKeys = operation.threadIds.toSet(),
+                transform = { current -> current?.copy(isPinned = operation.isPinned) },
+            )
             is ThreadTabPendingOperation.Info -> IndexedTabOperation(operation.tab.id) { current ->
                 current?.let { mergeThreadTabMetadata(it, operation.tab) }
             }
@@ -84,6 +92,7 @@ internal fun isThreadTabOperationConfirmed(
             is ThreadTabPendingOperation.Delete -> tab.id == operation.threadId
             is ThreadTabPendingOperation.BulkDelete -> false
             is ThreadTabPendingOperation.Pin -> tab.id == operation.threadId
+            is ThreadTabPendingOperation.BulkPin -> false
             is ThreadTabPendingOperation.Info -> tab.id == operation.tab.id
             is ThreadTabPendingOperation.Reorder -> false
         }
@@ -93,6 +102,9 @@ internal fun isThreadTabOperationConfirmed(
             is ThreadTabPendingOperation.Delete -> actual == null
             is ThreadTabPendingOperation.BulkDelete -> error("BulkDelete is handled above")
             is ThreadTabPendingOperation.Pin -> actual?.isPinned == operation.isPinned
+            is ThreadTabPendingOperation.BulkPin -> canonicalTabs
+                .filter { it.id in operation.threadIds }
+                .all { it.isPinned == operation.isPinned }
         is ThreadTabPendingOperation.Info -> actual != null
         is ThreadTabPendingOperation.Reorder -> {
             val actualKeys = canonicalTabs.map { it.id.value }

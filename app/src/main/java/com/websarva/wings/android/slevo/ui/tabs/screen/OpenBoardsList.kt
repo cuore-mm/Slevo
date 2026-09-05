@@ -18,10 +18,10 @@ import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelec
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
-import com.websarva.wings.android.slevo.ui.tabs.component.extractServiceName
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
+import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import kotlinx.coroutines.launch
 
 /**
@@ -38,6 +38,9 @@ fun OpenBoardsList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     selectedBoardTab: BoardTabInfo? = null,
+    isSelectionMode: Boolean = false,
+    selectedBoardTabKeys: Set<String> = emptySet(),
+    onBoardTabSelectionToggle: (String) -> Unit = {},
     removingKeys: Set<String> = emptySet(),
     onBoardTabLongPressed: (BoardTabInfo, IntRect) -> Unit = { _, _ -> },
     onBoardTabLongPressMoved: (Offset) -> Unit = {},
@@ -73,8 +76,15 @@ fun OpenBoardsList(
         OpenBoardCard(
             tab = tab,
             isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
+            isSelectionMode = isSelectionMode,
+            isSelectedForSelectionMode = tab.boardUrl in selectedBoardTabKeys,
+            onSelectionToggle = { onBoardTabSelectionToggle(tab.boardUrl) },
             onClick = {
                 if (isRemoving) return@OpenBoardCard
+                if (isSelectionMode) {
+                    onBoardTabSelectionToggle(tab.boardUrl)
+                    return@OpenBoardCard
+                }
                 closeDrawer()
                 val route = AppRoute.Board(
                     boardId = tab.boardId,
@@ -107,7 +117,7 @@ fun OpenBoardsList(
                 { onReorderAccessibilityMove(tab, 1) }
             } else null,
             isDragging = isDragging,
-            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isRemoving,
+            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenBoardCard
                 onSwipeDelete(tab)
@@ -128,6 +138,9 @@ fun OpenBoardsList(
 private fun OpenBoardCard(
     tab: BoardTabInfo,
     isSelected: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelectedForSelectionMode: Boolean = false,
+    onSelectionToggle: () -> Unit = {},
     onClick: () -> Unit,
     onLongPress: (IntRect) -> Unit,
     onLongPressMoved: (Offset) -> Unit = {},
@@ -145,7 +158,7 @@ private fun OpenBoardCard(
 ) {
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
-    val serviceName = tab.serviceName.ifBlank { extractServiceName(tab.boardUrl) }
+    val serviceName = tab.serviceName.ifBlank { parseServiceName(tab.boardUrl) }
 
     TabListCard(
         modifier = Modifier.padding(horizontal = 12.dp),
@@ -155,6 +168,9 @@ private fun OpenBoardCard(
         onLongPressMoved = onLongPressMoved,
         onLongPressReleased = onLongPressReleased,
         isHiddenForSelection = isSelected,
+        isSelectionMode = isSelectionMode,
+        isSelectedForSelectionMode = isSelectedForSelectionMode,
+        onSelectionToggle = onSelectionToggle,
         isPinned = tab.isPinned,
         isRemoving = isRemoving,
         headerTitle = serviceName,

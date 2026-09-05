@@ -20,7 +20,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
@@ -50,6 +49,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.ui.icon.ArrowBackIosCentered
 import java.util.Locale
 
 /**
@@ -148,7 +148,7 @@ fun SearchInputField(
             },
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                imageVector = ArrowBackIosCentered,
                 contentDescription = stringResource(R.string.cancel)
             )
         }

@@ -10,10 +10,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SearchInputField
+import com.websarva.wings.android.slevo.ui.icon.ArrowBackIosCentered
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -51,10 +52,12 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TabListTopSearchArea(
+fun TabListTopControls(
     modifier: Modifier = Modifier,
     hazeState: HazeState,
     isSearchMode: Boolean,
+    isSelectionMode: Boolean = false,
+    selectedTabCount: Int = 0,
     searchInputValue: TextFieldValue,
     searchFocusRequestId: Long?,
     onSearchClick: () -> Unit,
@@ -62,6 +65,7 @@ fun TabListTopSearchArea(
     onSearchInputChange: (TextFieldValue) -> Unit,
     onSearchFocusRequestConsumed: () -> Unit,
     onCloseSearch: () -> Unit,
+    onBackFromSelection: () -> Unit = {},
 ) {
     val tapGuardInteractionSource = remember { MutableInteractionSource() }
     val moreButtonBounds = remember { mutableStateOf<IntRect?>(null) }
@@ -88,8 +92,10 @@ fun TabListTopSearchArea(
             ),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        val visibilityAnimationSpec = tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
-        val slideAnimationSpec = tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+        val visibilityAnimationSpec =
+            tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+        val slideAnimationSpec =
+            tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
 
         AnimatedVisibility(
             visible = isSearchMode,
@@ -125,30 +131,32 @@ fun TabListTopSearchArea(
             enter = fadeIn(animationSpec = visibilityAnimationSpec),
             exit = fadeOut(animationSpec = visibilityAnimationSpec),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TabActionButton(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search),
-                    onClick = onSearchClick,
-                )
-                Box(
-                    modifier = Modifier.onGloballyPositioned { coordinates ->
-                        val bounds = coordinates.boundsInWindow()
-                        moreButtonBounds.value = IntRect(
-                            left = bounds.left.roundToInt(),
-                            top = bounds.top.roundToInt(),
-                            right = bounds.right.roundToInt(),
-                            bottom = bounds.bottom.roundToInt(),
-                        )
-                    }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AnimatedVisibility(
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    visible = isSelectionMode,
+                    enter = fadeIn(animationSpec = visibilityAnimationSpec),
+                    exit = fadeOut(animationSpec = visibilityAnimationSpec),
                 ) {
                     TabActionButton(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.more),
-                        onClick = {
-                            // Bounds are reported before a click, so the callback can anchor the popup immediately.
-                            moreButtonBounds.value?.let(onMoreClick)
-                        },
+                        imageVector = ArrowBackIosCentered,
+                        contentDescription = stringResource(R.string.back),
+                        onClick = onBackFromSelection,
+                    )
+                }
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TabActionButton(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = stringResource(R.string.search),
+                        onClick = onSearchClick,
+                    )
+                    MoreButton(
+                        moreButtonBounds = moreButtonBounds,
+                        enabled = !isSelectionMode || selectedTabCount > 0,
+                        onMoreClick = onMoreClick,
                     )
                 }
             }
@@ -156,12 +164,43 @@ fun TabListTopSearchArea(
     }
 }
 
+/** その他ボタンのboundsを記録し、通常／選択メニューのアンカーとして利用する。 */
+@Composable
+private fun MoreButton(
+    moreButtonBounds: androidx.compose.runtime.MutableState<IntRect?>,
+    enabled: Boolean,
+    onMoreClick: (IntRect) -> Unit,
+) {
+    Box(
+        modifier = Modifier.onGloballyPositioned { coordinates ->
+            val bounds = coordinates.boundsInWindow()
+            moreButtonBounds.value = IntRect(
+                left = bounds.left.roundToInt(),
+                top = bounds.top.roundToInt(),
+                right = bounds.right.roundToInt(),
+                bottom = bounds.bottom.roundToInt(),
+            )
+        }
+    ) {
+        TabActionButton(
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = stringResource(R.string.more),
+            enabled = enabled,
+            onClick = {
+                moreButtonBounds.value?.let(onMoreClick)
+            },
+        )
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
-private fun SearchModeTrueFalse() {
-    TabListTopSearchArea(
+private fun TabListTopControlsDefaultPreview() {
+    TabListTopControls(
         hazeState = HazeState(),
         isSearchMode = false,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         searchInputValue = TextFieldValue(""),
         searchFocusRequestId = null,
         onSearchClick = {},
@@ -169,15 +208,18 @@ private fun SearchModeTrueFalse() {
         onSearchInputChange = {},
         onSearchFocusRequestConsumed = {},
         onCloseSearch = {},
+        onBackFromSelection = {},
     )
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun SearchModeTruePreview() {
-    TabListTopSearchArea(
+private fun TabListTopControlsSearchPreview() {
+    TabListTopControls(
         hazeState = HazeState(),
         isSearchMode = true,
+        isSelectionMode = false,
+        selectedTabCount = 0,
         searchInputValue = TextFieldValue(""),
         searchFocusRequestId = 1L,
         onSearchClick = {},
@@ -185,5 +227,25 @@ private fun SearchModeTruePreview() {
         onSearchInputChange = {},
         onSearchFocusRequestConsumed = {},
         onCloseSearch = {},
+        onBackFromSelection = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TabListTopControlsSelectionPreview() {
+    TabListTopControls(
+        hazeState = HazeState(),
+        isSearchMode = false,
+        isSelectionMode = true,
+        selectedTabCount = 0,
+        searchInputValue = TextFieldValue(""),
+        searchFocusRequestId = null,
+        onSearchClick = {},
+        onMoreClick = {},
+        onSearchInputChange = {},
+        onSearchFocusRequestConsumed = {},
+        onCloseSearch = {},
+        onBackFromSelection = {},
     )
 }

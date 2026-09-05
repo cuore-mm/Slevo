@@ -77,8 +77,8 @@ fun parseBoardUrl(url: String): Pair<String, String>? {
 }
 
 /**
- * URL からサービス名（ドメイン部分）を抽出します。
- * 例: https://agree.5ch.net/operate/ -> 5ch.net
+ * URL からサービス名として表示する登録ドメイン部分を抽出する。
+ * 例: https://agree.5ch.net/operate/ -> 5ch.net。URLを解析できない場合は空文字を返す。
  */
 fun parseServiceName(url: String): String {
     return try {

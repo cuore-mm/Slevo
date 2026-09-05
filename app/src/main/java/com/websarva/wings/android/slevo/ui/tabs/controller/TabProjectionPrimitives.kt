@@ -11,6 +11,7 @@ data class IndexedTabOperation<Tab : Any, Key : Any>(
     val key: Key,
     val remove: Boolean = false,
     val removeKeys: Set<Key> = emptySet(),
+    val transformKeys: Set<Key> = emptySet(),
     val reorderKeys: List<Key>? = null,
     val transform: (Tab?) -> Tab?,
 )
@@ -29,7 +30,7 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
     val keyIndex = result.mapIndexed { index, tab -> keyOf(tab) to index }.toMap().toMutableMap()
 
     // --- ordered pending fold ---
-    operations.forEach { operation ->
+        operations.forEach { operation ->
         operation.reorderKeys?.let { requestedKeys ->
             val reordered = reorderTabs(result, requestedKeys, keyOf)
             result.clear()
@@ -37,6 +38,14 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
             keyIndex.clear()
             result.forEachIndexed { reorderedIndex, tab ->
                 keyIndex[keyOf(tab)] = reorderedIndex
+            }
+            return@forEach
+        }
+        if (operation.transformKeys.isNotEmpty()) {
+            result.indices.forEach { index ->
+                if (keyOf(result[index]) in operation.transformKeys) {
+                    operation.transform(result[index])?.let { transformed -> result[index] = transformed }
+                }
             }
             return@forEach
         }

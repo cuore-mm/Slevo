@@ -488,6 +488,26 @@ class TabSessionStoreTest {
         }
     }
 
+    /** Thread bulk pin の非キャンセル例外をログへ記録して封じ込めることを確認する。 */
+    @Test
+    fun setThreadTabsPinned_containsNonCancellationFailure() = runTest {
+        val target = bulkThreadTab("failure")
+        val failure = IllegalStateException("bulk pin failure")
+        coEvery { threadCoordinator.setThreadTabsPinned(listOf(target), true) } throws failure
+        val testStore = createStore(threadTabs = listOf(target))
+
+        testStore.setThreadTabsPinned(listOf(target), isPinned = true)
+        runCurrent()
+
+        verify {
+            appLogger.e(
+                message = "Thread bulk pin failed for 1 tabs",
+                tag = "TabSessionStore",
+                throwable = failure,
+            )
+        }
+    }
+
     /**
      * スレッドタブ更新操作が [ThreadTabsCoordinator] へ委譲されることを確認する。
      */

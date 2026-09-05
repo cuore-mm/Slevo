@@ -127,6 +127,32 @@ class ThreadTabsCoordinatorTest {
         assertEquals(false, coordinator.openThreadTabs.value.first().isPinned)
     }
 
+    /** スレッドタブ集合の固定状態を混在状態から一括して指定値へ揃えることを確認する。 */
+    @Test
+    fun setThreadTabsPinned_setsOnlyRequestedTabs() = runTest {
+        val repository = mockk<TabsRepository>(relaxed = true)
+        val coordinator = createCoordinator(repository)
+        val firstRoute = AppRoute.Thread(
+            threadKey = "1",
+            boardUrl = "https://example.com/board/",
+            boardName = "board",
+            threadTitle = "first",
+        )
+        val secondRoute = firstRoute.copy(threadKey = "2", threadTitle = "second")
+        val outsideRoute = firstRoute.copy(threadKey = "3", threadTitle = "outside")
+        coordinator.ensureThreadTab(firstRoute)
+        coordinator.ensureThreadTab(secondRoute)
+        coordinator.ensureThreadTab(outsideRoute)
+        val first = coordinator.openThreadTabs.value[0]
+        val second = coordinator.openThreadTabs.value[1].copy(isPinned = true)
+        val outside = coordinator.openThreadTabs.value[2]
+
+        coordinator.setThreadTabsPinned(listOf(first, second), true)
+
+        assertTrue(coordinator.openThreadTabs.value.take(2).all { it.isPinned })
+        assertFalse(outside.isPinned)
+    }
+
     /**
      * スレッドタブ選択時に selected key が ThreadId で更新されることを確認する。
      */

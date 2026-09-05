@@ -6,6 +6,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.data.model.TabPage
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.logTabReorder
@@ -181,6 +182,9 @@ class TabListViewModel @Inject constructor(
                 selectedThreadTab = null,
                 selectedTabBounds = null,
                 tabActionMenuMode = TabActionMenuMode.None,
+                selectionModePage = null,
+                selectedBoardTabKeys = emptySet(),
+                selectedThreadTabIds = emptySet(),
             )
         }
     }
@@ -188,6 +192,7 @@ class TabListViewModel @Inject constructor(
     // --- Long-press selection ---
 
     fun onBoardTabLongPressed(tab: BoardTabInfo, bounds: IntRect) {
+        if (uiState.value.isInSelectionMode) return
         logTabReorder { "BOARD_LONG_PRESS_VM key=${tab.boardUrl}" }
         cancelTabSelection()
         uiStateMutable.update { state ->
@@ -201,6 +206,7 @@ class TabListViewModel @Inject constructor(
     }
 
     fun onThreadTabLongPressed(tab: ThreadTabInfo, bounds: IntRect) {
+        if (uiState.value.isInSelectionMode) return
         logTabReorder { "THREAD_LONG_PRESS_VM key=${tab.id.value}" }
         cancelTabSelection()
         uiStateMutable.update { state ->
@@ -232,11 +238,71 @@ class TabListViewModel @Inject constructor(
         }
     }
 
+    /** 選択モードを表示中ページで開始し、必要なら起点タブを選択済みにする。 */
+    fun startSelectionMode(page: TabPage, initialBoardUrl: String? = null, initialThreadId: ThreadId? = null) {
+        cancelTabSelection()
+        dismissBulkCloseMenu()
+        cancelReorder()
+        uiStateMutable.update { state ->
+            state.copy(
+                selectionModePage = page,
+                selectedBoardTabKeys = if (page == TabPage.BOARD && initialBoardUrl != null) {
+                    setOf(initialBoardUrl)
+                } else emptySet(),
+                selectedThreadTabIds = if (page == TabPage.THREAD && initialThreadId != null) {
+                    setOf(initialThreadId)
+                } else emptySet(),
+            )
+        }
+    }
+
+    /** 選択モードを終了し、選択集合と選択メニューを破棄する。 */
+    fun exitSelectionMode() {
+        uiStateMutable.update { state ->
+            state.copy(
+                selectionModePage = null,
+                selectedBoardTabKeys = emptySet(),
+                selectedThreadTabIds = emptySet(),
+                isBulkCloseMenuVisible = false,
+                bulkCloseMenuBounds = null,
+            )
+        }
+    }
+
+    /** 板タブの選択状態をstable key単位で切り替える。 */
+    fun toggleBoardTabSelection(boardUrl: String) {
+        if (uiState.value.selectionModePage != TabPage.BOARD) return
+        uiStateMutable.update { state ->
+            val keys = state.selectedBoardTabKeys
+            state.copy(selectedBoardTabKeys = if (boardUrl in keys) keys - boardUrl else keys + boardUrl)
+        }
+    }
+
+    /** スレッドタブの選択状態をstable key単位で切り替える。 */
+    fun toggleThreadTabSelection(threadId: ThreadId) {
+        if (uiState.value.selectionModePage != TabPage.THREAD) return
+        uiStateMutable.update { state ->
+            val ids = state.selectedThreadTabIds
+            state.copy(selectedThreadTabIds = if (threadId in ids) ids - threadId else ids + threadId)
+        }
+    }
+
+    /** canonical一覧に存在しない選択keyだけを除去する。 */
+    fun pruneSelection(boardUrls: Set<String>, threadIds: Set<ThreadId>) {
+        uiStateMutable.update { state ->
+            state.copy(
+                selectedBoardTabKeys = state.selectedBoardTabKeys.intersect(boardUrls),
+                selectedThreadTabIds = state.selectedThreadTabIds.intersect(threadIds),
+            )
+        }
+    }
+
     /** 板タブの並び替えを開始し、現在のstable key順をdraftへ保存する。 */
     fun startBoardReorder() {
         val keys = tabSessionStore.openBoardTabs.value.map(BoardTabInfo::boardUrl)
         val isSearchMode = uiState.value.isSearchMode
-        if (keys.isEmpty() || isSearchMode) {
+        val isSelectionMode = uiState.value.isInSelectionMode
+        if (keys.isEmpty() || isSearchMode || isSelectionMode) {
             logTabReorder {
                 "BOARD_REORDER_START_REJECT keyCount=${keys.size} isSearchMode=$isSearchMode"
             }
@@ -260,7 +326,8 @@ class TabListViewModel @Inject constructor(
     fun startThreadReorder() {
         val keys = tabSessionStore.openThreadTabs.value.map { it.id.value }
         val isSearchMode = uiState.value.isSearchMode
-        if (keys.isEmpty() || isSearchMode) {
+        val isSelectionMode = uiState.value.isInSelectionMode
+        if (keys.isEmpty() || isSearchMode || isSelectionMode) {
             logTabReorder {
                 "THREAD_REORDER_START_REJECT keyCount=${keys.size} isSearchMode=$isSearchMode"
             }
@@ -394,6 +461,42 @@ class TabListViewModel @Inject constructor(
         cancelTabSelection()
     }
 
+    /** 選択中タブを一覧順のsnapshotとして一括固定または固定解除する。 */
+    fun setSelectedTabsPinned(page: TabPage) {
+        dismissBulkCloseMenu()
+        when (page) {
+            TabPage.BOARD -> {
+                val targets = tabSessionStore.openBoardTabs.value.filter {
+                    it.boardUrl in uiState.value.selectedBoardTabKeys
+                }
+                if (targets.isEmpty()) return
+                val shouldPin = targets.any { !it.isPinned }
+                tabSessionStore.setBoardTabsPinned(targets, shouldPin)
+                clearSelectedTabKeys()
+            }
+
+            TabPage.THREAD -> {
+                val targets = tabSessionStore.openThreadTabs.value.filter {
+                    it.id in uiState.value.selectedThreadTabIds
+                }
+                if (targets.isEmpty()) return
+                val shouldPin = targets.any { !it.isPinned }
+                tabSessionStore.setThreadTabsPinned(targets, shouldPin)
+                clearSelectedTabKeys()
+            }
+        }
+    }
+
+    /** 一括固定または固定解除の受付時に選択集合だけをクリアし、選択モードを維持する。 */
+    private fun clearSelectedTabKeys() {
+        uiStateMutable.update { state ->
+            state.copy(
+                selectedBoardTabKeys = emptySet(),
+                selectedThreadTabIds = emptySet(),
+            )
+        }
+    }
+
     fun openSelectedTabDetail() {
         uiState.value.selectedBoardTab?.let {
             uiStateMutable.update { state ->
@@ -428,6 +531,36 @@ class TabListViewModel @Inject constructor(
             startThreadTabRemoval(tab)
         }
         cancelTabSelection()
+    }
+
+    /** 選択中タブを一覧順のsnapshotとして退出アニメーション後に一括で閉じる。 */
+    fun closeSelectedTabs(page: TabPage) {
+        dismissBulkCloseMenu()
+        when (page) {
+            TabPage.BOARD -> {
+                val targets = tabSessionStore.openBoardTabs.value.filter {
+                    it.boardUrl in uiState.value.selectedBoardTabKeys
+                }
+                val keys = targets.map(BoardTabInfo::boardUrl).distinct()
+                if (keys.isEmpty() || !addBoardRemovalKeys(keys)) return
+                tabSessionStore.closeBoardTabsAfterDelay(
+                    targets = targets,
+                    delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+                )
+            }
+
+            TabPage.THREAD -> {
+                val targets = tabSessionStore.openThreadTabs.value.filter {
+                    it.id in uiState.value.selectedThreadTabIds
+                }
+                val keys = targets.map { it.id.value }.distinct()
+                if (keys.isEmpty() || !addThreadRemovalKeys(keys)) return
+                tabSessionStore.closeThreadTabsAfterDelay(
+                    targets = targets,
+                    delayMillis = TabListAnimationDefaults.ITEM_REMOVAL_MILLIS.toLong(),
+                )
+            }
+        }
     }
 
     /** 閉じるボタンによる板タブ削除をアニメーション後に開始する。 */
@@ -500,6 +633,7 @@ class TabListViewModel @Inject constructor(
 
     /** その他メニューを指定されたアンカー位置で表示する。 */
     fun showBulkCloseMenu(anchorBounds: IntRect) {
+        if (uiState.value.isInSelectionMode && uiState.value.selectedTabCount == 0) return
         uiStateMutable.update { state ->
             state.copy(
                 isBulkCloseMenuVisible = true,
@@ -548,10 +682,14 @@ class TabListViewModel @Inject constructor(
     }
 
     /** ページ変更時にタブ選択と一括クローズメニューを同時に解除する。 */
-    fun onPageChanged() {
+    fun onPageChanged(page: Int? = null) {
         cancelTabSelection()
         cancelReorder()
         dismissBulkCloseMenu()
+        val selectionPage = uiState.value.selectionModePage
+        if (selectionPage != null && page != null && selectionPage.index != page) {
+            exitSelectionMode()
+        }
     }
 
     // --- BottomSheet ---
