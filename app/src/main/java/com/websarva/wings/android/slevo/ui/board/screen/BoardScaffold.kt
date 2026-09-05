@@ -181,7 +181,7 @@ fun BoardScaffold(
                     )
                 },
                 defaultContent = { modifier ->
-                    val openSelectedThread = {
+                    val openSelectedThread: () -> Unit = {
                         selectedThread?.let { thread ->
                             coroutineScope.launch {
                                 val route = tabSessionStore.normalizeThreadRouteForNavigation(
@@ -198,6 +198,7 @@ fun BoardScaffold(
                                 if (index >= 0) navController.navigateToThreadScreen(route)
                             }
                         }
+                        Unit
                     }
                     TabToolBar(
                         modifier = modifier,

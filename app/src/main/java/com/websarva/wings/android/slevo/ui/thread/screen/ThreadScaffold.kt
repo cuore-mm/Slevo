@@ -86,6 +86,7 @@ fun ThreadScaffold(
     val boardPresentationState by tabSessionStore.boardPresentationState.collectAsState()
     val openThreadTabs = threadPresentationState.tabs
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
@@ -185,7 +186,7 @@ fun ThreadScaffold(
                     )
                 },
                 defaultContent = { modifier ->
-                    val openSelectedBoard = {
+                    val openSelectedBoard: () -> Unit = {
                         selectedBoard?.let { board ->
                             coroutineScope.launch {
                                 val route = tabSessionStore.normalizeBoardRouteForNavigation(
@@ -204,6 +205,7 @@ fun ThreadScaffold(
                                 }
                             }
                         }
+                        Unit
                     }
                     ThreadToolBar(
                         modifier = modifier,
