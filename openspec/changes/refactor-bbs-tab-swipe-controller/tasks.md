@@ -17,6 +17,7 @@
 - [x] 3.2 `BbsRouteScaffold.kt` と `TabToolBar.kt` の間へ同じ`PagerState`を渡し、current pageと前後一ページのカードだけをstable key付きで構成する。`getOffsetDistanceInPages`と本文Pagerの実page距離からtranslationを計算し、LTR/RTLで本文と同方向・同距離になるUIテストを追加する。
 - [x] 3.3 `TabToolBar.kt` のツールバー全幅`LinearProgressIndicator`を削除し、各タイトル`Card`内の`Box`下端へCard幅のindicatorをoverlayする。縮退時の56dp高を増やさず、各カード自身の`isLoading`/`loadProgress`がカードと一緒に移動するテストを追加する。
 - [x] 3.4 タイトルviewportだけをclipし、Board右側「スレ」、Thread左側「板」、下段アクション群にはPager offsetを適用しない。途中dragとfling中も固定要素の画面座標が変化しないUIテストを追加する。
+- [x] 3.5 `ui/board/components/BoardToolBar.kt` を新設し、`BoardScaffold.kt` のBoard固有action構成とタイトル設定を専用adapterへ抽出する。`ThreadToolBar`と同じく共通`TabToolBar`へ委譲し、Board固有のPreviewと既存callbackの維持を確認する。
 
 ## 4. 下部コントローラーによるPager操作
 

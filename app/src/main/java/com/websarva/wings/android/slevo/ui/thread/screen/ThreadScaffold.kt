@@ -7,7 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +38,6 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
@@ -221,20 +219,9 @@ fun ThreadScaffold(
                         onMoreClick = { routeViewModel.openMoreSheet(tab.id.value) },
                         onAutoScrollClick = { routeViewModel.toggleAutoScroll(tab.id.value) },
                         actionsProgress = if (uiState.isSearchMode) 0f else actionProgress,
-                        titleCardContent = { cardModifier ->
-                            Row(
-                                modifier = cardModifier,
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            ) {
-                                TabDestinationButton(
-                                    labelRes = R.string.open_board_screen,
-                                    contentDescriptionRes = R.string.open_board_screen_description,
-                                    enabled = selectedBoard != null,
-                                    onClick = openSelectedBoard,
-                                )
-                                titleContent(Modifier.weight(1f))
-                            }
-                        },
+                        canOpenBoard = selectedBoard != null,
+                        onOpenBoardClick = openSelectedBoard,
+                        titleCardContent = titleContent,
                     )
                 }
             )

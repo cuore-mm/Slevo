@@ -8,6 +8,7 @@
 - 本文上の横スワイプを無効化し、固定された下部コントローラー全体の横ドラッグで本文 Pager を直接操作する。
 - タイトルカードを本文と同じ Pager offset から描画し、ブックマーク、タイトル、更新、カード下端のロード進捗を本文と同期して移動させる。タイトル専用の PagerState は作成しない。
 - 下部ツール群と画面種別ボタンを固定し、Board ではタイトルカード右に「スレ」、Thread では左に「板」を配置する。
+- Board/Thread固有のアクション構成は各画面の専用Toolbar adapterへ分離し、共通描画は`TabToolBar`へ委譲する。
 - Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は `TabSessionStore.boardPresentationState` の現在選択済み Board を対象とし、現在の Thread destination を破棄して Board 画面へ置換遷移する。
 - Pager が settle した時点で選択タブを確定し、ドラッグ途中では `TabSessionStore` の selected key を更新しない。
 - Pager ページ内の Scaffold/BottomBar を共通ホストへ再編し、検索モード、ツールバー縮退、シート・ポップアップ、タブ別スクロール位置保存を維持する。
@@ -27,7 +28,7 @@
 
 ## Impact
 
-- 主対象: `BbsRouteScaffold.kt`、`BbsRouteBottomBar.kt`、`TabToolBar.kt`、`BoardScaffold.kt`、`ThreadScaffold.kt`、`ThreadToolBar.kt`、`ScrollPositionPersistence.kt`
+- 主対象: `BbsRouteScaffold.kt`、`BbsRouteBottomBar.kt`、`TabToolBar.kt`、`BoardScaffold.kt`、`BoardToolBar.kt`、`ThreadScaffold.kt`、`ThreadToolBar.kt`、`ScrollPositionPersistence.kt`
 - UI 構造: ページ単位の Scaffold/BottomBar から、本文 Pager と固定コントローラーを持つ単一 Scaffold へ変更する。
 - 状態連携: 描画中の Pager offset と確定済みページを分離し、選択確定・固定ツール操作・スクロール位置保存を settled page 基準へ揃える。
 - テスト: Compose UI テストでドラッグ追従、固定領域、settle 確定、検索・縮退・シート、通常 navigation を追加し、既存 ViewModel・TabSessionStore テストを維持する。

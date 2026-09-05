@@ -12,12 +12,15 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
+import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -44,6 +47,8 @@ fun ThreadToolBar(
     onMoreClick: () -> Unit,
     onAutoScrollClick: () -> Unit,
     actionsProgress: Float = 1f,
+    canOpenBoard: Boolean = false,
+    onOpenBoardClick: () -> Unit = {},
     titleCardContent: (@Composable (Modifier) -> Unit)? = null,
 ) {
     // --- Actions ---
@@ -52,6 +57,24 @@ fun ThreadToolBar(
     val autoScrollIcon = if (uiState.isAutoScroll) Icons.Filled.Pause else Icons.Filled.PlayArrow
     val autoScrollContentDescription =
         if (uiState.isAutoScroll) R.string.stop_auto_scroll else R.string.start_auto_scroll
+
+    // --- Title and destination slot ---
+    val titleContent = titleCardContent?.let { content ->
+        @Composable { cardModifier: Modifier ->
+            Row(
+                modifier = cardModifier,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TabDestinationButton(
+                    labelRes = R.string.open_board_screen,
+                    contentDescriptionRes = R.string.open_board_screen_description,
+                    enabled = canOpenBoard,
+                    onClick = onOpenBoardClick,
+                )
+                content(Modifier.weight(1f))
+            }
+        }
+    }
 
     val actions = listOf(
         TabToolBarAction(
@@ -104,7 +127,7 @@ fun ThreadToolBar(
         titleStyle = MaterialTheme.typography.titleSmall,
         titleFontWeight = FontWeight.Bold,
         titleMaxLines = 2,
-        titleCardContent = titleCardContent,
+        titleCardContent = titleContent,
     )
 }
 

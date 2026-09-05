@@ -1,6 +1,6 @@
 ## Context
 
-See `proposal.md` - Why. 現在の `BbsRouteScaffold` は `rememberPagerState` で同種タブ用状態を作り、`HorizontalPager` の各ページ内に `Scaffold`、`bottomBar`、本文、`BookmarkSheetHost`、`optionalSheetContent` を構成する。`TabToolBar` 全体がページに属するため、横移動時にはタイトルカードと下部アクションが一緒に動く。
+See `proposal.md` - Why. 現在の `BbsRouteScaffold` は `rememberPagerState` で同種タブ用状態を作り、`HorizontalPager` の各ページ内に `Scaffold`、`bottomBar`、本文、`BookmarkSheetHost`、`optionalSheetContent` を構成する。`TabToolBar` 全体がページに属するため、横移動時にはタイトルカードと下部アクションが一緒に動く。画面固有actionの構成はThreadだけが`ThreadToolBar`へ分離され、Boardは`BoardScaffold`へ残っている。
 
 本文には `consumeTabSwipeByDragDirection` が付き、Pager の `userScrollEnabled` は現在ページの `BaseUiState.isTabSwipeEnabled` に依存する。選択通知、固定表示対象、スクロール位置保存の active 判定はいずれも `PagerState.currentPage` を参照しており、`currentPage` がドラッグ途中で切り替わると settle 前に副作用が発生する。
 
@@ -87,6 +87,12 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 
 表示文字列「板」「スレ」と content description は resource 化する。短い表示ラベルだけに依存せず、TalkBack で遷移先の画面種別が分かる説明を付ける。disabled 時も状態を意味的に公開する。
 
+### 8. 画面固有Toolbarの構成層をBoard/Threadで対称化する
+
+共通の見た目と縮退挙動は `TabToolBar` が担い、画面固有のaction一覧、UiStateからのアイコン選択、タイトルスタイル、画面種別ボタンの配置は各画面の `BoardToolBar` と `ThreadToolBar` が構成する。`BoardToolBar` は `BoardScaffold` の既存インライン構築を移動した薄いadapterとし、navigationやTabSessionStoreの操作はcallbackとして受け取る。これにより共通層からBoard/Thread固有stateへの依存を増やさず、両画面のScaffoldからToolbar構成責務を分離する。
+
+各専用Toolbarは単独のPreview入口を持つ。Previewは画面固有のaction構成とタイトル領域を確認するために使用し、Pager連動そのものの状態は `BbsRouteScaffold` のUIテストで検証する。
+
 ## Implementation Contract
 
 実装担当は次の境界を維持すること。
@@ -100,6 +106,7 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 7. `BbsRouteBottomBar` の検索切替、`BottomBarUtils.kt` の縦縮退、`BookmarkSheetHost`、Board/Thread の `optionalSheetContent` を単一 Scaffold 構造へ接続し直し、固定 bar より上に overlay を描く。
 8. Board の「スレ」はSelected `ThreadTabInfo`だけを対象とし、normalize、register-and-select、push navigateの順序を省略しない。Threadの「板」はSelected `BoardTabInfo`だけを対象とし、normalize、register-and-select、`showBoardScreenForTabSelection`による現在Threadの置換順序を省略しない。
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
+10. Board/Thread固有のToolbar構成はそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。
 
 ## Error Cases and Compatibility
 
@@ -125,5 +132,5 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 1. 先に settled page 選択確定とテストを導入し、既存Pager構造のまま副作用タイミングを安定させる。
 2. タイトルカードを固定ツール群から分離し、Card内ロード進捗とoffset描画を追加する。
 3. `BbsRouteScaffold` を単一 Scaffold へ再編し、外部 scrollable、各overlay、inset、タブ別縮退状態を接続する。
-4. Board/Threadの画面種別ボタンとnavigationを追加し、最後に不要な本文側gesture抑制を削除する。
+4. Board/Threadの画面種別ボタンとnavigationを追加し、BoardのToolbar構成を`BoardToolBar`へ抽出したうえで、最後に不要な本文側gesture抑制を削除する。
 5. 全テストと手動確認完了後に提供する。問題時は単一コミット単位で新コントローラー変更を戻せば、データ移行なしで旧ページ内Scaffoldへ戻せる。

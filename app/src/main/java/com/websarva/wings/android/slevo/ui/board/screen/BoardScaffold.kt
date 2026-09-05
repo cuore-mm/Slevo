@@ -4,12 +4,6 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -20,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -29,13 +22,11 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
+import com.websarva.wings.android.slevo.ui.board.components.BoardToolBar
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
-import com.websarva.wings.android.slevo.ui.common.TabToolBar
-import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
@@ -143,29 +134,6 @@ fun BoardScaffold(
             )
         },
         bottomBar = { tab, uiState, actionProgress, openTabListSheet, controllerModifier, titleContent ->
-            val actions = listOf(
-                TabToolBarAction(
-                    icon = Icons.AutoMirrored.Filled.Sort,
-                    contentDescriptionRes = R.string.sort,
-                    onClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
-                ),
-                TabToolBarAction(
-                    icon = Icons.Filled.Search,
-                    contentDescriptionRes = R.string.search,
-                    onClick = { routeViewModel.setSearchMode(tab.boardUrl, true) },
-                ),
-                TabToolBarAction(
-                    icon = Icons.Filled.CropSquare,
-                    contentDescriptionRes = R.string.open_tablist,
-                    onClick = openTabListSheet,
-                ),
-                TabToolBarAction(
-                    icon = Icons.Filled.Create,
-                    contentDescriptionRes = R.string.create_thread,
-                    onClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
-                ),
-            )
-
             BbsRouteBottomBar(
                 modifier = controllerModifier,
                 isSearchMode = uiState.isSearchActive,
@@ -200,39 +168,20 @@ fun BoardScaffold(
                         }
                         Unit
                     }
-                    TabToolBar(
+                    BoardToolBar(
                         modifier = modifier,
-                        title = uiState.boardInfo.name,
-                        bookmarkState = uiState.bookmarkStatusState,
-                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.boardUrl) },
-                        actions = actions,
-                        onTabListClick = openTabListSheet,
+                        uiState = uiState,
+                        onSortClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
-                        tabIconContentDescriptionRes = R.string.open_tablist,
-                        postIconContentDescriptionRes = R.string.create_thread,
-                        actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
-                        onTitleClick = { routeViewModel.openBoardInfoSheet(tab.boardUrl) },
+                        onTabListClick = openTabListSheet,
                         onRefreshClick = { routeViewModel.refreshBoard(tab.boardUrl) },
-                        isLoading = uiState.isLoading,
-                        loadProgress = uiState.loadProgress,
-                        titleStyle = MaterialTheme.typography.titleMedium,
-                        titleFontWeight = FontWeight.Bold,
-                        titleMaxLines = 1,
-                        titleTextAlign = TextAlign.Center,
-                        titleCardContent = { cardModifier ->
-                            Row(
-                                modifier = cardModifier,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                titleContent(Modifier.weight(1f))
-                                TabDestinationButton(
-                                    labelRes = R.string.open_thread_screen,
-                                    contentDescriptionRes = R.string.open_thread_screen_description,
-                                    enabled = selectedThread != null,
-                                    onClick = openSelectedThread,
-                                )
-                            }
-                        },
+                        onSearchClick = { routeViewModel.setSearchMode(tab.boardUrl, true) },
+                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.boardUrl) },
+                        onBoardInfoClick = { routeViewModel.openBoardInfoSheet(tab.boardUrl) },
+                        actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
+                        canOpenThread = selectedThread != null,
+                        onOpenThreadClick = openSelectedThread,
+                        titleCardContent = titleContent,
                     )
                 }
             )
