@@ -35,6 +35,6 @@
 
 - [ ] 6.1 Board/Thread固有の検索、更新、ブックマーク、投稿、並び替え、自動スクロール、情報Sheet、ReplyPopupを操作し、callbackがsettled tabへだけ渡ることを追加テストまたは明記した手動確認手順で検証する。
 - [ ] 6.2 drag中のtab削除・reorder、連続drag、drag cancel、1タブ、最初/最後のタブ、PendingMissing遷移で範囲外参照や暗黙のpage 0 fallbackが発生しないテストを追加する。
-- [x] 6.3 新規・変更class/interfaceと非自明関数へ規約どおりのKDocを付け、30行超の関数を区分コメントで整理したうえでAndroid Studio formatter相当の書式を確認する。
+- [ ] 6.3 新規・変更class/interfaceと非自明関数へ規約どおりのKDocを付け、30行超の関数を区分コメントで整理したうえでAndroid Studio formatter相当の書式を確認する。
 - [x] 6.4 `./gradlew compileDebugAndroidTestKotlin`、`./gradlew testDebugUnitTest`、`./gradlew assembleDebug`を順に実行し、全コマンド成功を記録する。
 - [ ] 6.5 実機またはエミュレーターでLTR/RTL、gesture/3ボタンnavigation、IME表示、TalkBack、drag中の本文・カード追従と固定ツール群を確認し、specの全scenarioを満たすことを記録する。
