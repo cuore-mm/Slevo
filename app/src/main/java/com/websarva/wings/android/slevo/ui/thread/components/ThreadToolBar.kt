@@ -16,16 +16,74 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+
+/**
+ * スレッドToolbarに表示するPager連動タイトルカードを構成する。
+ *
+ * スレッド固有のタイトル表示設定とカード操作をこのToolbarファイルに集約し、Pagerの移動計算は呼び出し元へ委譲する。
+ */
+@Composable
+fun ThreadTabTitleCard(
+    tab: ThreadTabInfo,
+    uiState: ThreadUiState,
+    actionProgress: Float,
+    modifier: Modifier = Modifier,
+    onTitleClick: (ThreadTabInfo) -> Unit,
+    onBookmarkClick: (ThreadTabInfo) -> Unit,
+    onRefreshClick: (ThreadTabInfo) -> Unit,
+) {
+    TabTitleCard(
+        modifier = modifier,
+        title = uiState.threadInfo.title,
+        bookmarkState = uiState.bookmarkStatusState,
+        onTitleClick = { onTitleClick(tab) },
+        onBookmarkClick = { onBookmarkClick(tab) },
+        onRefreshClick = { onRefreshClick(tab) },
+        titleStyle = MaterialTheme.typography.titleSmall,
+        titleTextAlign = TextAlign.Start,
+        titleFontWeight = FontWeight.Bold,
+        titleMaxLines = 2,
+        actionsProgress = actionProgress,
+        isLoading = uiState.isLoading,
+        loadProgress = uiState.loadProgress,
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ThreadTabTitleCardPreview() {
+    val tab = ThreadTabInfo(
+        id = ThreadId.of("example.com", "board", "123"),
+        title = "スレッドのタイトル",
+        boardName = "板",
+        boardUrl = "https://example.com/board/",
+        boardId = 1L,
+    )
+    ThreadTabTitleCard(
+        tab = tab,
+        uiState = ThreadUiState(
+            threadInfo = ThreadInfo(title = tab.title),
+            bookmarkStatusState = BookmarkStatusState(),
+        ),
+        actionProgress = 1f,
+        onTitleClick = {},
+        onBookmarkClick = {},
+        onRefreshClick = {},
+    )
+}
 
 /**
  * スレッド画面のソート、検索、投稿、タブ操作を共通TabToolBarへ渡す。
@@ -121,16 +179,19 @@ fun ThreadToolBar(
 @Preview(showBackground = true)
 @Composable
 fun ThreadToolBarPreview() {
+    val tab = ThreadTabInfo(
+        id = ThreadId.of("example.com", "board", "123"),
+        title = "スレッドのタイトル",
+        boardName = "板",
+        boardUrl = "https://example.com/board/",
+        boardId = 1L,
+    )
+    val uiState = ThreadUiState(
+        threadInfo = ThreadInfo(title = tab.title),
+        bookmarkStatusState = BookmarkStatusState(),
+    )
     ThreadToolBar(
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(
-                title = "スレッドのタイトル"
-            ),
-            bookmarkStatusState = BookmarkStatusState(
-                isBookmarked = false,
-                selectedGroup = null
-            )
-        ),
+        uiState = uiState,
         isTreeSort = false,
         onSortClick = {},
         onPostClick = {},
@@ -141,15 +202,14 @@ fun ThreadToolBarPreview() {
         canOpenBoard = false,
         onOpenBoardClick = {},
         titleContent = { modifier ->
-            TabTitleCard(
+            ThreadTabTitleCard(
                 modifier = modifier,
-                title = "スレッドのタイトル",
-                bookmarkState = BookmarkStatusState(),
+                tab = tab,
+                uiState = uiState,
+                actionProgress = 1f,
                 onTitleClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
-                titleStyle = MaterialTheme.typography.titleSmall,
-                titleTextAlign = TextAlign.Start,
             )
         },
     )
@@ -159,11 +219,19 @@ fun ThreadToolBarPreview() {
 @Preview(showBackground = true, name = "ThreadToolBar Collapsed")
 @Composable
 fun ThreadToolBarCollapsedPreview() {
+    val tab = ThreadTabInfo(
+        id = ThreadId.of("example.com", "board", "123"),
+        title = "スレッドのタイトル",
+        boardName = "板",
+        boardUrl = "https://example.com/board/",
+        boardId = 1L,
+    )
+    val uiState = ThreadUiState(
+        threadInfo = ThreadInfo(title = tab.title),
+        bookmarkStatusState = BookmarkStatusState(),
+    )
     ThreadToolBar(
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(title = "スレッドのタイトル"),
-            bookmarkStatusState = BookmarkStatusState(),
-        ),
+        uiState = uiState,
         isTreeSort = false,
         onSortClick = {},
         onPostClick = {},
@@ -175,15 +243,14 @@ fun ThreadToolBarCollapsedPreview() {
         canOpenBoard = false,
         onOpenBoardClick = {},
         titleContent = { modifier ->
-            TabTitleCard(
+            ThreadTabTitleCard(
                 modifier = modifier,
-                title = "スレッドのタイトル",
-                bookmarkState = BookmarkStatusState(),
+                tab = tab,
+                uiState = uiState,
+                actionProgress = 0f,
                 onTitleClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
-                titleStyle = MaterialTheme.typography.titleSmall,
-                titleTextAlign = TextAlign.Start,
             )
         },
     )

@@ -17,11 +17,69 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
-import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
 import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+
+/**
+ * 板Toolbarに表示するPager連動タイトルカードを構成する。
+ *
+ * 板固有のタイトル表示設定とカード操作をこのToolbarファイルに集約し、Pagerの移動計算は呼び出し元へ委譲する。
+ */
+@Composable
+fun BoardTabTitleCard(
+    tab: BoardTabInfo,
+    uiState: BoardUiState,
+    actionProgress: Float,
+    modifier: Modifier = Modifier,
+    onTitleClick: (BoardTabInfo) -> Unit,
+    onBookmarkClick: (BoardTabInfo) -> Unit,
+    onRefreshClick: (BoardTabInfo) -> Unit,
+) {
+    TabTitleCard(
+        modifier = modifier,
+        title = uiState.boardInfo.name,
+        bookmarkState = uiState.bookmarkStatusState,
+        onTitleClick = { onTitleClick(tab) },
+        onBookmarkClick = { onBookmarkClick(tab) },
+        onRefreshClick = { onRefreshClick(tab) },
+        titleStyle = MaterialTheme.typography.titleMedium,
+        titleTextAlign = TextAlign.Center,
+        titleFontWeight = FontWeight.Bold,
+        titleMaxLines = 1,
+        actionsProgress = actionProgress,
+        isLoading = uiState.isLoading,
+        loadProgress = uiState.loadProgress,
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BoardTabTitleCardPreview() {
+    val tab = BoardTabInfo(
+        boardId = 1L,
+        boardName = "板のタイトル",
+        boardUrl = "https://example.com/board/",
+        serviceName = "example",
+    )
+    BoardTabTitleCard(
+        tab = tab,
+        uiState = BoardUiState(
+            boardInfo = BoardInfo(
+                boardId = tab.boardId,
+                name = tab.boardName,
+                url = tab.boardUrl,
+            ),
+        ),
+        actionProgress = 1f,
+        onTitleClick = {},
+        onBookmarkClick = {},
+        onRefreshClick = {},
+    )
+}
 
 /**
  * 板画面固有のアクションとタイトル領域を共通TabToolBarへ渡す。
@@ -97,12 +155,18 @@ fun BoardToolBar(
 @Preview(showBackground = true)
 @Composable
 fun BoardToolBarPreview() {
-    val title = "板のタイトル"
-    val bookmarkState = BookmarkStatusState()
-    val boardInfo = BoardInfo(
+    val tab = BoardTabInfo(
         boardId = 1L,
-        name = title,
-        url = "https://example.com/board/",
+        boardName = "板のタイトル",
+        boardUrl = "https://example.com/board/",
+        serviceName = "example",
+    )
+    val uiState = BoardUiState(
+        boardInfo = BoardInfo(
+            boardId = tab.boardId,
+            name = tab.boardName,
+            url = tab.boardUrl,
+        ),
     )
     BoardToolBar(
         onSortClick = {},
@@ -112,17 +176,14 @@ fun BoardToolBarPreview() {
         canOpenThread = true,
         onOpenThreadClick = {},
         titleContent = { modifier ->
-            TabTitleCard(
+            BoardTabTitleCard(
                 modifier = modifier,
-                title = boardInfo.name,
-                bookmarkState = bookmarkState,
+                tab = tab,
+                uiState = uiState,
+                actionProgress = 1f,
                 onTitleClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
-                titleStyle = MaterialTheme.typography.titleMedium,
-                titleTextAlign = TextAlign.Center,
-                titleFontWeight = FontWeight.Bold,
-                titleMaxLines = 1,
             )
         },
     )

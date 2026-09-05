@@ -89,11 +89,11 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 
 ### 8. 画面固有Toolbarの構成層をBoard/Threadで対称化する
 
-共通の見た目と縮退挙動は `TabToolBar` が担い、画面固有のaction一覧、UiStateからのアイコン選択、タイトルスタイル、画面種別ボタンの配置は各画面の `BoardToolBar` と `ThreadToolBar` が構成する。`BoardToolBar` は `BoardScaffold` の既存インライン構築を移動した薄いadapterとし、navigationやTabSessionStoreの操作はcallbackとして受け取る。これにより共通層からBoard/Thread固有stateへの依存を増やさず、両画面のScaffoldからToolbar構成責務を分離する。
+共通の見た目と縮退挙動は `TabToolBar` が担い、画面固有のaction一覧、UiStateからのアイコン選択、タイトルカードの具体的な構成、タイトルスタイル、画面種別ボタンの配置は各画面の `BoardToolBar` と `ThreadToolBar` が構成する。`BoardToolBar` は `BoardScaffold` の既存インライン構築を移動した薄いadapterとし、navigationやTabSessionStoreの操作はcallbackとして受け取る。これにより共通層からBoard/Thread固有stateへの依存を増やさず、両画面のScaffoldからToolbar構成責務を分離する。
 
 各専用Toolbarは単独のPreview入口を持つ。Previewは画面固有のaction構成とタイトル領域を確認するために使用し、Pager連動そのものの状態は `BbsRouteScaffold` のUIテストで検証する。
 
-Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Toolbarが静的 `TabTitleCard` を生成するnullフォールバックは設けず、タイトル、ブックマーク、更新、ロード進捗などのカード固有引数をToolbar APIへ重複して持たせない。
+Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Pagerの表示範囲とoffset計算は `BbsRouteScaffold` に残し、カードの具体的な構成は `BoardToolBar.kt` の `BoardTabTitleCard` と `ThreadToolBar.kt` の `ThreadTabTitleCard` に置く。各Scaffoldはこのrendererへ画面固有callbackを束ねて渡すだけとし、Toolbarが静的 `TabTitleCard` を生成するnullフォールバックや、Toolbar APIに重複したタイトル・ブックマーク・更新・ロード進捗引数は設けない。
 
 ## Implementation Contract
 
@@ -108,7 +108,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 7. `BbsRouteBottomBar` の検索切替、`BottomBarUtils.kt` の縦縮退、`BookmarkSheetHost`、Board/Thread の `optionalSheetContent` を単一 Scaffold 構造へ接続し直し、固定 bar より上に overlay を描く。
 8. Board の「スレ」はSelected `ThreadTabInfo`だけを対象とし、normalize、register-and-select、push navigateの順序を省略しない。Threadの「板」はSelected `BoardTabInfo`だけを対象とし、normalize、register-and-select、`showBoardScreenForTabSelection`による現在Threadの置換順序を省略しない。
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
-10. Board/Thread固有のToolbar構成はそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。
+10. Board/Thread固有のToolbar構成とタイトルカードrendererはそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。各ScaffoldにはPager用rendererへのcallback接続だけを残す。
 11. Pager連動タイトルカードは必須の`titleContent` slotで受け渡し、`TabToolBar`および専用Toolbarに静的タイトル用のnullable fallback APIを残さない。
 
 ## Error Cases and Compatibility

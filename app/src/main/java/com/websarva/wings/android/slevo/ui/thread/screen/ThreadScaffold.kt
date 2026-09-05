@@ -38,7 +38,6 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
@@ -48,6 +47,7 @@ import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadTabTitleCard
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -152,20 +152,20 @@ fun ThreadScaffold(
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
         titleCard = { tab, uiState, actionProgress, modifier ->
-            TabTitleCard(
+            ThreadTabTitleCard(
                 modifier = modifier,
-                title = uiState.threadInfo.title,
-                bookmarkState = uiState.bookmarkStatusState,
-                onTitleClick = { routeViewModel.openThreadInfoSheet(tab.id.value) },
-                onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.id.value) },
-                onRefreshClick = { routeViewModel.reloadThread(tab.id.value) },
-                titleStyle = androidx.compose.material3.MaterialTheme.typography.titleSmall,
-                titleTextAlign = androidx.compose.ui.text.style.TextAlign.Start,
-                titleFontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                titleMaxLines = 2,
+                tab = tab,
+                uiState = uiState,
                 actionsProgress = actionProgress,
-                isLoading = uiState.isLoading,
-                loadProgress = uiState.loadProgress,
+                onTitleClick = { selectedTab ->
+                    routeViewModel.openThreadInfoSheet(selectedTab.id.value)
+                },
+                onBookmarkClick = { selectedTab ->
+                    routeViewModel.openBookmarkSheet(selectedTab.id.value)
+                },
+                onRefreshClick = { selectedTab ->
+                    routeViewModel.reloadThread(selectedTab.id.value)
+                },
             )
         },
         bottomBar = { tab, uiState, actionProgress, openTabListSheet, controllerModifier, titleContent ->

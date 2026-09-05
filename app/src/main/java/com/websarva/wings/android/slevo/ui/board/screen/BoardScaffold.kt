@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,19 +14,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteBottomBar
 import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
+import com.websarva.wings.android.slevo.ui.board.components.BoardTabTitleCard
 import com.websarva.wings.android.slevo.ui.board.components.BoardToolBar
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
-import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -117,20 +114,20 @@ fun BoardScaffold(
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
         titleCard = { tab, uiState, actionProgress, modifier ->
-            TabTitleCard(
+            BoardTabTitleCard(
                 modifier = modifier,
-                title = uiState.boardInfo.name,
-                bookmarkState = uiState.bookmarkStatusState,
-                onTitleClick = { routeViewModel.openBoardInfoSheet(tab.boardUrl) },
-                onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.boardUrl) },
-                onRefreshClick = { routeViewModel.refreshBoard(tab.boardUrl) },
-                titleStyle = MaterialTheme.typography.titleMedium,
-                titleTextAlign = TextAlign.Center,
-                titleFontWeight = FontWeight.Bold,
-                titleMaxLines = 1,
+                tab = tab,
+                uiState = uiState,
                 actionsProgress = actionProgress,
-                isLoading = uiState.isLoading,
-                loadProgress = uiState.loadProgress,
+                onTitleClick = { selectedTab ->
+                    routeViewModel.openBoardInfoSheet(selectedTab.boardUrl)
+                },
+                onBookmarkClick = { selectedTab ->
+                    routeViewModel.openBookmarkSheet(selectedTab.boardUrl)
+                },
+                onRefreshClick = { selectedTab ->
+                    routeViewModel.refreshBoard(selectedTab.boardUrl)
+                },
             )
         },
         bottomBar = { tab, uiState, actionProgress, openTabListSheet, controllerModifier, titleContent ->
