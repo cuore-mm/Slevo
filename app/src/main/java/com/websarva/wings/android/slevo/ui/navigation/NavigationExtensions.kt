@@ -71,7 +71,7 @@ private fun NavHostController.replaceCurrentScreen(
     targetRoute: AppRoute,
 ) {
     navigate(targetRoute) {
-        launchSingleTop = true
+        // 既存の背後に同種画面があっても、それを再利用せず新しい選択先を積む。
         popUpTo(currentScreenRoute) {
             inclusive = true
         }
