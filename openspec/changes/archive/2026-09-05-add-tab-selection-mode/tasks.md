@@ -42,6 +42,6 @@
 
 - [x] 6.1 通常時の単体close、単体pin、長押しpreview／復帰、reorder、スワイプ削除、検索表示の既存テストを実行し、選択モード追加による回帰がないことを確認する
 - [x] 6.2 新規class／interfaceと非自明関数のKDoc、30行超関数の区分コメント、Preview追加をリポジトリ規約に照らして確認し、不足がない状態にする
-- [ ] 6.3 `./gradlew testDebugUnitTest`を実行し、全unit testが成功することを確認する
-- [ ] 6.4 `./gradlew assembleDebug`を実行し、debug buildが成功することを確認する
-- [ ] 6.5 emulatorを利用できる環境で対象Compose instrumented testを実行し、利用できない場合は未実行理由と対象test classを実装報告へ記録する
+- [x] 6.3 `./gradlew testDebugUnitTest`を実行し、全unit testが成功することを確認する
+- [x] 6.4 `./gradlew assembleDebug`を実行し、debug buildが成功することを確認する
+- [x] 6.5 emulatorを利用できる環境で対象Compose instrumented testを実行し、利用できない場合は未実行理由と対象test classを実装報告へ記録する
