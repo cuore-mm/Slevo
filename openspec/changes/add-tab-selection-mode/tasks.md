@@ -4,7 +4,7 @@
 - [x] 1.2 `TabsRepository`に板／スレッドのbulk pin APIを追加し、最大900件chunk、1 write permit、1 Room transaction、失敗時rollback、sortOrder維持をRepositoryテストで検証する
 - [x] 1.3 Boardのprojection operationと`BoardTabsCoordinator`にtarget pinned値を持つBulkPinを追加し、mixed状態の一括固定／解除、1 pending operation、対象外維持、失敗時canonical復帰を`BoardTabsCoordinatorTest`で検証する
 - [x] 1.4 Threadのmutation intent queueと`ThreadTabsCoordinator`にtarget pinned値を持つBulkPinを追加し、mixed状態の一括固定／解除、FIFO barrier、対象外維持、失敗時canonical復帰を`ThreadTabsCoordinatorTest`で検証する
-- [x] 1.5 `TabSessionStore`に板／スレッドのbulk pin委譲を追加し、caller cancellation後の所有権と非キャンセル例外封じ込めを`TabSessionStoreTest`で検証する
+- [x] 1.5 `TabSessionStore`に板／スレッドのbulk pin委譲を追加し、Thread bulk pinをretained scopeで実行し、caller cancellation後の所有権と非キャンセル例外封じ込めを`TabSessionStoreTest`で検証する
 
 ## 2. 選択状態とViewModel遷移
 
@@ -12,7 +12,7 @@
 - [x] 2.2 `TabListViewModel`に0件開始、長押し対象付き開始、板／スレ選択toggle、選択終了、選択メニュー開閉を追加し、`TabListViewModelTest`で各状態遷移と長押しoverlay解除を検証する
 - [x] 2.3 `TabListViewModel`の検索開始／終了とページ変更処理を選択階層へ対応させ、選択→検索と検索→選択の双方、検索Back後の選択維持、次のBackでの選択終了を単体テストで検証する
 - [x] 2.4 公開全一覧を基準に選択keyをpruneする処理を追加し、検索結果外のkeyは維持し、canonical一覧から消えたkeyだけ除去することを単体テストで検証する
-- [x] 2.5 選択対象を一覧順にスナップショット化する一括close／pin関数を`TabListViewModel`へ追加し、固定タブをclose対象へ含めること、mixed時は全固定、全固定時は全解除、0件no-op、固定／解除後は選択集合だけをクリアして選択モードを維持することを単体テストで検証する
+- [x] 2.5 選択対象を一覧順にスナップショット化する一括close／pin関数を`TabListViewModel`へ追加し、固定タブをclose対象へ含めること、mixed時は全固定、全固定時は全解除、0件no-op、固定／解除受付後は選択集合だけをクリアして選択モードを維持することを単体テストで検証する
 
 ## 3. bulk close経路の選択対象対応
 
@@ -23,7 +23,7 @@
 ## 4. カード選択UIとジェスチャー制御
 
 - [x] 4.1 `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList`、`RemovableTabList`から`TabListCard`へ選択モード、選択済み、toggle callbackを伝播し、Previewがコンパイル・描画できることを確認する
-- [x] 4.2 `TabListCard`で既存の円形ボーダーを未選択状態領域として維持し、選択済み時のチェック、固定時の左側ピン、選択時`primaryContainer`を実装し、固定ピンと状態領域が同時表示されるCompose testを追加する
+- [x] 4.2 `TabListCard`で既存の円形ボーダーを未選択状態領域として維持し、選択済み時のチェック、固定時の左側ピン、選択時の`primaryContainer`と`primary`の20%混合色を実装し、固定ピンと状態領域が同時表示されるCompose testを追加する
 - [x] 4.3 `TabListCard`の選択モードclickを選択toggleへ切り替え、通常のタブ遷移とcloseを発火しないことをCompose testで検証する
 - [x] 4.4 選択モード中は長押しpointer input、reorder、横スワイプ削除を無効化し、haptic、メニュー、カードoffset、削除callbackが発生しないことをCompose testで検証する
 - [x] 4.5 カードへ選択済み／固定済みsemanticsとcontent descriptionを追加し、Compose semantics testで支援技術から両状態を識別できることを検証する

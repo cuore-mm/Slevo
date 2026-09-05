@@ -66,7 +66,7 @@
 `TabsPagerContent`、`OpenBoardsList`、`OpenThreadsList`、`RemovableTabList`、`TabListCard`へ、選択モード、選択済み、選択切り替えcallbackを伝播する。`TabListCard`は選択モード中に次を行う。
 
 - カードclickを通常遷移ではなく選択切り替えへ接続する。
-- `primaryContainer`と通常色を短いcolor animationで切り替える。
+- `primaryContainer`を基調に`primary`を20%混合した選択色と通常色を短いcolor animationで切り替える。
 - 右端に円形ボーダーの状態領域を表示し、選択済みの場合だけその内側へチェックを表示する。固定タブでは状態領域の左に表示専用ピンを併記する。
 - 固定タブのヘッダー右側余白とtrailing領域幅を同じアニメーション値から導出し、レス数と固定ピンの左移動を同期する。状態領域とチェックはfade＋scaleで切り替え、サイズ展開による親レイアウトの跳ねを発生させない。
 - close button、長押しpointer input、reorder handle、横スワイプoffset処理を構成しない、またはenabled=falseにする。
@@ -100,7 +100,7 @@
 - 「タブを閉じる」（破壊的操作色）
 - 選択対象がすべて固定済みなら「タブの固定を解除」、それ以外は「タブを固定」
 
-メニュー文言は表示時点の公開一覧と選択keyから導出するが、実行対象は押下時に再度スナップショット化する。対象0件ならメニューを開かず、操作関数でもguardする。メニュー選択後はメニューだけを閉じ、選択モードは終了しない。一括固定／固定解除が完了したら選択key集合だけをクリアし、選択モードを維持する。
+メニュー文言は表示時点の公開一覧と選択keyから導出するが、実行対象は押下時に再度スナップショット化する。対象0件ならメニューを開かず、操作関数でもguardする。メニュー選択後はメニューだけを閉じ、選択モードは終了しない。一括固定／固定解除を受け付けたら選択key集合だけをクリアし、選択モードを維持する。
 
 ### 7. 選択クローズは既存bulk delete経路を再利用する
 
@@ -112,7 +112,7 @@
 
 `TabSessionStore`、`BoardTabsCoordinator`、`ThreadTabsCoordinator`、`TabsRepository`へ、対象keyと`pinned: Boolean`を受けるbulk pin経路を追加する。Boardは既存のpending operation foldへBulkPinを追加し、Threadはmutation intent queueへBulkPinを追加する。projectionは対象だけの`isPinned`を1回の操作で明示値へ更新する。
 
-Room DAOには対象ID集合の固定状態を更新するqueryを追加する。SQLite bind上限を避けるため最大900件にchunk化し、全chunkを1つの`DatabaseWriteGate` write permitとRoom transactionで実行する。対象外行、sortOrder、メタデータは変更しない。Thread側の非キャンセル例外は既存bulk deleteと同様にStore root coroutineへ伝播させずログ記録し、Coordinatorはpendingを除去してcanonical stateへ戻す。
+Room DAOには対象ID集合の固定状態を更新するqueryを追加する。SQLite bind上限を避けるため最大900件にchunk化し、全chunkを1つの`DatabaseWriteGate` write permitとRoom transactionで実行する。対象外行、sortOrder、メタデータは変更しない。Thread側のbulk pinは`TabSessionStore`のretained scopeから実行し、非キャンセル例外は既存bulk deleteと同様にStore root coroutineへ伝播させずログ記録する。Coordinatorはpendingを除去してcanonical stateへ戻す。
 
 既存`togglePin*`を件数分呼ぶ案は採用しない。混在状態を一時表示すること、N回のDB書き込み、途中失敗、連打時の反転競合を避け、選択全体を指定値へ原子的に収束させるためである。
 
@@ -125,14 +125,14 @@ Room DAOには対象ID集合の固定状態を更新するqueryを追加する�
 5. 選択モード中の固定カードでは、ピンを状態アイコンの左に同時表示する。ピンで空丸／チェックを置換しない。
 6. 選択中の一括クローズでは固定タブを除外しない。通常時の「全てのタブを閉じる」は引き続き未固定だけを対象にする。
 7. 一括固定／解除はtoggleのloopで実装せず、target pinned値を持つbulk commandとtransactional repository APIを追加する。
-8. 一括アクション後は選択モード終了関数を呼ばない。削除されたkeyは公開一覧との差分で除去し、固定／固定解除が完了したときは選択key集合をクリアする。
+8. 一括アクション後は選択モード終了関数を呼ばない。削除されたkeyは公開一覧との差分で除去し、固定／固定解除を受け付けたときは選択key集合をクリアする。
 9. 新規class／interfaceと非自明関数にはリポジトリ規約どおりKDocを付け、30行を超える関数は処理区分コメントで分割する。
 10. `TabListCard`の状態領域は空丸アイコンへ置き換えず、既存の円形ボーダーBoxを維持する。trailing領域の幅とヘッダーend paddingは同じアニメーション進行度から導出し、状態領域とチェックの出現／切り替えにはfade＋scaleを使う。
 
 ## Error Cases and Compatibility
 
 - 一括操作受付直前に対象が消えた場合は存在する対象だけをスナップショット化し、0件ならno-opとしてメニューだけ閉じる。
-- bulk delete／bulk pinが失敗した場合はCoordinatorのpending projectionを除去し、Room canonical stateへ戻す。選択集合はcanonical一覧との積集合へ再収束させる。
+- bulk delete／bulk pinが失敗した場合はCoordinatorのpending projectionを除去し、Room canonical stateへ戻す。固定／固定解除は受付時に選択集合をクリアするため、失敗時も選択モードを維持してcanonical stateを表示する。
 - 選択モード中に画面のタブ一覧が空になっても、選択モード自体は明示的なBackまで維持し、選択数0件と無効なその他ボタンを表示する。
 - UI stateと新規APIはアプリ内部だけの変更であり、DB schema migrationや外部API互換性への影響はない。
 - 通常時の単体close、単体pin、長押しpreview、reorder、検索アニメーションは既存挙動を維持する。

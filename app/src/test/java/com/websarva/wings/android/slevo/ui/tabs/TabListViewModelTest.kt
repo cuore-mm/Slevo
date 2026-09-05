@@ -282,10 +282,10 @@ class TabListViewModelTest {
         assertEquals(0, state.selectedTabCount)
     }
 
-    /** 一括固定解除後にスレッドの選択集合だけをクリアし、選択モードを維持することを確認する。 */
+    /** 一括固定解除後に新たな選択を維持し、選択モードを維持することを確認する。 */
     @Test
-    fun setSelectedTabsPinned_clearsThreadSelectionAndKeepsMode() = runTest {
-        val tab = ThreadTabInfo(
+    fun setSelectedTabsPinned_clearsAcceptedThreadSelectionAndKeepsNewSelection() = runTest {
+        val first = ThreadTabInfo(
             id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "1"),
             title = "Thread",
             boardName = "board",
@@ -293,18 +293,24 @@ class TabListViewModelTest {
             boardId = 1L,
             isPinned = true,
         )
-        openThreadTabs.value = listOf(tab)
+        val second = first.copy(
+            id = com.websarva.wings.android.slevo.data.model.ThreadId.of("example.com", "board", "2"),
+            title = "Thread 2",
+            isPinned = false,
+        )
+        openThreadTabs.value = listOf(first, second)
 
         viewModel.startSelectionMode(TabPage.THREAD)
-        viewModel.toggleThreadTabSelection(tab.id)
+        viewModel.toggleThreadTabSelection(first.id)
         viewModel.setSelectedTabsPinned(TabPage.THREAD)
+        viewModel.toggleThreadTabSelection(second.id)
         runCurrent()
 
-        coVerify { tabSessionStore.setThreadTabsPinned(listOf(tab), false) }
+        verify { tabSessionStore.setThreadTabsPinned(listOf(first), false) }
         val state = viewModel.uiState.first()
         assertTrue(state.isInSelectionMode)
-        assertTrue(state.selectedThreadTabIds.isEmpty())
-        assertEquals(0, state.selectedTabCount)
+        assertEquals(setOf(second.id), state.selectedThreadTabIds)
+        assertEquals(1, state.selectedTabCount)
     }
 
     /** 固定タブを含む選択対象を一覧順のsnapshotで一括closeし、選択モードを維持することを確認する。 */

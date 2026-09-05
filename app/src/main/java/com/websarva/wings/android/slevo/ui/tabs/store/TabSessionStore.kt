@@ -411,9 +411,29 @@ class TabSessionStore @Inject constructor(
         threadTabsCoordinator.togglePinThreadTab(threadId)
     }
 
-    /** 指定スレッドタブ集合の pin 状態を明示値へ揃える。 */
-    suspend fun setThreadTabsPinned(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
-        threadTabsCoordinator.setThreadTabsPinned(tabs, isPinned)
+    /** 指定スレッドタブ集合の pin 状態を retained scope で明示値へ揃える。 */
+    fun setThreadTabsPinned(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
+        if (tabs.isEmpty()) return
+        scope.launch {
+            setThreadTabsPinnedSafely(tabs, isPinned)
+        }
+    }
+
+    /** Thread bulk pin の非キャンセル例外をログへ記録し、retained scopeへ伝播させない。 */
+    private suspend fun setThreadTabsPinnedSafely(tabs: List<ThreadTabInfo>, isPinned: Boolean) {
+        try {
+            threadTabsCoordinator.setThreadTabsPinned(tabs, isPinned)
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (exception: Throwable) {
+            runCatching {
+                appLogger.e(
+                    message = "Thread bulk pin failed for ${tabs.size} tabs",
+                    tag = "TabSessionStore",
+                    throwable = exception,
+                )
+            }
+        }
     }
 
     // --- Per-tab session holders ---

@@ -481,15 +481,13 @@ class TabListViewModel @Inject constructor(
                 }
                 if (targets.isEmpty()) return
                 val shouldPin = targets.any { !it.isPinned }
-                viewModelScope.launch {
-                    tabSessionStore.setThreadTabsPinned(targets, shouldPin)
-                    clearSelectedTabKeys()
-                }
+                tabSessionStore.setThreadTabsPinned(targets, shouldPin)
+                clearSelectedTabKeys()
             }
         }
     }
 
-    /** 一括固定または固定解除後に選択集合だけをクリアし、選択モードを維持する。 */
+    /** 一括固定または固定解除の受付時に選択集合だけをクリアし、選択モードを維持する。 */
     private fun clearSelectedTabKeys() {
         uiStateMutable.update { state ->
             state.copy(
