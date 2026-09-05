@@ -63,29 +63,6 @@ fun ThreadTabTitleCard(
     )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ThreadTabTitleCardPreview() {
-    val tab = ThreadTabInfo(
-        id = ThreadId.of("example.com", "board", "123"),
-        title = "スレッドのタイトル",
-        boardName = "板",
-        boardUrl = "https://example.com/board/",
-        boardId = 1L,
-    )
-    ThreadTabTitleCard(
-        tab = tab,
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(title = tab.title),
-            bookmarkStatusState = BookmarkStatusState(),
-        ),
-        actionProgress = 1f,
-        onTitleClick = {},
-        onBookmarkClick = {},
-        onRefreshClick = {},
-    )
-}
-
 /**
  * スレッド画面のソート、検索、投稿、タブ操作を共通TabToolBarへ渡す。
  *

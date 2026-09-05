@@ -57,31 +57,6 @@ fun BoardTabTitleCard(
     )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun BoardTabTitleCardPreview() {
-    val tab = BoardTabInfo(
-        boardId = 1L,
-        boardName = "板のタイトル",
-        boardUrl = "https://example.com/board/",
-        serviceName = "example",
-    )
-    BoardTabTitleCard(
-        tab = tab,
-        uiState = BoardUiState(
-            boardInfo = BoardInfo(
-                boardId = tab.boardId,
-                name = tab.boardName,
-                url = tab.boardUrl,
-            ),
-        ),
-        actionProgress = 1f,
-        onTitleClick = {},
-        onBookmarkClick = {},
-        onRefreshClick = {},
-    )
-}
-
 /**
  * 板画面固有のアクションとタイトル領域を共通TabToolBarへ渡す。
  *
