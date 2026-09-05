@@ -77,13 +77,13 @@ Board はタイトル viewport の右に「スレ」、Thread は左に「板」
 
 検索モードでは既存の `BbsRouteBottomBar` による `SearchBottomBar` 切替を維持し、`isTabSwipeEnabled == false` によりコントローラーの横スクロールを停止する。IME composition は既存の `TextFieldValue` をそのまま渡す。
 
-### 7. 「スレ」「板」は通常 push navigation とする
+### 7. 「スレ」はpush、「板」は現在Threadを破棄する置換遷移とする
 
 Board の「スレ」は `TabSessionStore.threadPresentationState` の同一 snapshot から `Selected` key と一致する `ThreadTabInfo` を取得し、完全な `AppRoute.Thread` を構築する。既存パターンと同じく `normalizeThreadRouteForNavigation`、`registerAndSelectThreadRoute` を順に完了し、index が 0 以上の場合だけ `navigateToThreadScreen` を呼ぶ。`Loading`、`Empty`、`PendingMissing` ではボタンを disabled とし、不完全 route や先頭タブ fallbackを作らない。
 
-Thread の「板」は settled Thread の `boardUrl`、`boardName`、`boardId` から親板の `AppRoute.Board` を構築し、`normalizeBoardRouteForNavigation`、`registerAndSelectBoardRoute`、`navigateToBoardScreen` の順に実行する。これは選択済みの任意 Board へ戻る操作ではなく、現在 Thread の親 Board を開く操作である。
+Thread の「板」は `TabSessionStore.boardPresentationState` の同一snapshotから `Selected` key と一致する `BoardTabInfo` を取得し、完全な `AppRoute.Board` を構築する。`normalizeBoardRouteForNavigation`、`registerAndSelectBoardRoute` を完了した後、`showBoardScreenForTabSelection(currentScreenRoute = threadRoute, route = boardRoute)` を呼ぶ。既存の `replaceCurrentScreen` が現在Threadを `popUpTo(inclusive = true)` で破棄してSelected Boardを表示するため、`navigateToBoardScreen`によるpushは行わない。`Loading`、`Empty`、`PendingMissing`ではボタンをdisabledとする。
 
-どちらも `show*ScreenForTabSelection` による surface 置換は使用せず、back stack に積む。クリックの多重実行は navigation helper の `launchSingleTop` と登録完了待ちに従う。登録または選択が失敗した場合は遷移しない。
+Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻る操作で元Boardへ戻れるようにする。Thread「板」はタブ一覧の別種別選択と同じ `showBoardScreenForTabSelection` により現在Threadだけを置換し、破棄したThreadへ戻らない。Threadの背後に別Boardが存在する場合、その背後destinationは変更せず、Selected Boardを現在Threadの置換先として表示する。Deep Link等で背後にBoardがない場合も同じreplace経路を使用する。クリックの多重実行はnavigation helperの`launchSingleTop`と登録完了待ちに従い、登録または選択が失敗した場合は遷移しない。
 
 表示文字列「板」「スレ」と content description は resource 化する。短い表示ラベルだけに依存せず、TalkBack で遷移先の画面種別が分かる説明を付ける。disabled 時も状態を意味的に公開する。
 
@@ -98,14 +98,14 @@ Thread の「板」は settled Thread の `boardUrl`、`boardName`、`boardId` �
 5. `TabToolBar.kt` の全幅 progress indicator を削除し、各タイトル Card 内の bottom overlay として移す。ブックマーク・更新・タイトルの既存 callback と loading semantics を保持する。
 6. タイトル offset 用の別 `PagerState`、別 Pager、offset同期用 coroutineを追加しない。表示対象は stable key で識別し、tab reorder/close時に誤った UiState を再利用しない。
 7. `BbsRouteBottomBar` の検索切替、`BottomBarUtils.kt` の縦縮退、`BookmarkSheetHost`、Board/Thread の `optionalSheetContent` を単一 Scaffold 構造へ接続し直し、固定 bar より上に overlay を描く。
-8. Board の「スレ」は Selected `ThreadTabInfo` だけを対象とする。Thread の「板」は現在 Thread の親板だけを対象とする。両者とも normalize、register-and-select、push navigate の既存順序を省略しない。
+8. Board の「スレ」はSelected `ThreadTabInfo`だけを対象とし、normalize、register-and-select、push navigateの順序を省略しない。Threadの「板」はSelected `BoardTabInfo`だけを対象とし、normalize、register-and-select、`showBoardScreenForTabSelection`による現在Threadの置換順序を省略しない。
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
 
 ## Error Cases and Compatibility
 
 - tabs が drag/animation 中に削除・reorderされた場合、page index を stable key へ再解決し、範囲外 index の callback、UiState取得、タイトル描画を行わない。
 - settle前に presentationが `PendingMissing` へ移行した場合は選択通知を抑止し、coordinator の補正後 snapshot から再同期する。
-- 反対種タブが Loading/Empty/PendingMissing の場合、Board「スレ」を無効化する。最後の既知 tab や index 0 を暗黙に使用しない。
+- 反対種タブがLoading/Empty/PendingMissingの場合、Board「スレ」またはThread「板」を無効化する。最後の既知tabやindex 0を暗黙に使用しない。
 - normalize/register-and-select が失敗した場合は navigation を実行せず、既存画面とselected keyを維持する。
 - `AppRoute.Board` / `AppRoute.Thread` の型と引数、既存 Deep Link、タブ一覧のreplace遷移は互換のまま維持する。
 - 固定 bar の inset は単一 Scaffold に集約し、3ボタン navigation、gesture navigation、IME表示時に本文 paddingを二重適用しない。
@@ -116,7 +116,7 @@ Thread の「板」は settled Thread の `boardUrl`、`boardName`、`boardId` �
 - Compose UI テストで本文drag非反応、コントローラーdrag、途中復帰、fling、既存 animateToPageFlow、タイトルカードと本文の追従、固定ツール群を検証する。
 - タイトルカードテストでブックマーク・タイトル・更新・ロード進捗が同じ semantics subtree/移動単位に属し、進捗がCard下端かつCard幅に収まることを検証する。
 - Board/Thread両方で展開・縮退、検索開始・終了、IME入力、popup中のスワイプ無効、タブ別縮退状態、スクロール位置保存・復元を検証する。
-- NavigationテストでBoard「スレ」のSelected/Loading/Empty/PendingMissing、Thread「板」の親板route、登録失敗、push後のBack復帰を検証する。
+- NavigationテストでBoard「スレ」のSelected/Loading/Empty/PendingMissing、push後のBack復帰、Thread「板」のSelected/Loading/Empty/PendingMissing、登録失敗、現在Threadの破棄を検証する。
 - LTR/RTL、ドラッグキャンセル、連続drag、drag中tab削除、TalkBack向けラベルとdisabled semanticsをinstrumented testまたは手動確認項目に含める。
 - 実装後に `./gradlew assembleDebug` と `./gradlew testDebugUnitTest` を実行し、両方成功させる。
 

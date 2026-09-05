@@ -28,8 +28,8 @@
 
 - [ ] 5.1 `strings.xml`へ表示文言「板」「スレ」とTalkBack用content descriptionを追加し、`TabToolBar.kt`、`BoardScaffold.kt`、`ThreadToolBar.kt`へ左右固定ボタンのenabled状態とcallbackを配線する。Compose semanticsテストで位置、ラベル、disabled状態を確認する。
 - [ ] 5.2 `BoardScaffold.kt` で`threadPresentationState`の`Selected`と同一snapshotの`ThreadTabInfo`から`AppRoute.Thread`を構築し、normalize→`registerAndSelectThreadRoute`→成功時`navigateToThreadScreen`の順でpushする。Loading/Empty/PendingMissing/登録失敗では遷移しない単体テストを追加する。
-- [ ] 5.3 `ThreadScaffold.kt` でsettled Threadの親板から`AppRoute.Board`を構築し、normalize→`registerAndSelectBoardRoute`→成功時`navigateToBoardScreen`の順でpushする。親板選択、登録失敗、Backで元Threadへ戻るテストを追加する。
-- [ ] 5.4 既存のタブ一覧シート・フルスクリーンタブ一覧が`showBoardScreenForTabSelection`/`showThreadScreenForTabSelection`によるsurface置換を継続し、新ボタンのpush経路と混在しないことを`NavigationExtensionsTest.kt`と統合テストで確認する。
+- [ ] 5.3 `ThreadScaffold.kt` で`boardPresentationState`の`Selected`と同一snapshotの`BoardTabInfo`から`AppRoute.Board`を構築し、normalize→`registerAndSelectBoardRoute`→成功時`showBoardScreenForTabSelection(currentScreenRoute = threadRoute, route = boardRoute)`の順で現在Threadを置換する。Loading/Empty/PendingMissing/登録失敗では遷移せず、成功時はBackで破棄したThreadへ戻らないテストを追加する。
+- [ ] 5.4 `NavigationExtensionsTest.kt`へThread→Boardのreplaceテストを追加し、現在Threadが破棄されること、Deep Link等で背後にBoardがない場合もSelected Boardを表示できること、背後に別Boardがある場合はそのdestinationを変更しないことを確認する。既存タブ一覧シート・フルスクリーンタブ一覧のsurface置換も継続して検証する。
 
 ## 6. 回帰検証と品質確認
 

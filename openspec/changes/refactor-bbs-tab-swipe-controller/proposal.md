@@ -8,7 +8,7 @@
 - 本文上の横スワイプを無効化し、固定された下部コントローラー全体の横ドラッグで本文 Pager を直接操作する。
 - タイトルカードを本文と同じ Pager offset から描画し、ブックマーク、タイトル、更新、カード下端のロード進捗を本文と同期して移動させる。タイトル専用の PagerState は作成しない。
 - 下部ツール群と画面種別ボタンを固定し、Board ではタイトルカード右に「スレ」、Thread では左に「板」を配置する。
-- Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は現在 Thread の親 Board を通常の push navigation で開く。
+- Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は `TabSessionStore.boardPresentationState` の現在選択済み Board を対象とし、現在の Thread destination を破棄して Board 画面へ置換遷移する。
 - Pager が settle した時点で選択タブを確定し、ドラッグ途中では `TabSessionStore` の selected key を更新しない。
 - Pager ページ内の Scaffold/BottomBar を共通ホストへ再編し、検索モード、ツールバー縮退、シート・ポップアップ、タブ別スクロール位置保存を維持する。
 - 本文側で不要になる横スワイプ抑制用 pointer input を削除する。
@@ -22,7 +22,7 @@
 ### Modified Capabilities
 
 - `tab-selection-source-of-truth`: Pager 操作による selected key 更新をドラッグ途中ではなく settle 完了時に確定する。
-- `separated-board-thread-tab-navigation`: 固定コントローラーの「スレ」「板」ボタンから行う通常 push navigation を追加する。
+- `separated-board-thread-tab-navigation`: 固定コントローラーの「スレ」から行う push navigation と、「板」から現在 Thread を破棄する置換遷移を追加する。
 - `bbs-toolbar-scroll-visibility`: Pager から独立した固定ツール群に対して既存の展開・縮退挙動を維持する。
 
 ## Impact
