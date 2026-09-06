@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -279,6 +280,7 @@ fun TabToolBar(
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
         FlexibleBottomAppBar(
+            contentPadding = PaddingValues(horizontal = 8.dp),
             expandedHeight = layoutState.expandedHeight,
         ) {
             Column(
@@ -331,7 +333,6 @@ private fun TabToolBarHeader(
         modifier = modifier
             .fillMaxWidth()
             .height(TitleRowHeight),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CollapsedSideAction(
@@ -353,6 +354,7 @@ private fun TabToolBarHeader(
                 modifier = Modifier.fillMaxHeight(),
                 action = destinationAction,
             )
+            Spacer(modifier = Modifier.width(8.dp))
         }
 
         titleContent(
@@ -362,6 +364,7 @@ private fun TabToolBarHeader(
         )
 
         if (destinationAction.position == TabDestinationPosition.End) {
+            Spacer(modifier = Modifier.width(8.dp))
             TabDestinationIconButton(
                 modifier = Modifier.fillMaxHeight(),
                 action = destinationAction,
