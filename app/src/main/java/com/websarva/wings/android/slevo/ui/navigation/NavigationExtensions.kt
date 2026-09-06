@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
 
@@ -32,8 +33,10 @@ fun NavHostController.navigateToThreadScreen(
 /**
  * タブ選択に応じて板画面を表示する。
  *
- * 同種別画面上での板タブ切り替えでは navigation を積まず、
- * 別種別画面から板画面へ移る場合のみ現在画面を置換する。
+ * 板画面上では navigation を変更しない。
+ * スレ画面からの遷移では、直前が板画面ならそこへ戻り、
+ * それ以外は現在のスレ画面を板画面へ置き換える。
+ * その他の画面からは板画面へ通常遷移する。
  */
 fun NavHostController.showBoardScreenForTabSelection(
     currentScreenRoute: AppRoute?,
@@ -41,7 +44,19 @@ fun NavHostController.showBoardScreenForTabSelection(
 ) {
     when (currentScreenRoute) {
         is AppRoute.Board -> Unit
-        is AppRoute.Thread -> replaceCurrentScreen(currentScreenRoute, route)
+
+        is AppRoute.Thread -> {
+            val previousIsBoard =
+                previousBackStackEntry
+                    ?.destination
+                    ?.hasRoute<AppRoute.Board>() == true
+            if (previousIsBoard) {
+                popBackStack()
+            } else {
+                replaceCurrentScreen(currentScreenRoute, route)
+            }
+        }
+
         else -> navigateToBoardScreen(route)
     }
 }
@@ -49,8 +64,8 @@ fun NavHostController.showBoardScreenForTabSelection(
 /**
  * タブ選択に応じてスレ画面を表示する。
  *
- * 同種別画面上でのスレタブ切り替えでは navigation を積まず、
- * 別種別画面からスレ画面へ移る場合のみ現在画面を置換する。
+ * スレ画面上では navigation を変更せず、
+ * それ以外の画面からはスレ画面へ通常遷移する。
  */
 fun NavHostController.showThreadScreenForTabSelection(
     currentScreenRoute: AppRoute?,
@@ -58,7 +73,6 @@ fun NavHostController.showThreadScreenForTabSelection(
 ) {
     when (currentScreenRoute) {
         is AppRoute.Thread -> Unit
-        is AppRoute.Board -> replaceCurrentScreen(currentScreenRoute, route)
         else -> navigateToThreadScreen(route)
     }
 }
