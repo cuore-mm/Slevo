@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -22,29 +24,34 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
-import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
+import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.rememberBottomBarActionVisibility
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
@@ -53,7 +60,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import com.websarva.wings.android.slevo.R
 
 /**
  * 板/スレ共通のタブUIと画面内シートを提供する。
@@ -206,7 +212,8 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         }
         val settledUiState by getUiState(settledTab).collectAsState()
         val settledTabKey = getKey(settledTab)
-        val settledProgress = actionProgressStates.getOrPut(settledTabKey) { mutableStateOf(1f) }
+        val settledProgress =
+            actionProgressStates.getOrPut(settledTabKey) { mutableFloatStateOf(1f) }
         val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
         val controllerModifier = Modifier.scrollable(
             state = pagerState,
@@ -233,7 +240,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             getUiState = getUiState,
                             getKey = getKey,
                             getActionProgress = { tab ->
-                                actionProgressStates.getOrPut(getKey(tab)) { mutableStateOf(1f) }.value
+                                actionProgressStates.getOrPut(getKey(tab)) { mutableFloatStateOf(1f) }.value
                             },
                             titleCard = titleCard,
                         )
@@ -243,9 +250,11 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 HorizontalPager(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(innerPadding)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     state = pagerState,
                     key = { page -> getKey(tabs[page]) },
+                    pageSpacing = 32.dp,
                     userScrollEnabled = false,
                 ) { page ->
                     val tab = tabs[page]
@@ -267,7 +276,8 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                     )
 
                     val bottomBehavior = bottomBarScrollBehavior?.invoke(listState)
-                    val actionProgressState = actionProgressStates.getOrPut(tabKey) { mutableStateOf(1f) }
+                    val actionProgressState =
+                        actionProgressStates.getOrPut(tabKey) { mutableFloatStateOf(1f) }
                     val actionVisibility = rememberBottomBarActionVisibility(
                         progress = actionProgressState,
                         scrollEnabled = bottomBarActionVisibilityEnabled,
@@ -276,21 +286,33 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         .fillMaxSize()
                         .nestedScroll(actionVisibility.nestedScrollConnection)
                         .let { modifier ->
-                            bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) } ?: modifier
+                            bottomBehavior?.let { modifier.nestedScroll(it.nestedScrollConnection) }
+                                ?: modifier
                         }
 
-                    content(
-                        tab,
-                        uiState,
-                        listState,
-                        contentModifier,
-                        navController,
-                        { showTabListSheet = true },
-                        {
-                            urlError = null
-                            showUrlDialog = true
-                        },
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .shadow(
+                                elevation = 4.dp,
+                                shape = RectangleShape,
+                                clip = false,
+                            )
+                            .background(MaterialTheme.colorScheme.surface),
+                    ) {
+                        content(
+                            tab,
+                            uiState,
+                            listState,
+                            contentModifier,
+                            navController,
+                            { showTabListSheet = true },
+                            {
+                                urlError = null
+                                showUrlDialog = true
+                            },
+                        )
+                    }
                 }
             }
 
@@ -342,9 +364,13 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                                     )
                                     if (host != null) {
                                         val boardUrl = "https://$host/${resolved.boardKey}/"
-                                        val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
-                                            AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl),
-                                        )
+                                        val normalizedRoute =
+                                            tabSessionStore.normalizeBoardRouteForNavigation(
+                                                AppRoute.Board(
+                                                    boardName = boardUrl,
+                                                    boardUrl = boardUrl
+                                                ),
+                                            )
                                         tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
                                         navController.showBoardScreenForTabSelection(
                                             currentScreenRoute = route,
@@ -364,15 +390,17 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         if (resolved is ResolvedUrl.Thread) {
                             coroutineScope.launch {
                                 val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                                val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(
-                                    AppRoute.Thread(
-                                        threadKey = resolved.threadKey,
-                                        boardUrl = boardUrl,
-                                        boardName = resolved.boardKey,
-                                        threadTitle = null,
-                                    ),
-                                )
-                                val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
+                                val normalizedRoute =
+                                    tabSessionStore.normalizeThreadRouteForNavigation(
+                                        AppRoute.Thread(
+                                            threadKey = resolved.threadKey,
+                                            boardUrl = boardUrl,
+                                            boardName = resolved.boardKey,
+                                            threadTitle = null,
+                                        ),
+                                    )
+                                val index =
+                                    tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
                                 if (index < 0) {
                                     urlError = invalidUrlMessage
                                     isUrlValidating = false
@@ -391,9 +419,10 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         if (resolved is ResolvedUrl.Board) {
                             coroutineScope.launch {
                                 val boardUrl = "https://${resolved.host}/${resolved.boardKey}/"
-                                val normalizedRoute = tabSessionStore.normalizeBoardRouteForNavigation(
-                                    AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl),
-                                )
+                                val normalizedRoute =
+                                    tabSessionStore.normalizeBoardRouteForNavigation(
+                                        AppRoute.Board(boardName = boardUrl, boardUrl = boardUrl),
+                                    )
                                 tabSessionStore.registerAndSelectBoardRoute(normalizedRoute)
                                 navController.showBoardScreenForTabSelection(
                                     currentScreenRoute = route,
@@ -462,8 +491,9 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
                         .fillMaxSize()
                         .graphicsLayer {
                             // Pagerと同じ一ページ分の距離でカードを連続移動させる。
-                            translationX = pagerState.getOffsetDistanceInPages(page) * pageDistance *
-                                if (isRtl) -1f else 1f
+                            translationX =
+                                pagerState.getOffsetDistanceInPages(page) * pageDistance *
+                                        if (isRtl) -1f else 1f
                         },
                 ) {
                     titleCard(
@@ -484,7 +514,7 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
  * page削除・reorder直後にPagerが一時的な範囲外indexを返した場合は空範囲を返し、先頭ページへ暗黙に戻さない。
  */
 internal fun pagerTitlePageRange(currentPage: Int, pageCount: Int): IntRange {
-    if (pageCount <= 0 || currentPage !in 0 until pageCount) return 0 until 0
+    if (pageCount <= 0 || currentPage !in 0 until pageCount) return 0..0
 
     return (currentPage - 1).coerceAtLeast(0)..(currentPage + 1).coerceAtMost(pageCount - 1)
 }
