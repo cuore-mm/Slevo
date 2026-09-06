@@ -67,6 +67,32 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(0 until 0, pagerTitlePageRange(currentPage = -1, pageCount = 2))
     }
 
+    /** タイトルviewportが狭くても本文と同じページ進行率になる距離へ変換することを確認する。 */
+    @Test
+    fun calculateTitlePageDistance_scalesBodyPagePitchToTitleViewport() {
+        val result = calculateTitlePageDistance(
+            titleViewportWidthPx = 288f,
+            bodyPageSizePx = 360,
+            bodyPageSpacingPx = 32,
+        )
+
+        assertEquals(313.6f, result, 0.001f)
+    }
+
+    /** 本文Pagerの幅が未確定な初期レイアウトでは安全に移動距離0を返すことを確認する。 */
+    @Test
+    fun calculateTitlePageDistance_withUnknownBodyPageSize_returnsZero() {
+        assertEquals(
+            0f,
+            calculateTitlePageDistance(
+                titleViewportWidthPx = 288f,
+                bodyPageSizePx = 0,
+                bodyPageSpacingPx = 32,
+            ),
+            0f,
+        )
+    }
+
     /** pending missing は programmatic scroll を発行せず現在 page を保持することを確認する。 */
     @Test
     fun pendingMissing_preservesCurrentPage() {

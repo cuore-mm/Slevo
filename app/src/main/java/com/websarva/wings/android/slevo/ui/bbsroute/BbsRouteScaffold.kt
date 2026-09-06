@@ -454,7 +454,8 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
 /**
  * 本文 Pager の連続位置から、タイトルカードの表示列を構成する。
  *
- * 表示対象は現在ページと前後ページに限定し、同じ PagerState のページ距離で移動させる。
+ * 表示対象は現在ページと前後ページに限定し、本文とタイトルのviewportで表示進行率が
+ * 一致するページ距離で移動させる。
  */
 @Composable
 private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitleCards(
@@ -473,7 +474,6 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
             .fillMaxSize()
             .clipToBounds(),
     ) {
-        val pageDistance = pagerState.layoutInfo.pageSize.toFloat()
         val visiblePages = pagerTitlePageRange(
             currentPage = pagerState.currentPage,
             pageCount = tabs.size,
@@ -490,9 +490,14 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            // Pagerと同じ一ページ分の距離でカードを連続移動させる。
+                            val titlePageDistance = calculateTitlePageDistance(
+                                titleViewportWidthPx = size.width,
+                                bodyPageSizePx = pagerState.layoutInfo.pageSize,
+                                bodyPageSpacingPx = pagerState.layoutInfo.pageSpacing,
+                            )
+                            // 本文とタイトルviewport内の表示進行率を揃えて移動させる。
                             translationX =
-                                pagerState.getOffsetDistanceInPages(page) * pageDistance *
+                                pagerState.getOffsetDistanceInPages(page) * titlePageDistance *
                                         if (isRtl) -1f else 1f
                         },
                 ) {
@@ -506,6 +511,24 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
             }
         }
     }
+}
+
+/**
+ * 本文Pagerのページ進行をタイトルviewportの移動距離へ変換する。
+ *
+ * タイトルviewportが固定ボタン分だけ狭くても、本文のページピッチに対する表示進行率が
+ * 一致するように移動距離を比例計算する。初期レイアウトで本文幅が未確定の場合は0を返す。
+ */
+internal fun calculateTitlePageDistance(
+    titleViewportWidthPx: Float,
+    bodyPageSizePx: Int,
+    bodyPageSpacingPx: Int,
+): Float {
+    if (titleViewportWidthPx <= 0f || bodyPageSizePx <= 0) {
+        return 0f
+    }
+
+    return titleViewportWidthPx * (bodyPageSizePx + bodyPageSpacingPx) / bodyPageSizePx
 }
 
 /**

@@ -55,9 +55,9 @@ Root は `Box` とし、単一 Scaffold の後に settled page の `BookmarkShee
 
 selected key から Pager を同期する既存 `scrollToPage`、`animateToPageFlow` の `animateScrollToPage` は維持する。これらの programmatic 操作も最終的な settled page だけを同じ通知経路で確定する。`PendingMissing` では既存どおり programmatic scroll と選択通知を抑止し、最後に有効だった表示を維持する。
 
-### 4. タイトルカード列を Pager の実ページ距離で平行移動する
+### 4. タイトルカード列を Pager の表示進行率へ正規化して平行移動する
 
-固定コントローラーのタイトル領域は clip された viewport とし、現在ページと隣接ページのカードだけを stable key 付きで構成する。各カードの相対位置は同じ `PagerState.getOffsetDistanceInPages(page)` と本文 Pager の `layoutInfo.pageSize + pageSpacing` からピクセルへ変換する。カード自身の幅を移動単位にしてはならない。本文の一ページ分の移動距離を使うことで、本文とカードを指の移動へ一対一で追従させる。
+固定コントローラーのタイトル領域は clip された viewport とし、現在ページと隣接ページのカードだけを stable key 付きで構成する。各カードの相対位置は同じ `PagerState.getOffsetDistanceInPages(page)` から導出し、本文Pagerの`pageSize`をB、`pageSize + pageSpacing`を本文のページピッチD、タイトルviewportの実幅をTとしたとき、タイトル側の移動ピッチを`T × D ÷ B`としてピクセルへ変換する。これにより本文とタイトルは、それぞれのviewport内で隣接ページが現れるタイミングと表示進行率を揃え、固定ボタンによるタイトルviewportの狭さを考慮しても本文だけが先に見える状態を避ける。カードの固有コンテンツ幅や本文`pageSize`だけを移動単位にしてはならない。
 
 高頻度の offset は可能な限り `graphicsLayer` または layout modifier の更新フェーズで読み、全コントローラーの再コンポーズを避ける。実装時に LTR と RTL の両方で本文と同方向へ動くことを確認し、方向変換は `LayoutDirection` と採用した scrollable の reverse direction に一箇所で集約する。
 
@@ -114,6 +114,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 11. Pager連動タイトルカードは必須の`titleContent` slotで受け渡し、`TabToolBar`および専用Toolbarに静的タイトル用のnullable fallback APIを残さない。
 12. `TabToolBar`の展開高は108dp、縮退高は56dpとし、タイトル行48dp・間隔4dp・アクション行48dp・外側上下padding各4dpの測定収支を維持する。タイトルカードと`TabDestinationIconButton`をタイトル行の高さへ揃え、下段アクション群を固定高の外へ押し出さない。
 13. `TabDestinationAction`はアイコン、可視ラベル、通常の`String`によるcontent description、論理配置、enabled、callbackを保持する。共通`TabToolBarHeader`は配置と48dpの縦型ボタン描画を担当し、Tooltipや`FeedbackTooltipIconButton`は使用しない。
+14. `PagerTitleCards`のタイトル側移動ピッチは、タイトルviewportの実幅をT、本文Pagerの`pageSize`をB、`pageSpacing`をSとした`T × (B + S) ÷ B`で計算する。本文Pagerの`getOffsetDistanceInPages`を唯一の進行状態として使い、Bが0の初期レイアウトでは安全なフォールバックを適用する。
 
 ## Error Cases and Compatibility
 
@@ -127,7 +128,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 ## Testing Strategy
 
 - `BbsRouteScaffoldTest.kt` の presentation harness を `settledPage` 基準へ更新し、途中の `currentPage` 変化では選択callbackが発火せず、settle後に一度だけ発火することを検証する。
-- Compose UI テストで本文drag非反応、コントローラーdrag、途中復帰、fling、既存 animateToPageFlow、タイトルカードと本文の追従、固定ツール群を検証する。
+- Compose UI テストで本文drag非反応、コントローラーdrag、途中復帰、fling、既存 animateToPageFlow、タイトルviewportと本文viewportの表示進行率一致、固定ツール群を検証する。
 - タイトルカードテストでブックマーク・タイトル・更新・ロード進捗が同じ semantics subtree/移動単位に属し、進捗がCard下端かつCard幅に収まることを検証する。
 - Board/Thread両方で展開・縮退、検索開始・終了、IME入力、popup中のスワイプ無効、タブ別縮退状態、スクロール位置保存・復元を検証する。
 - Toolbarの展開時にタイトル行と下段アクション群が同時に表示され、タイトルカードと画面種別ボタンの高さが揃うこと、縮退時に56dpへ収まることを寸法またはUIテストで検証する。

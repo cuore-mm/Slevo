@@ -14,7 +14,7 @@
 ## 3. Pager連動タイトルカード
 
 - [x] 3.1 `TabToolBar.kt` のタイトルカードと固定アクション群を分離し、既存の`ExpandedTitleActions`相当をsettled/current/隣接tabから再利用できるComposableに整理する。ブックマーク、タイトル、更新のcallbackと縮退時表示を既存同等に保つ。
-- [x] 3.2 `BbsRouteScaffold.kt` と `TabToolBar.kt` の間へ同じ`PagerState`を渡し、current pageと前後一ページのカードだけをstable key付きで構成する。`getOffsetDistanceInPages`と本文Pagerの実page距離からtranslationを計算し、LTR/RTLで本文と同方向・同距離になるUIテストを追加する。
+- [x] 3.2 `BbsRouteScaffold.kt` と `TabToolBar.kt` の間へ同じ`PagerState`を渡し、current pageと前後一ページのカードだけをstable key付きで構成する。`getOffsetDistanceInPages`と本文Pagerの実ページ進行をタイトルviewport幅へ正規化してtranslationを計算し、表示進行率の同期距離と初期幅未確定時のフォールバックを単体テストで確認する。
 - [x] 3.3 `TabToolBar.kt` のツールバー全幅`LinearProgressIndicator`を削除し、各タイトル`Card`内の`Box`下端へCard幅のindicatorをoverlayする。縮退時の56dp高を増やさず、各カード自身の`isLoading`/`loadProgress`がカードと一緒に移動するテストを追加する。
 - [x] 3.4 タイトルviewportだけをclipし、Board右側「スレ」、Thread左側「板」、下段アクション群にはPager offsetを適用しない。途中dragとfling中も固定要素の画面座標が変化しないUIテストを追加する。
 - [x] 3.5 `ui/board/components/BoardToolBar.kt` を新設し、`BoardScaffold.kt` のBoard固有action構成とタイトル設定を専用adapterへ抽出する。`ThreadToolBar`と同じく共通`TabToolBar`へ委譲し、Board固有のPreviewと既存callbackの維持を確認する。
@@ -26,7 +26,7 @@
 ## 4. 下部コントローラーによるPager操作
 
 - [x] 4.1 `BbsRouteScaffold.kt` の`HorizontalPager.userScrollEnabled`を`false`へ固定し、下部コントローラー最外周へ同じ`PagerState`と`PagerDefaults.flingBehavior`を使う横方向`scrollable`を設定する。検索中と既存Thread popup条件では無効になることを検証する。
-- [x] 4.2 本文上の横dragではページが動かず、コントローラーのカード・ボタン・下段ツール上の横dragでは本文とカードが指へ一対一追従するCompose UIテストを追加する。tapは既存click、touch slop超過後はdragとして成立することも検証する。
+- [x] 4.2 本文上の横dragではページが動かず、コントローラーのカード・ボタン・下段ツール上の横dragでは本文とタイトルviewportの表示進行率が指へ一対一追従するCompose UIテストを追加する。tapは既存click、touch slop超過後はdragとして成立することも検証する。
 - [x] 4.3 `BbsRouteScaffold.kt` の`consumeTabSwipeByDragDirection`適用と実装、不要importを削除し、本文の縦スクロール、クリック、長押し、既存gesture処理が動作することを関連テストで確認する。
 
 ## 5. 画面種別ボタンと通常Navigation
