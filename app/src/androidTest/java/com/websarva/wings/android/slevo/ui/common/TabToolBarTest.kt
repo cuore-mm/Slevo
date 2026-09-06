@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.ui.common
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -34,11 +36,15 @@ class TabToolBarTest {
     fun destinationButton_exposesDescriptionAndDisabledState() {
         composeRule.setContent {
             MaterialTheme {
-                TabDestinationButton(
-                    labelRes = R.string.open_thread_screen,
-                    contentDescriptionRes = R.string.open_thread_screen_description,
-                    enabled = false,
-                    onClick = {},
+                TabDestinationIconButton(
+                    action = TabDestinationAction(
+                        icon = Icons.Filled.Forum,
+                        label = "スレ",
+                        contentDescription = "スレッドタブに移動",
+                        position = TabDestinationPosition.End,
+                        enabled = false,
+                        onClick = {},
+                    ),
                 )
             }
         }
@@ -61,6 +67,14 @@ class TabToolBarTest {
                     onPostClick = {},
                     tabIconContentDescriptionRes = R.string.open_tablist,
                     postIconContentDescriptionRes = R.string.post,
+                    destinationAction = TabDestinationAction(
+                        icon = Icons.Filled.Forum,
+                        label = "スレ",
+                        contentDescription = "スレッドタブに移動",
+                        position = TabDestinationPosition.End,
+                        enabled = true,
+                        onClick = {},
+                    ),
                     actionsProgress = 1f,
                     titleContent = { modifier -> Box(modifier.fillMaxSize()) },
                 )
@@ -83,6 +97,14 @@ class TabToolBarTest {
                     onPostClick = {},
                     tabIconContentDescriptionRes = R.string.open_tablist,
                     postIconContentDescriptionRes = R.string.post,
+                    destinationAction = TabDestinationAction(
+                        icon = Icons.Filled.Forum,
+                        label = "スレ",
+                        contentDescription = "スレッドタブに移動",
+                        position = TabDestinationPosition.End,
+                        enabled = true,
+                        onClick = {},
+                    ),
                     actionsProgress = 0f,
                     titleContent = { modifier -> Box(modifier.fillMaxSize()) },
                 )

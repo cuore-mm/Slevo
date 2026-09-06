@@ -73,7 +73,7 @@ selected key から Pager を同期する既存 `scrollToPage`、`animateToPageF
 
 ### 6. タイトルカード外の要素は settled page に固定する
 
-Board はタイトル viewport の右に「スレ」、Thread は左に「板」の固定ボタンを置く。既存の下段 `BottomActionsRow`、タブ一覧、投稿などタイトルカード外の操作要素も Pager offset を適用しない。ドラッグ中は最後に settle したタブの action callback と縮退 progress を維持し、settle 完了後に新しいタブへ一度に切り替える。
+Board はタイトル viewport の右にアイコンと「スレ」ラベル、Thread は左にアイコンと「板」ラベルを持つ固定ボタンを置く。既存の下段 `BottomActionsRow`、タブ一覧、投稿などタイトルカード外の操作要素も Pager offset を適用しない。ドラッグ中は最後に settle したタブの action callback と縮退 progress を維持し、settle 完了後に新しいタブへ一度に切り替える。
 
 縦スクロール縮退はタブごとに保持する。`BottomBarUtils.kt` の action visibility state/connection を、stable tab key で管理できる形へ分離し、各本文ページの nested scroll connection が自タブの progress だけを更新する。固定コントローラーは settled tab key の progress を読む。タブ削除時は不要な一時状態を除去し、新規タブは 1f の全表示で開始する。
 
@@ -91,11 +91,11 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 
 ### 8. 画面固有Toolbarの構成層をBoard/Threadで対称化する
 
-共通の見た目と縮退挙動は `TabToolBar` が担い、画面固有のaction一覧、UiStateからのアイコン選択、タイトルカードの具体的な構成、タイトルスタイル、画面種別ボタンの配置は各画面の `BoardToolBar` と `ThreadToolBar` が構成する。`BoardToolBar` は `BoardScaffold` の既存インライン構築を移動した薄いadapterとし、navigationやTabSessionStoreの操作はcallbackとして受け取る。これにより共通層からBoard/Thread固有stateへの依存を増やさず、両画面のScaffoldからToolbar構成責務を分離する。
+共通の見た目と縮退挙動は `TabToolBar` が担い、画面固有のaction一覧、UiStateからのアイコン選択、タイトルカードの具体的な構成、タイトルスタイル、画面種別アクションの内容は各画面の `BoardToolBar` と `ThreadToolBar` が構成する。タイトル行の左右配置と高さは共通 `TabToolBarHeader` が担い、専用Toolbarは`TabDestinationAction`を渡す。`BoardToolBar` は `BoardScaffold` の既存インライン構築を移動した薄いadapterとし、navigationやTabSessionStoreの操作はcallbackとして受け取る。これにより共通層からBoard/Thread固有stateへの依存を増やさず、両画面のScaffoldからToolbar構成責務を分離する。
 
 各専用Toolbarは単独のPreview入口を持つ。Previewは画面固有のaction構成とタイトル領域を確認するために使用し、Pager連動そのものの状態は `BbsRouteScaffold` のUIテストで検証する。
 
-Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Pagerの表示範囲とoffset計算は `BbsRouteScaffold` に残し、カードの具体的な構成は `BoardToolBar.kt` の `BoardTabTitleCard` と `ThreadToolBar.kt` の `ThreadTabTitleCard` に置く。各Scaffoldはこのrendererへ画面固有callbackを束ねて渡すだけとし、Toolbarが静的 `TabTitleCard` を生成するnullフォールバックや、Toolbar APIに重複したタイトル・ブックマーク・更新・ロード進捗引数は設けない。
+Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Pagerの表示範囲とoffset計算は `BbsRouteScaffold` に残し、カードの具体的な構成は `BoardToolBar.kt` の `BoardTabTitleCard` と `ThreadToolBar.kt` の `ThreadTabTitleCard` に置く。各Scaffoldはこのrendererへ画面固有callbackを束ねて渡すだけとし、Toolbarが静的 `TabTitleCard` を生成するnullフォールバックや、Toolbar APIに重複したタイトル・ブックマーク・更新・ロード進捗引数は設けない。画面種別ボタンはTooltipを使わず、アイコン・可視ラベル・通常の`String`によるcontent descriptionを持つ`TabDestinationAction`として渡す。
 
 ## Implementation Contract
 
@@ -112,7 +112,8 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
 10. Board/Thread固有のToolbar構成とタイトルカードrendererはそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。各ScaffoldにはPager用rendererへのcallback接続だけを残す。
 11. Pager連動タイトルカードは必須の`titleContent` slotで受け渡し、`TabToolBar`および専用Toolbarに静的タイトル用のnullable fallback APIを残さない。
-12. `TabToolBar`の展開高は108dp、縮退高は56dpとし、タイトル行48dp・間隔4dp・アクション行48dp・外側上下padding各4dpの測定収支を維持する。タイトルカードと画面種別ボタンをタイトル行の高さへ揃え、下段アクション群を固定高の外へ押し出さない。
+12. `TabToolBar`の展開高は108dp、縮退高は56dpとし、タイトル行48dp・間隔4dp・アクション行48dp・外側上下padding各4dpの測定収支を維持する。タイトルカードと`TabDestinationIconButton`をタイトル行の高さへ揃え、下段アクション群を固定高の外へ押し出さない。
+13. `TabDestinationAction`はアイコン、可視ラベル、通常の`String`によるcontent description、論理配置、enabled、callbackを保持する。共通`TabToolBarHeader`は配置と48dpの縦型ボタン描画を担当し、Tooltipや`FeedbackTooltipIconButton`は使用しない。
 
 ## Error Cases and Compatibility
 

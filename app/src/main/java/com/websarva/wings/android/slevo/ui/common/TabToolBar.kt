@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.common
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
@@ -29,7 +31,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -40,7 +41,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +69,28 @@ data class TabToolBarAction(
     val onClick: () -> Unit,
     val tint: Color? = null,
 )
+
+/**
+ * タイトルカード外に表示する画面種別切替アクションを保持する。
+ *
+ * Board/Thread固有のToolbarが内容を構成し、共通Headerが配置と描画を担当する。
+ */
+data class TabDestinationAction(
+    val icon: ImageVector,
+    val label: String,
+    val contentDescription: String,
+    val position: TabDestinationPosition,
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+)
+
+/**
+ * タイトルカードに対する画面種別切替アクションの論理配置を表す。
+ */
+enum class TabDestinationPosition {
+    Start,
+    End,
+}
 
 private const val CollapsedTitleScale = 0.85f
 private const val IconEnableThreshold = 0.5f
@@ -228,7 +253,7 @@ private fun rememberTabTitleCardLayoutState(
  * `actionsProgress` でアクション群の縮退率を制御する。
  * 縮退時はタイトルを小さくし、カード外にタブ/書き込みアイコンを表示する。
  * 縮退時は56dp、展開時はタイトル行と下段アクションが収まる108dpで表示する。
- * タイトル領域は必須の`titleContent` slotから受け取る。
+ * タイトル領域は必須の`titleContent` slotから受け取り、画面種別アクションをタイトル外へ固定する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -239,6 +264,7 @@ fun TabToolBar(
     onPostClick: () -> Unit,
     tabIconContentDescriptionRes: Int,
     postIconContentDescriptionRes: Int,
+    destinationAction: TabDestinationAction,
     actionsProgress: Float = 1f,
     titleContent: @Composable (Modifier) -> Unit,
 ) {
@@ -256,7 +282,7 @@ fun TabToolBar(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical =8.dp),
+                    .padding(vertical = 4.dp),
             ) {
                 // --- Header ---
                 TabToolBarHeader(
@@ -264,6 +290,7 @@ fun TabToolBar(
                     onPostClick = onPostClick,
                     tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
+                    destinationAction = destinationAction,
                     layoutState = layoutState,
                     titleModifier = titleModifier,
                     titleContent = titleContent,
@@ -282,7 +309,7 @@ fun TabToolBar(
 /**
  * TabToolBar の上段ヘッダーを組み立てる。
  *
- * 左右の縮退アイコンと中央のタイトルカードをまとめて配置する。
+ * 左右の縮退アイコン、画面種別切替ボタン、中央のタイトルカードをまとめて配置する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -292,6 +319,7 @@ private fun TabToolBarHeader(
     onPostClick: () -> Unit,
     @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
+    destinationAction: TabDestinationAction,
     layoutState: TabToolBarLayoutState,
     titleModifier: Modifier,
     titleContent: @Composable (Modifier) -> Unit,
@@ -317,11 +345,25 @@ private fun TabToolBarHeader(
             )
         }
 
+        if (destinationAction.position == TabDestinationPosition.Start) {
+            TabDestinationIconButton(
+                modifier = Modifier.fillMaxHeight(),
+                action = destinationAction,
+            )
+        }
+
         titleContent(
             titleModifier
                 .weight(1f)
                 .fillMaxHeight(),
         )
+
+        if (destinationAction.position == TabDestinationPosition.End) {
+            TabDestinationIconButton(
+                modifier = Modifier.fillMaxHeight(),
+                action = destinationAction,
+            )
+        }
 
         CollapsedSideAction(
             slotWidth = layoutState.sideSlotWidth,
@@ -468,25 +510,50 @@ fun TabTitleCard(
 /**
  * タイトルカード外に置く画面種別切替ボタンを描画する。
  *
- * disabled時は遷移先のタブが解決できない状態を意味し、既存のボタン意味論を維持する。
+ * アイコンの下に短い可視ラベルを表示し、Tooltipは使用しない。disabled時は遷移先の
+ * タブが解決できない状態を意味し、クリック不可とdisabled semanticsを公開する。
  */
 @Composable
-fun TabDestinationButton(
+fun TabDestinationIconButton(
+    action: TabDestinationAction,
     modifier: Modifier = Modifier,
-    @StringRes labelRes: Int,
-    @StringRes contentDescriptionRes: Int = labelRes,
-    enabled: Boolean,
-    onClick: () -> Unit,
 ) {
-    val contentDescription = stringResource(contentDescriptionRes)
-    TextButton(
-        modifier = modifier.semantics {
-            this.contentDescription = contentDescription
-        },
-        enabled = enabled,
-        onClick = onClick,
+    Box(
+        modifier = modifier
+            .width(SideSlotMaxWidth)
+            .fillMaxHeight()
+            .graphicsLayer {
+                alpha = if (action.enabled) 1f else 0.38f
+            }
+            .clickable(
+                enabled = action.enabled,
+                role = Role.Button,
+                onClick = action.onClick,
+            )
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = action.contentDescription
+                if (!action.enabled) {
+                    disabled()
+                }
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(text = stringResource(labelRes))
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = action.icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = action.label,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -655,6 +722,14 @@ fun TabToolBarPreview() {
         onPostClick = {},
         tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.post,
+        destinationAction = TabDestinationAction(
+            icon = Icons.Filled.CropSquare,
+            label = "スレ",
+            contentDescription = "スレッドタブに移動",
+            position = TabDestinationPosition.End,
+            enabled = true,
+            onClick = {},
+        ),
         titleContent = TabToolBarPreviewTitleContent,
     )
 }

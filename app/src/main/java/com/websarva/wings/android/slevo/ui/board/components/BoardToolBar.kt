@@ -1,25 +1,26 @@
 package com.websarva.wings.android.slevo.ui.board.components
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
-import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
+import com.websarva.wings.android.slevo.ui.common.TabDestinationAction
+import com.websarva.wings.android.slevo.ui.common.TabDestinationPosition
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
@@ -60,7 +61,7 @@ fun BoardTabTitleCard(
 /**
  * 板画面固有のアクションとタイトル領域を共通TabToolBarへ渡す。
  *
- * Pager連動中のタイトルカードは呼び出し元から受け取り、「スレ」ボタンだけをカード外へ固定する。
+ * Pager連動中のタイトルカードは呼び出し元から受け取り、「スレ」アクションの内容を共通Toolbarへ渡す。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -99,26 +100,15 @@ fun BoardToolBar(
         ),
     )
 
-    // --- Title and destination slot ---
-    val titleWithDestination: @Composable (Modifier) -> Unit = { cardModifier ->
-        Row(
-            modifier = cardModifier,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            titleContent(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-            )
-            TabDestinationButton(
-                modifier = Modifier.fillMaxHeight(),
-                labelRes = R.string.open_thread_screen,
-                contentDescriptionRes = R.string.open_thread_screen_description,
-                enabled = canOpenThread,
-                onClick = onOpenThreadClick,
-            )
-        }
-    }
+    // --- Destination action ---
+    val destinationAction = TabDestinationAction(
+        icon = Icons.Filled.Forum,
+        label = stringResource(R.string.open_thread_screen),
+        contentDescription = stringResource(R.string.open_thread_screen_description),
+        position = TabDestinationPosition.End,
+        enabled = canOpenThread,
+        onClick = onOpenThreadClick,
+    )
 
     TabToolBar(
         modifier = modifier,
@@ -127,8 +117,9 @@ fun BoardToolBar(
         onPostClick = onPostClick,
         tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.create_thread,
+        destinationAction = destinationAction,
         actionsProgress = actionsProgress,
-        titleContent = titleWithDestination,
+        titleContent = titleContent,
     )
 }
 

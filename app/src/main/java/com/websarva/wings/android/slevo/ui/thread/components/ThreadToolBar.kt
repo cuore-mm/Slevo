@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.thread.components
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
@@ -11,19 +10,21 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.model.ThreadInfo
-import com.websarva.wings.android.slevo.ui.common.TabDestinationButton
+import com.websarva.wings.android.slevo.ui.common.TabDestinationAction
+import com.websarva.wings.android.slevo.ui.common.TabDestinationPosition
 import com.websarva.wings.android.slevo.ui.common.TabTitleCard
 import com.websarva.wings.android.slevo.ui.common.TabToolBar
 import com.websarva.wings.android.slevo.ui.common.TabToolBarAction
@@ -66,7 +67,7 @@ fun ThreadTabTitleCard(
 /**
  * スレッド画面のソート、検索、投稿、タブ操作を共通TabToolBarへ渡す。
  *
- * Pager連動中のタイトルカードは必須のtitleContentとして受け取り、「板」ボタンをカード外へ固定する。
+ * Pager連動中のタイトルカードは必須のtitleContentとして受け取り、「板」アクションの内容を共通Toolbarへ渡す。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -92,26 +93,15 @@ fun ThreadToolBar(
     val autoScrollContentDescription =
         if (uiState.isAutoScroll) R.string.stop_auto_scroll else R.string.start_auto_scroll
 
-    // --- Title and destination slot ---
-    val titleWithDestination: @Composable (Modifier) -> Unit = { cardModifier ->
-        Row(
-            modifier = cardModifier,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TabDestinationButton(
-                modifier = Modifier.fillMaxHeight(),
-                labelRes = R.string.open_board_screen,
-                contentDescriptionRes = R.string.open_board_screen_description,
-                enabled = canOpenBoard,
-                onClick = onOpenBoardClick,
-            )
-            titleContent(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-            )
-        }
-    }
+    // --- Destination action ---
+    val destinationAction = TabDestinationAction(
+        icon = Icons.Filled.ViewAgenda,
+        label = stringResource(R.string.open_board_screen),
+        contentDescription = stringResource(R.string.open_board_screen_description),
+        position = TabDestinationPosition.Start,
+        enabled = canOpenBoard,
+        onClick = onOpenBoardClick,
+    )
 
     val actions = listOf(
         TabToolBarAction(
@@ -153,8 +143,9 @@ fun ThreadToolBar(
         onPostClick = onPostClick,
         tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.post,
+        destinationAction = destinationAction,
         actionsProgress = actionsProgress,
-        titleContent = titleWithDestination,
+        titleContent = titleContent,
     )
 }
 
