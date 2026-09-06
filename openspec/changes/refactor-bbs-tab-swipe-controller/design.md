@@ -61,7 +61,7 @@ selected key から Pager を同期する既存 `scrollToPage`、`animateToPageF
 
 高頻度の offset は可能な限り `graphicsLayer` または layout modifier の更新フェーズで読み、全コントローラーの再コンポーズを避ける。実装時に LTR と RTL の両方で本文と同方向へ動くことを確認し、方向変換は `LayoutDirection` と採用した scrollable の reverse direction に一箇所で集約する。
 
-全タブの UiState Flow を常時購読するとタブ数に比例して負荷が増えるため、タイトルカードの構成対象は現在ページと前後一ページを基本とする。タブ増減直後に index が範囲外となるカードは描画しない。
+全タブの UiState Flow を常時購読するとタブ数に比例して負荷が増えるため、タイトルカードの構成対象は現在ページと前後一ページを基本とする。各ページの`getUiState(tab).collectAsState()`、進捗取得、カードrendererは`key(getKey(tab))`の内側へ置き、描画windowがページ位置を跨いでも位置ベースのrememberスロットで別タブのUiStateを再利用しない。タブ増減直後に index が範囲外となるカードは描画しない。
 
 ### 5. タイトルカード内下端へロード進捗を重ねる
 
@@ -106,7 +106,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 3. `currentPage` は連続描画にだけ使用する。`onTabSelected`、固定 bar の tab/UiState、scroll persistence active、page固有 overlay の切替には有効な `settledPage` を使用する。
 4. `TabPresentationState.PendingMissing` 中は既存表示を保持し、page 0 fallback、selected key 上書き、反対種ボタンからの不完全 route 遷移を行わない。
 5. `TabToolBar.kt` の全幅 progress indicator を削除し、各タイトル Card 内の bottom overlay として移す。ブックマーク・更新・タイトルの既存 callback と loading semantics を保持する。
-6. タイトル offset 用の別 `PagerState`、別 Pager、offset同期用 coroutineを追加しない。表示対象は stable key で識別し、tab reorder/close時に誤った UiState を再利用しない。
+6. タイトル offset 用の別 `PagerState`、別 Pager、offset同期用 coroutineを追加しない。表示対象は stable key で識別し、`collectAsState`を含むタブ固有の状態取得とカードrendererをstable keyの内側へ置き、tab reorder/closeや描画window移動時に誤った UiState を再利用しない。
 7. `BbsRouteBottomBar` の検索切替、`BottomBarUtils.kt` の縦縮退、`BookmarkSheetHost`、Board/Thread の `optionalSheetContent` を単一 Scaffold 構造へ接続し直し、固定 bar より上に overlay を描く。
 8. Board の「スレ」はSelected `ThreadTabInfo`だけを対象とし、normalize、register-and-select、push navigateの順序を省略しない。Threadの「板」はSelected `BoardTabInfo`だけを対象とし、normalize、register-and-select、`showBoardScreenForTabSelection`による現在Threadの置換順序を省略しない。
 9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。

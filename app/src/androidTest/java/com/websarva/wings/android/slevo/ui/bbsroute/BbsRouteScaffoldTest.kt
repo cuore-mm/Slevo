@@ -2,14 +2,18 @@ package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -21,6 +25,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.waitForIdle
+import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
+import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -192,6 +202,76 @@ class BbsRouteScaffoldTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("current-selected").assertExists()
+    }
+
+    /** 描画windowが移動しても、各タイトルカードが別タブのUiStateを表示しないことを確認する。 */
+    @Test
+    fun pagerTitleCards_keepsUiStateWithStableTabKeyWhenWindowMoves() {
+        // --- Fixtures ---
+        val tabs = listOf(
+            BoardTabInfo(1L, "first", "https://example.com/first/", "example"),
+            BoardTabInfo(2L, "second", "https://example.com/second/", "example"),
+            BoardTabInfo(3L, "third", "https://example.com/third/", "example"),
+            BoardTabInfo(4L, "fourth", "https://example.com/fourth/", "example"),
+        )
+        val uiStates = tabs.associateWith { tab ->
+            MutableStateFlow(
+                BoardUiState(
+                    boardInfo = BoardInfo(
+                        boardId = tab.boardId,
+                        name = tab.boardName,
+                        url = tab.boardUrl,
+                    ),
+                ),
+            )
+        }
+        val mismatchedTitles = mutableListOf<Pair<String, String>>()
+        lateinit var pagerState: PagerState
+        lateinit var moveToNextWindow: () -> Unit
+
+        // --- Composition ---
+        composeRule.setContent {
+            val coroutineScope = rememberCoroutineScope()
+            pagerState = rememberPagerState(
+                initialPage = 1,
+                pageCount = { tabs.size },
+            )
+            moveToNextWindow = {
+                coroutineScope.launch {
+                    pagerState.scrollToPage(2)
+                }
+            }
+            PagerTitleCards(
+                modifier = Modifier
+                    .size(300.dp)
+                    .testTag("title-viewport"),
+                pagerState = pagerState,
+                tabs = tabs,
+                getUiState = { uiStates.getValue(it) },
+                getKey = { it.boardUrl },
+                getActionProgress = { 1f },
+                titleCard = { tab, uiState, _, modifier ->
+                    SideEffect {
+                        if (tab.boardName != uiState.boardInfo.name) {
+                            mismatchedTitles += tab.boardName to uiState.boardInfo.name
+                        }
+                    }
+                    Box(modifier.fillMaxSize().testTag("title-${tab.boardName}")) {
+                        Text(uiState.boardInfo.name)
+                    }
+                },
+            )
+        }
+        composeRule.waitForIdle()
+
+        // --- Window movement ---
+        composeRule.runOnIdle {
+            moveToNextWindow()
+        }
+        composeRule.waitForIdle()
+
+        // --- Assertion ---
+        assertEquals(emptyList<Pair<String, String>>(), mismatchedTitles)
     }
 
     /** selection state を最小の Pager content へ投影するテスト用 composable。 */

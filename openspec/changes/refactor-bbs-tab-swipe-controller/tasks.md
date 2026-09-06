@@ -22,6 +22,7 @@
 - [x] 3.7 `BoardToolBar.kt` に`BoardTabTitleCard`、`ThreadToolBar.kt` に`ThreadTabTitleCard`を配置し、Board/ThreadのScaffoldからカード本体の具体構成を移す。PagerTitleCardsの範囲・offset・stable key処理と必須`titleContent` slotの境界は維持し、Scaffoldには画面固有callbackの接続だけを残す。
 - [x] 3.8 `TabToolBar`の展開高を108dp、縮退高を56dpへ整理し、タイトル行48dp、間隔4dp、アクション行48dp、外側上下padding各4dpの収支に揃える。タイトルカードと画面種別ボタンへ同じタイトル行高を適用し、展開時に下段アクション群がクリップされない回帰テストを追加する。
 - [x] 3.9 `TabDestinationButton`を独自`TabDestinationIconButton`へ置き換え、アイコン下の可視「板」「スレ」ラベルと通常の`String`によるcontent descriptionを表示する。Board/Threadの配置Rowを`TabToolBarHeader`へ集約し、専用Toolbarは`TabDestinationAction`の内容だけを渡す。Tooltipと`FeedbackTooltipIconButton`は使用しない。
+- [x] 3.10 `PagerTitleCards`のページ単位Composableをstable key単位へ切り出し、`collectAsState`、タブ別progress、タイトルカードrendererを`key(getKey(tab))`の内側へ配置する。描画windowが半ページ付近で移動しても別タブのUiStateやタイトルを表示しない回帰テストを追加する。
 
 ## 4. 下部コントローラーによるPager操作
 

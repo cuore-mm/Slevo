@@ -458,7 +458,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
  * 一致するページ距離で移動させる。
  */
 @Composable
-private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitleCards(
+internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitleCards(
     modifier: Modifier,
     pagerState: androidx.compose.foundation.pager.PagerState,
     tabs: List<TabInfo>,
@@ -482,34 +482,64 @@ private fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitl
         // --- Page-specific title cards ---
         for (page in visiblePages) {
             val tab = tabs[page]
-            val uiState by getUiState(tab).collectAsState()
             val tabKey = getKey(tab)
-            val actionProgress = getActionProgress(tab)
             key(tabKey) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            val titlePageDistance = calculateTitlePageDistance(
-                                titleViewportWidthPx = size.width,
-                                bodyPageSizePx = pagerState.layoutInfo.pageSize,
-                                bodyPageSpacingPx = pagerState.layoutInfo.pageSpacing,
-                            )
-                            // 本文とタイトルviewport内の表示進行率を揃えて移動させる。
-                            translationX =
-                                pagerState.getOffsetDistanceInPages(page) * titlePageDistance *
-                                        if (isRtl) -1f else 1f
-                        },
-                ) {
-                    titleCard(
-                        tab,
-                        uiState,
-                        actionProgress,
-                        Modifier.fillMaxWidth(),
-                    )
-                }
+                PagerTitleCardPage(
+                    page = page,
+                    tab = tab,
+                    pagerState = pagerState,
+                    isRtl = isRtl,
+                    getUiState = getUiState,
+                    getActionProgress = getActionProgress,
+                    titleCard = titleCard,
+                )
             }
         }
+    }
+}
+
+/**
+ * stable keyで識別された1タブ分のタイトルカードを描画する。
+ *
+ * タブ固有のStateFlow購読とカード描画を同じkeyグループ内へ置き、描画windowの位置が
+ * 別タブへ移動しても前のタブのUiStateを再利用しない。
+ */
+@Composable
+private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
+    page: Int,
+    tab: TabInfo,
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    isRtl: Boolean,
+    getUiState: (TabInfo) -> StateFlow<UiState>,
+    getActionProgress: (TabInfo) -> Float,
+    titleCard: @Composable (TabInfo, UiState, Float, Modifier) -> Unit,
+) {
+    // --- Tab-specific state ---
+    val uiState by getUiState(tab).collectAsState()
+    val actionProgress = getActionProgress(tab)
+
+    // --- Card rendering ---
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                val titlePageDistance = calculateTitlePageDistance(
+                    titleViewportWidthPx = size.width,
+                    bodyPageSizePx = pagerState.layoutInfo.pageSize,
+                    bodyPageSpacingPx = pagerState.layoutInfo.pageSpacing,
+                )
+                // 本文とタイトルviewport内の表示進行率を揃えて移動させる。
+                translationX =
+                    pagerState.getOffsetDistanceInPages(page) * titlePageDistance *
+                            if (isRtl) -1f else 1f
+            },
+    ) {
+        titleCard(
+            tab,
+            uiState,
+            actionProgress,
+            Modifier.fillMaxWidth(),
+        )
     }
 }
 
