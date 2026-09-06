@@ -212,7 +212,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
             state = pagerState,
             orientation = Orientation.Horizontal,
             enabled = settledUiState.isTabSwipeEnabled,
-            reverseDirection = isRtl,
+            reverseDirection = !isRtl,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         )
 
