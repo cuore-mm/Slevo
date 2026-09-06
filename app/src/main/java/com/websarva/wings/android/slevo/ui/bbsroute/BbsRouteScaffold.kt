@@ -537,7 +537,7 @@ internal fun calculateTitlePageDistance(
  * page削除・reorder直後にPagerが一時的な範囲外indexを返した場合は空範囲を返し、先頭ページへ暗黙に戻さない。
  */
 internal fun pagerTitlePageRange(currentPage: Int, pageCount: Int): IntRange {
-    if (pageCount <= 0 || currentPage !in 0 until pageCount) return 0..0
+    if (pageCount <= 0 || currentPage !in 0 until pageCount) return 0 until 0
 
     return (currentPage - 1).coerceAtLeast(0)..(currentPage + 1).coerceAtMost(pageCount - 1)
 }

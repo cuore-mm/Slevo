@@ -51,7 +51,7 @@ class NavigationExtensionsTest {
     }
 
     @Test
-    fun showThreadScreenForTabSelection_replacesCurrentBoardScreen() {
+    fun showThreadScreenForTabSelection_pushesFromBoardScreen() {
         val controller = createController()
         val current = AppRoute.Board(
             boardName = "board-a",
@@ -68,7 +68,7 @@ class NavigationExtensionsTest {
         controller.showThreadScreenForTabSelection(currentScreenRoute = current, route = route)
 
         assertThreadRoute(route, controller)
-        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Board::class) == true)
     }
 
     @Test
@@ -93,7 +93,7 @@ class NavigationExtensionsTest {
     }
 
     @Test
-    fun showBoardScreenForTabSelection_preservesBoardBehindThread() {
+    fun showBoardScreenForTabSelection_returnsToBoardBehindThread() {
         val controller = createController()
         val previousBoard = AppRoute.Board(
             boardName = "board-a",
@@ -118,9 +118,9 @@ class NavigationExtensionsTest {
             route = selectedBoard,
         )
 
-        assertBoardRoute(selectedBoard, controller)
-        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Board::class) == true)
-        assertEquals(previousBoardEntryId, controller.previousBackStackEntry?.id)
+        assertBoardRoute(previousBoard, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+        assertEquals(previousBoardEntryId, controller.currentBackStackEntry?.id)
     }
 
     private fun createController(): TestNavHostController {
