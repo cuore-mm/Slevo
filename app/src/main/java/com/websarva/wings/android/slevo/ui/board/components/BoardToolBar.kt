@@ -2,11 +2,11 @@ package com.websarva.wings.android.slevo.ui.board.components
 
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -79,22 +79,22 @@ fun BoardToolBar(
     // --- Board actions ---
     val actions = listOf(
         TabToolBarAction(
-            icon = Icons.AutoMirrored.Filled.Sort,
+            icon = Icons.AutoMirrored.Outlined.Sort,
             contentDescriptionRes = R.string.sort,
             onClick = onSortClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.Search,
+            icon = Icons.Outlined.Search,
             contentDescriptionRes = R.string.search,
             onClick = onSearchClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.CropSquare,
+            icon = Icons.Outlined.CropSquare,
             contentDescriptionRes = R.string.open_tablist,
             onClick = onTabListClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.Create,
+            icon = Icons.Outlined.Create,
             contentDescriptionRes = R.string.create_thread,
             onClick = onPostClick,
         ),
@@ -102,7 +102,7 @@ fun BoardToolBar(
 
     // --- Destination action ---
     val destinationAction = TabDestinationAction(
-        icon = Icons.Filled.Forum,
+        icon = Icons.Outlined.Forum,
         label = stringResource(R.string.open_thread_screen),
         contentDescription = stringResource(R.string.open_thread_screen_description),
         position = TabDestinationPosition.End,

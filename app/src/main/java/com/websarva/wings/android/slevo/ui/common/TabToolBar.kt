@@ -3,13 +3,13 @@ package com.websarva.wings.android.slevo.ui.common
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,6 +20,9 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,7 +44,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
@@ -329,6 +331,7 @@ private fun TabToolBarHeader(
         modifier = modifier
             .fillMaxWidth()
             .height(TitleRowHeight),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CollapsedSideAction(
@@ -340,7 +343,7 @@ private fun TabToolBarHeader(
             onClick = onTabListClick,
         ) {
             Icon(
-                imageVector = Icons.Filled.CropSquare,
+                imageVector = Icons.Outlined.CropSquare,
                 contentDescription = stringResource(tabIconContentDescriptionRes),
             )
         }
@@ -374,7 +377,7 @@ private fun TabToolBarHeader(
             onClick = onPostClick,
         ) {
             Icon(
-                imageVector = Icons.Filled.Create,
+                imageVector = Icons.Outlined.Create,
                 contentDescription = stringResource(postIconContentDescriptionRes),
             )
         }
@@ -485,7 +488,7 @@ fun TabTitleCard(
                     onClick = onRefreshClick,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Refresh,
+                        imageVector = Icons.Outlined.Refresh,
                         contentDescription = stringResource(R.string.refresh),
                     )
                 }
@@ -513,46 +516,49 @@ fun TabTitleCard(
  * アイコンの下に短い可視ラベルを表示し、Tooltipは使用しない。disabled時は遷移先の
  * タブが解決できない状態を意味し、クリック不可とdisabled semanticsを公開する。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TabDestinationIconButton(
     action: TabDestinationAction,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    Card(
         modifier = modifier
             .width(SideSlotMaxWidth)
             .fillMaxHeight()
             .graphicsLayer {
                 alpha = if (action.enabled) 1f else 0.38f
             }
-            .clickable(
-                enabled = action.enabled,
-                role = Role.Button,
-                onClick = action.onClick,
-            )
             .semantics(mergeDescendants = true) {
                 this.contentDescription = action.contentDescription
                 if (!action.enabled) {
                     disabled()
                 }
             },
-        contentAlignment = Alignment.Center,
+        enabled = action.enabled,
+        onClick = action.onClick,
+        shape = MaterialTheme.shapes.largeIncreased,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = action.icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                text = action.label,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = action.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    text = action.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

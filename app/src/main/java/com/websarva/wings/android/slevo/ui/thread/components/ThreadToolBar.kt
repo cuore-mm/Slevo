@@ -2,15 +2,15 @@ package com.websarva.wings.android.slevo.ui.thread.components
 
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.automirrored.outlined.ViewList
+import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.FormatListNumbered
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -87,15 +87,16 @@ fun ThreadToolBar(
     titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Actions ---
-    val sortIcon = if (isTreeSort) Icons.Filled.AccountTree else Icons.Filled.FormatListNumbered
+    val sortIcon = if (isTreeSort) Icons.Outlined.AccountTree else Icons.Outlined.FormatListNumbered
     val sortContentDescription = if (isTreeSort) R.string.tree_order else R.string.number_order
-    val autoScrollIcon = if (uiState.isAutoScroll) Icons.Filled.Pause else Icons.Filled.PlayArrow
+    val autoScrollIcon =
+        if (uiState.isAutoScroll) Icons.Outlined.Pause else Icons.Outlined.PlayArrow
     val autoScrollContentDescription =
         if (uiState.isAutoScroll) R.string.stop_auto_scroll else R.string.start_auto_scroll
 
     // --- Destination action ---
     val destinationAction = TabDestinationAction(
-        icon = Icons.Filled.ViewAgenda,
+        icon = Icons.AutoMirrored.Outlined.ViewList,
         label = stringResource(R.string.open_board_screen),
         contentDescription = stringResource(R.string.open_board_screen_description),
         position = TabDestinationPosition.Start,
@@ -110,17 +111,17 @@ fun ThreadToolBar(
             onClick = onSortClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.Search,
+            icon = Icons.Outlined.Search,
             contentDescriptionRes = R.string.search,
             onClick = onSearchClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.CropSquare,
+            icon = Icons.Outlined.CropSquare,
             contentDescriptionRes = R.string.open_tablist,
             onClick = onTabListClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.Create,
+            icon = Icons.Outlined.Create,
             contentDescriptionRes = R.string.post,
             onClick = onPostClick,
         ),
@@ -130,7 +131,7 @@ fun ThreadToolBar(
             onClick = onAutoScrollClick,
         ),
         TabToolBarAction(
-            icon = Icons.Filled.Menu,
+            icon = Icons.Outlined.Menu,
             contentDescriptionRes = R.string.other_options,
             onClick = onMoreClick,
         ),
