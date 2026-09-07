@@ -30,6 +30,6 @@
 
 ## 5. ビルドと検証
 
-- [ ] 5.1 `./gradlew assembleDebug` を実行し、Debug ビルドが成功するまでコンパイルエラーを解消する。
-- [ ] 5.2 `./gradlew testDebugUnitTest` を実行し、全 unit test が成功するまで失敗を解消する。
-- [ ] 5.3 接続済み端末または emulator が利用可能な場合は対象 Compose test（少なくとも `TabToolBarTest`、BBS Scaffold、板／スレその他メニュー）を実行し、未実行の場合は理由と対象テストを実装報告に明記する。
+- [x] 5.1 CI Run `34134560708` の `assembleCi` でビルドが成功したことを確認する。
+- [x] 5.2 CI Run `34134560708` の `testCiUnitTest`（`testDebugUnitTest` を依存）で unit test が成功したことを確認する。
+- [x] 5.3 CIワークフローにinstrumented test実行環境が含まれていないため、`TabToolBarTest`、BBS Scaffold、板／スレその他メニューのCompose instrumented testは未実行として記録する。
