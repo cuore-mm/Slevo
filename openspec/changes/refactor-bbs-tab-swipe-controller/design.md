@@ -83,11 +83,11 @@ Board はタイトル viewport の右にアイコンと「スレ」ラベル、T
 
 ### 7. 「スレ」はpush、「板」は現在Threadを破棄する置換遷移とする
 
-Board の「スレ」は `TabSessionStore.threadPresentationState` の同一 snapshot から `Selected` key と一致する `ThreadTabInfo` を取得し、完全な `AppRoute.Thread` を構築する。既存パターンと同じく `normalizeThreadRouteForNavigation`、`registerAndSelectThreadRoute` を順に完了し、index が 0 以上の場合だけ `navigateToThreadScreen` を呼ぶ。`Loading`、`Empty`、`PendingMissing` ではボタンを disabled とし、不完全 route や先頭タブ fallbackを作らない。
+Board の「スレ」は `TabSessionStore.threadPresentationState` の同一 snapshot から `Selected` key と一致する `ThreadTabInfo` を取得し、完全な `AppRoute.Thread` を構築する。既存パターンと同じく `normalizeThreadRouteForNavigation`、`registerAndSelectThreadRoute` を順に完了し、index が 0 以上の場合だけ `navigateToThreadScreen` を呼ぶ。`Loading`、`Empty`、`PendingMissing` ではボタンを disabled とし、不完全 route や先頭タブ fallbackを作らない。Board画面内のタブ一覧からThreadを選ぶ場合も、現在のBoard画面をback stackに残してThread routeをpushする既存の `showThreadScreenForTabSelection` の挙動を維持する。
 
-Thread の「板」は `TabSessionStore.boardPresentationState` の同一snapshotから `Selected` key と一致する `BoardTabInfo` を取得し、完全な `AppRoute.Board` を構築する。`normalizeBoardRouteForNavigation`、`registerAndSelectBoardRoute` を完了した後、`showBoardScreenForTabSelection(currentScreenRoute = threadRoute, route = boardRoute)` を呼ぶ。既存の `replaceCurrentScreen` が現在Threadを `popUpTo(inclusive = true)` で破棄してSelected Boardを表示するため、`navigateToBoardScreen`によるpushは行わない。`Loading`、`Empty`、`PendingMissing`ではボタンをdisabledとする。
+Thread の「板」は `TabSessionStore.boardPresentationState` の同一snapshotから `Selected` key と一致する `BoardTabInfo` を取得し、完全な `AppRoute.Board` を構築する。`normalizeBoardRouteForNavigation`、`registerAndSelectBoardRoute` を完了した後、`showBoardScreenForTabSelection(currentScreenRoute = threadRoute, route = boardRoute)` を呼ぶ。直前のback stack entryがBoardの場合は現在Threadを `popBackStack()` で破棄して背後のBoard画面へ戻り、Boardがない場合は `replaceCurrentScreen` が現在Threadを `popUpTo(inclusive = true)` で破棄してSelected Board routeを表示する。いずれも `navigateToBoardScreen`によるpushは行わない。`Loading`、`Empty`、`PendingMissing`ではボタンをdisabledとする。
 
-Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻る操作で元Boardへ戻れるようにする。Thread「板」はタブ一覧の別種別選択と同じ `showBoardScreenForTabSelection` により現在Threadだけを置換し、破棄したThreadへ戻らない。Threadの背後に別Boardが存在する場合、その背後destinationは変更せず、Selected Boardを現在Threadの置換先として表示する。Deep Link等で背後にBoardがない場合も同じreplace経路を使用する。クリックの多重実行はnavigation helperの`launchSingleTop`と登録完了待ちに従い、登録または選択が失敗した場合は遷移しない。
+Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻る操作で元Boardへ戻れるようにする。Thread「板」はタブ一覧の別種別選択と同じ `showBoardScreenForTabSelection` により、背後にBoardがあればその画面へpopし、なければ現在Threadだけをreplaceする。背後のBoardへ戻る場合も、そのdestination自体は変更せず、登録・選択済みのBoard tab stateを表示対象にする。Deep Link等で背後にBoardがない場合はSelected Board routeでreplaceする。クリックの多重実行はnavigation helperの`launchSingleTop`と登録完了待ちに従い、登録または選択が失敗した場合は遷移しない。
 
 表示文字列「板」「スレ」と content description は resource 化する。短い表示ラベルだけに依存せず、TalkBack で遷移先の画面種別が分かる説明を付ける。disabled 時も状態を意味的に公開する。
 

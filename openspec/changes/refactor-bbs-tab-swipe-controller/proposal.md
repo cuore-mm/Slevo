@@ -11,7 +11,7 @@
 - 下部ツール群と画面種別ボタンを固定し、Board ではタイトルカード右にアイコンと「スレ」ラベル、Thread では左にアイコンと「板」ラベルを配置する。
 - Board/Thread固有のアクション構成とタイトルカードの具体的な構成は各画面の専用Toolbar adapterへ分離し、共通描画は`TabToolBar`へ委譲する。
 - Pager連動タイトルカードは専用Toolbarを経由する必須`titleContent` slotとして渡し、静的タイトルへのnullフォールバックを持たない。
-- Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は `TabSessionStore.boardPresentationState` の現在選択済み Board を対象とし、現在の Thread destination を破棄して Board 画面へ置換遷移する。
+- Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は `TabSessionStore.boardPresentationState` の現在選択済み Board を対象とし、直前の back stack entry が Board なら現在ThreadをpopしてそのBoard画面へ戻し、Boardがなければ現在Threadを選択済みBoard routeへ置換する。
 - Pager が settle した時点で選択タブを確定し、ドラッグ途中では `TabSessionStore` の selected key を更新しない。
 - 最初または最後のタブで外向きにドラッグした場合は、消費できなかったdeltaを抵抗付きの境界フィードバックとして本文とタイトルカードへ表示し、指を離した後に元の位置へ戻す。固定ツール群とタブ選択状態は境界フィードバック中も変えない。
 - Pager ページ内の Scaffold/BottomBar を共通ホストへ再編し、検索モード、ツールバー縮退、シート・ポップアップ、タブ別スクロール位置保存を維持する。

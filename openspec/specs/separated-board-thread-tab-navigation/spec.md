@@ -22,27 +22,30 @@ TBD - created by archiving change refactor-separated-board-thread-tab-navigation
 - **WHEN** ユーザーが板画面で横スワイプにより別板タブを選択した後に再コンポーズが発生する
 - **THEN** システムは route 引数の板情報ではなく TabSessionStore の選択中板タブ key に基づいて表示タブを維持する
 
-### Requirement: タブ切り替えは履歴遷移として扱わない
-システムはタブ一覧シート、フルスクリーンタブ一覧、横スワイプによる既存タブの切り替えで、不要な navigation back stack を積んではならないMUST NOT。タブ切り替えは TabSessionStore の選択状態更新として扱わなければならないMUST。
+### Requirement: 同種別タブ切り替えと別種別遷移の履歴を区別する
+システムはタブ一覧シート、フルスクリーンタブ一覧、横スワイプによる同種別タブの切り替えで、不要な navigation back stack を積んではならないMUST NOT。別種別タブの選択は画面種別の遷移として扱い、現在の画面種別と直前のback stack entryに応じたpush、pop、replaceを行わなければならないMUST。
 
 #### Scenario: タブ一覧シートで同種別タブを選ぶ
 - **WHEN** ユーザーが板画面内のタブ一覧シートで別の板タブを選択する
 - **THEN** システムは板画面 route を追加で積まず、選択中の板タブだけを更新してシートを閉じる
 
-#### Scenario: タブ一覧シートで別種別タブを選ぶ
+#### Scenario: Board画面のタブ一覧シートでThreadタブを選ぶ
 - **WHEN** ユーザーが板画面内のタブ一覧シートでスレッドタブを選択する
-- **THEN** システムは選択中のスレッドタブを更新し、現在の板画面 surface をスレッド画面 surface に置換して、重複履歴を積まずにスレッド画面種別を表示する
+- **THEN** システムは選択中のスレッドタブを更新し、現在の板画面をback stackに残してスレッド画面 routeをpushする
+- **AND** 戻る操作で元の板画面へ戻る
 
-#### Scenario: スレッド画面のタブ一覧シートで板タブを選ぶ
+#### Scenario: Thread画面のタブ一覧シートでBoardタブを選ぶ
 - **WHEN** ユーザーがスレッド画面内のタブ一覧シートで板タブを選択する
-- **THEN** システムは選択中の板タブを更新し、現在のスレッド画面 surface を板画面 surface に置換して、重複履歴を積まずに板画面種別を表示する
+- **THEN** システムは選択中の板タブを更新する
+- **AND** 直前のback stack entryが板画面なら現在のスレッド画面をpopしてその板画面へ戻り、そうでなければ現在のスレッド画面を選択済みBoard routeへreplaceする
+- **AND** 破棄したスレッド画面をBackで再表示しない
 
 #### Scenario: 横スワイプでタブを切り替える
 - **WHEN** ユーザーが板またはスレッド画面の Pager を横スワイプして別タブへ移動する
 - **THEN** システムは NavController の back stack を変更せず、対応する選択中タブだけを更新する
 
 ### Requirement: 入口ごとに履歴操作を区別する
-システムは板/スレッドを開く入口に応じて、タブ登録・タブ選択・画面遷移を区別して実行しなければならないMUST。板からスレッドを開く操作は履歴に積み、タブ切り替え操作は履歴に積んではならないMUST NOT。
+システムは板/スレッドを開く入口に応じて、タブ登録・タブ選択・画面遷移を区別して実行しなければならないMUST。BoardからThreadを開く操作は履歴に積み、同種別タブ切り替えは履歴に積んではならないMUST NOT。ThreadからBoardを選ぶ操作は、直前のBoard画面があればpopし、なければ現在ThreadをreplaceしなければならないMUST。
 
 #### Scenario: 登録板一覧から板を開く
 - **WHEN** ユーザーが登録板一覧から板を選択する
@@ -51,4 +54,3 @@ TBD - created by archiving change refactor-separated-board-thread-tab-navigation
 #### Scenario: スレッドリンクからスレッドを開く
 - **WHEN** ユーザーが板画面またはスレッド画面内でスレッドリンクを選択する
 - **THEN** システムはスレッドタブを登録・選択し、スレッド画面 route を履歴に積む
-

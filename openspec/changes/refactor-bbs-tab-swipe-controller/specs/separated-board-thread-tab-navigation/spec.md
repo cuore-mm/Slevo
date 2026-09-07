@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 下部コントローラーから別画面種別へ遷移する
-システムは板画面のタイトルカード右側にアイコンと「スレ」ラベルのボタンを、スレッド画面のタイトルカード左側にアイコンと「板」ラベルのボタンを表示しなければならないMUST。Boardの「スレ」は遷移先routeをback stackへ積み、Threadの「板」は現在のThread destinationを破棄して選択済みBoardへ置換遷移しなければならないMUST。
+システムは板画面のタイトルカード右側にアイコンと「スレ」ラベルのボタンを、スレッド画面のタイトルカード左側にアイコンと「板」ラベルのボタンを表示しなければならないMUST。Boardの「スレ」は遷移先routeをback stackへ積み、Threadの「板」は直前のback stack entryがBoardなら現在ThreadをpopしてそのBoard画面へ戻し、Boardがなければ現在Threadを選択済みBoard routeへ置換しなければならないMUST。
 
 #### Scenario: Boardから選択済みThreadを開く
 - **WHEN** スレッドタブの選択状態が有効な状態で、ユーザーが板画面の「スレ」ボタンを選択する
@@ -12,9 +12,15 @@
 - **WHEN** スレッドタブの状態が初回読込中、0件、または選択タブの一時的不在である
 - **THEN** システムは板画面の「スレ」ボタンから不完全なスレッド route へ遷移しない
 
-#### Scenario: Threadから選択済みBoardへ戻る
+#### Scenario: Threadから背後のBoardへ戻る
 - **WHEN** 板タブの選択状態が有効な状態で、ユーザーがスレッド画面の「板」ボタンを選択する
-- **THEN** システムは現在選択済みの板タブを登録・選択済みとして確認し、現在のスレッド画面をback stackから破棄して板画面へ置換する
+- **AND** 現在スレッド画面の直前のback stack entryが板画面である
+- **THEN** システムは現在選択済みの板タブを登録・選択済みとして確認し、現在のスレッド画面をpopして背後の板画面へ戻る
+- **AND** 背後の板画面のdestinationを新しいrouteで置き換えない
+
+#### Scenario: 背後にBoardがないThreadから選択済みBoardへ遷移する
+- **WHEN** 板タブの選択状態が有効で、スレッド画面の直前のback stack entryが板画面ではない状態でユーザーが「板」ボタンを選択する
+- **THEN** システムは現在のスレッド画面をback stackから破棄し、選択済みBoard routeへ置換する
 - **AND** 戻る操作で破棄したスレッド画面を再表示しない
 
 #### Scenario: 選択済みBoardを解決できない
