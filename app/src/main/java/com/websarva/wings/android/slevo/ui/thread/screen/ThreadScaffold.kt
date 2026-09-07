@@ -38,6 +38,8 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.transition.BbsControllerSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerSharedBounds
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
@@ -151,9 +153,14 @@ fun ThreadScaffold(
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
-        titleCard = { tab, uiState, actionProgress, modifier ->
+        titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier ->
             ThreadTabTitleCard(
-                modifier = modifier,
+                modifier = modifier.bbsControllerSharedBounds(
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    key = BbsControllerSharedBoundsKey.Thread(tab.id.value),
+                    enabled = isSharedTransitionCandidate,
+                ),
                 tab = tab,
                 uiState = uiState,
                 actionProgress = actionProgress,
@@ -207,6 +214,14 @@ fun ThreadScaffold(
                     }
                     ThreadToolBar(
                         modifier = modifier,
+                        destinationModifier = selectedBoard?.let { board ->
+                            Modifier.bbsControllerSharedBounds(
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                key = BbsControllerSharedBoundsKey.Board(board.boardUrl),
+                                enabled = true,
+                            )
+                        } ?: Modifier,
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { routeViewModel.toggleSortType(tab.id.value) },

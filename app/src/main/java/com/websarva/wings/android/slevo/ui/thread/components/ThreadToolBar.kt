@@ -73,6 +73,7 @@ fun ThreadTabTitleCard(
 @Composable
 fun ThreadToolBar(
     modifier: Modifier = Modifier,
+    destinationModifier: Modifier = Modifier,
     uiState: ThreadUiState,
     isTreeSort: Boolean,
     onSortClick: () -> Unit,
@@ -139,6 +140,7 @@ fun ThreadToolBar(
 
     TabToolBar(
         modifier = modifier,
+        destinationModifier = destinationModifier,
         actions = actions,
         onTabListClick = onTabListClick,
         onPostClick = onPostClick,

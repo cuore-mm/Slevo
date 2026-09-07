@@ -67,6 +67,7 @@ fun BoardTabTitleCard(
 @Composable
 fun BoardToolBar(
     modifier: Modifier = Modifier,
+    destinationModifier: Modifier = Modifier,
     onSortClick: () -> Unit,
     onPostClick: () -> Unit,
     onTabListClick: () -> Unit,
@@ -112,6 +113,7 @@ fun BoardToolBar(
 
     TabToolBar(
         modifier = modifier,
+        destinationModifier = destinationModifier,
         actions = actions,
         onTabListClick = onTabListClick,
         onPostClick = onPostClick,

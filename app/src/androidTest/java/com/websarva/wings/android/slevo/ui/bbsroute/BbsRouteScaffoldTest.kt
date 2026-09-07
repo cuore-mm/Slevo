@@ -250,7 +250,7 @@ class BbsRouteScaffoldTest {
                 getUiState = { uiStates.getValue(it) },
                 getKey = { it.boardUrl },
                 getActionProgress = { 1f },
-                titleCard = { tab, uiState, _, modifier ->
+                titleCard = { tab, uiState, _, _, modifier ->
                     SideEffect {
                         if (tab.boardName != uiState.boardInfo.name) {
                             mismatchedTitles += tab.boardName to uiState.boardInfo.name
@@ -272,6 +272,50 @@ class BbsRouteScaffoldTest {
 
         // --- Assertion ---
         assertEquals(emptyList<Pair<String, String>>(), mismatchedTitles)
+    }
+
+    /** Pagerの表示window内でもsettle済みタイトルだけがShared Transition候補になる。 */
+    @Test
+    fun pagerTitleCards_marksOnlySettledTitleAsSharedTransitionCandidate() {
+        val tabs = listOf(
+            BoardTabInfo(1L, "first", "https://example.com/first/", "example"),
+            BoardTabInfo(2L, "second", "https://example.com/second/", "example"),
+            BoardTabInfo(3L, "third", "https://example.com/third/", "example"),
+        )
+        val uiStates = tabs.associateWith { tab ->
+            MutableStateFlow(
+                BoardUiState(
+                    boardInfo = BoardInfo(
+                        boardId = tab.boardId,
+                        name = tab.boardName,
+                        url = tab.boardUrl,
+                    ),
+                ),
+            )
+        }
+
+        composeRule.setContent {
+            val pagerState = rememberPagerState(initialPage = 1, pageCount = { tabs.size })
+            PagerTitleCards(
+                modifier = Modifier.size(300.dp),
+                pagerState = pagerState,
+                tabs = tabs,
+                getUiState = { uiStates.getValue(it) },
+                getKey = { it.boardUrl },
+                getActionProgress = { 1f },
+                titleCard = { tab, _, _, isCandidate, modifier ->
+                    Box(
+                        modifier
+                            .fillMaxSize()
+                            .testTag("${tab.boardName}-${if (isCandidate) "shared" else "normal"}"),
+                    )
+                },
+            )
+        }
+
+        composeRule.onNodeWithTag("second-shared").assertExists()
+        composeRule.onNodeWithTag("first-normal").assertExists()
+        composeRule.onNodeWithTag("third-normal").assertExists()
     }
 
     /** selection state を最小の Pager content へ投影するテスト用 composable。 */

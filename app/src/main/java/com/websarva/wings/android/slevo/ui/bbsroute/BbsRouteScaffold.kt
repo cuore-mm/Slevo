@@ -90,6 +90,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         tabInfo: TabInfo,
         uiState: UiState,
         actionProgress: Float,
+        isSharedTransitionCandidate: Boolean,
         modifier: Modifier,
     ) -> Unit,
     bottomBar: @Composable (
@@ -501,7 +502,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
     getKey: (TabInfo) -> Key,
     getActionProgress: (TabInfo) -> Float,
     overscrollOffsetPx: () -> Float = { 0f },
-    titleCard: @Composable (TabInfo, UiState, Float, Modifier) -> Unit,
+    titleCard: @Composable (TabInfo, UiState, Float, Boolean, Modifier) -> Unit,
 ) {
     // --- Visible page window ---
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -550,13 +551,18 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getActionProgress: (TabInfo) -> Float,
     overscrollOffsetPx: () -> Float,
-    titleCard: @Composable (TabInfo, UiState, Float, Modifier) -> Unit,
+    titleCard: @Composable (TabInfo, UiState, Float, Boolean, Modifier) -> Unit,
 ) {
     // --- Tab-specific state ---
     val uiState by getUiState(tab).collectAsState()
     val actionProgress = getActionProgress(tab)
 
     // --- Card rendering ---
+    val canUseSharedTransition = isSharedTransitionCandidate(
+        page = page,
+        settledPage = pagerState.settledPage,
+        isScrollInProgress = pagerState.isScrollInProgress,
+    )
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -581,10 +587,23 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
             tab,
             uiState,
             actionProgress,
+            canUseSharedTransition,
             Modifier.fillMaxSize(),
         )
     }
 }
+
+/**
+ * Pager内のタイトルカードを画面種別切替のShared Transition対象にできるか判定する。
+ *
+ * settle済みページ以外と横ドラッグ中は、隣接タブがdestinationボタンへ誤照合されないよう
+ * 対象外とする。
+ */
+internal fun isSharedTransitionCandidate(
+    page: Int,
+    settledPage: Int,
+    isScrollInProgress: Boolean,
+): Boolean = page == settledPage && !isScrollInProgress
 
 /**
  * 本文Pagerのページ進行をタイトルviewportの移動距離へ変換する。
