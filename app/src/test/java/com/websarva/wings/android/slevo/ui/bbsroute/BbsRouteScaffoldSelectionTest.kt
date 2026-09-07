@@ -93,6 +93,20 @@ class BbsRouteScaffoldSelectionTest {
         )
     }
 
+    /** 本文の境界変位をタイトルviewport幅へ比例変換することを確認する。 */
+    @Test
+    fun calculateTitleOverscrollOffset_scalesByViewportRatio() {
+        assertEquals(
+            24f,
+            calculateTitleOverscrollOffset(
+                overscrollOffsetPx = 40f,
+                titleViewportWidthPx = 240f,
+                bodyPageSizePx = 400,
+            ),
+            0.001f,
+        )
+    }
+
     /** pending missing は programmatic scroll を発行せず現在 page を保持することを確認する。 */
     @Test
     fun pendingMissing_preservesCurrentPage() {

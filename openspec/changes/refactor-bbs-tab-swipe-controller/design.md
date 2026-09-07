@@ -40,6 +40,8 @@ Root は `Box` とし、単一 Scaffold の後に settled page の `BookmarkShee
 
 `HorizontalPager.userScrollEnabled` は常に `false` とする。下部コントローラーの最外周に横方向の `Modifier.scrollable` を設定し、本文と同じ `PagerState` と `PagerDefaults.flingBehavior(pagerState)` を渡す。`enabled` は settled page の `isTabSwipeEnabled` と Thread popup の既存制約から導出する。
 
+1タブ時は `PagerState` が両方向の `canScroll*` をfalseとしてoverscroll eventのdispatch自体を省略するため、controllerの`ScrollableState`だけをPagerStateへ委譲する薄いadapterで両方向を有効として公開する。ページ位置、delta消費、fling、MutatorMutexは引き続きPagerStateが保持し、第二のページ状態は作らない。
+
 この方式ではコントローラー内のボタンやカードの click は touch slop 未満で成立し、横ドラッグへ移行した場合は同じ scrollable が処理する。本文の Pager を掴ませるための `consumeTabSwipeByDragDirection` は不要になるため、関数と適用箇所を削除する。
 
 代替案の `pointerInput`、`dispatchRawDelta`、独自 velocity 計算は、RTL、nested scroll、fling、MutatorMutex、キャンセル処理を再実装するため採用しない。タイトル用の第二 PagerState も同期競合を生むため作らない。
@@ -97,11 +99,19 @@ Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻
 
 Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Pagerの表示範囲とoffset計算は `BbsRouteScaffold` に残し、カードの具体的な構成は `BoardToolBar.kt` の `BoardTabTitleCard` と `ThreadToolBar.kt` の `ThreadTabTitleCard` に置く。各Scaffoldはこのrendererへ画面固有callbackを束ねて渡すだけとし、Toolbarが静的 `TabTitleCard` を生成するnullフォールバックや、Toolbar APIに重複したタイトル・ブックマーク・更新・ロード進捗引数は設けない。画面種別ボタンはTooltipを使わず、アイコン・可視ラベル・通常の`String`によるcontent descriptionを持つ`TabDestinationAction`として渡す。
 
+### 9. Pager境界のラバーバンドフィードバックを表示層へ同期する
+
+下部コントローラーの `scrollable` には、本文Pagerと同じ `PagerState` へ渡されたスクロールdeltaを装飾するカスタム `OverscrollEffect` を設定する。`performScroll` が消費しなかった水平方向deltaだけを境界入力として蓄積し、距離が大きくなるほど増分が小さくなるラバーバンド関数で表示変位へ変換する。既存の `reverseDirection` が入力方向を処理するため、effectは受け取った画面座標系の境界deltaをそのまま表示変位の符号へ使い、RTL用の反転を追加しない。
+
+effectは通常のPager移動を妨げず、既存のdelta消費処理を必ず一度実行する。外向き入力で変位が発生している間は未消費deltaをeffectが消費し、nested scrollへ境界入力を漏らさない。既存変位と反対方向の入力では変位を先に戻し、残りだけをPagerへ渡す。リリースまたはfling終了時は、変位を `NoBouncy` の中程度に遅いspringで0へ戻す。検索中、Thread popup中、その他 `isTabSwipeEnabled == false` の場合はscrollableを無効にし、残った境界変位も0へ戻す。
+
+境界変位は `HorizontalPager` の本文表示層と `PagerTitleCards` のカード表示層にだけ適用する。タイトル側はタイトルviewport幅と本文Pagerの `pageSize` の比率で変位を換算し、通常のPager offsetと同じ表示進行率を維持する。画面種別ボタン、下段アクション、タブ一覧、投稿ボタンなど固定コントローラーの外側要素へは適用しない。1タブの場合も両方向を境界として同じフィードバックを表示するが、Pagerのpageやselected keyは変更しない。
+
 ## Implementation Contract
 
 実装担当は次の境界を維持すること。
 
-1. `BbsRouteScaffold.kt` の `rememberPagerState` は一つだけとし、本文 `HorizontalPager`、コントローラー `scrollable`、タイトル offset の全てへ同一 instance を渡す。
+1. `BbsRouteScaffold.kt` の `rememberPagerState` は一つだけとし、本文 `HorizontalPager`、コントローラー `scrollable`、タイトル offset の全てで同一 instanceを使用する。1タブ時に限りcontrollerの`ScrollableState`をPagerStateへ委譲するadapterを許可するが、ページ位置とスクロール処理の実体はPagerStateから分離しない。
 2. `HorizontalPager.userScrollEnabled` を `false` にし、`consumeTabSwipeByDragDirection` の呼び出しと実装を削除する。本文に別の横ドラッグ切替を追加しない。
 3. `currentPage` は連続描画にだけ使用する。`onTabSelected`、固定 bar の tab/UiState、scroll persistence active、page固有 overlay の切替には有効な `settledPage` を使用する。
 4. `TabPresentationState.PendingMissing` 中は既存表示を保持し、page 0 fallback、selected key 上書き、反対種ボタンからの不完全 route 遷移を行わない。
@@ -115,6 +125,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 12. `TabToolBar`の展開高は108dp、縮退高は56dpとし、タイトル行48dp・間隔4dp・アクション行48dp・外側上下padding各4dpの測定収支を維持する。タイトルカードと`TabDestinationIconButton`をタイトル行の高さへ揃え、下段アクション群を固定高の外へ押し出さない。
 13. `TabDestinationAction`はアイコン、可視ラベル、通常の`String`によるcontent description、論理配置、enabled、callbackを保持する。共通`TabToolBarHeader`は配置と48dpの縦型ボタン描画を担当し、Tooltipや`FeedbackTooltipIconButton`は使用しない。
 14. `PagerTitleCards`のタイトル側移動ピッチは、タイトルviewportの実幅をT、本文Pagerの`pageSize`をB、`pageSpacing`をSとした`T × (B + S) ÷ B`で計算する。本文Pagerの`getOffsetDistanceInPages`を唯一の進行状態として使い、Bが0の初期レイアウトでは安全なフォールバックを適用する。
+15. Pager境界では、下部コントローラーの`scrollable`に接続した単一のカスタム`OverscrollEffect`が`performScroll`の未消費水平方向deltaを受け取り、ラバーバンド抵抗とspring復帰を管理する。表示変位は本文Pagerとタイトルカードへだけ加算し、固定要素、settled page、selected key、settle基準の副作用は変更しない。`OverscrollEffect`のイベント処理用インスタンスを本文とタイトルへ個別attachせず、Composeの単一node制約を維持する。
 
 ## Error Cases and Compatibility
 
@@ -124,6 +135,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 - normalize/register-and-select が失敗した場合は navigation を実行せず、既存画面とselected keyを維持する。
 - `AppRoute.Board` / `AppRoute.Thread` の型と引数、既存 Deep Link、タブ一覧のreplace遷移は互換のまま維持する。
 - 固定 bar の inset は単一 Scaffold に集約し、3ボタン navigation、gesture navigation、IME表示時に本文 paddingを二重適用しない。
+- 境界dragはPagerの有効範囲外へpage indexを進めず、最初/最後のタブではラバーバンド変位だけを表示する。リリース、cancel、fling終了、gesture無効化では変位を0へ戻し、途中の選択通知や固定要素の移動を発生させない。
 
 ## Testing Strategy
 
@@ -134,6 +146,7 @@ Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `tit
 - Toolbarの展開時にタイトル行と下段アクション群が同時に表示され、タイトルカードと画面種別ボタンの高さが揃うこと、縮退時に56dpへ収まることを寸法またはUIテストで検証する。
 - NavigationテストでBoard「スレ」のSelected/Loading/Empty/PendingMissing、push後のBack復帰、Thread「板」のSelected/Loading/Empty/PendingMissing、登録失敗、現在Threadの破棄を検証する。
 - LTR/RTL、ドラッグキャンセル、連続drag、drag中tab削除、TalkBack向けラベルとdisabled semanticsをinstrumented testまたは手動確認項目に含める。
+- 境界フィードバックの純粋な抵抗計算とCompose UI動作を検証する。最初/最後/1タブの外向きdrag、抵抗による逓減、release/cancel復帰、fling終了、無効状態、LTR/RTLの方向、本文・タイトルだけの変位、固定要素とselected keyの不変を確認する。
 - 実装後に `./gradlew assembleDebug` と `./gradlew testDebugUnitTest` を実行し、両方成功させる。
 
 ## Migration Plan

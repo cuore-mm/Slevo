@@ -13,6 +13,7 @@
 - Pager連動タイトルカードは専用Toolbarを経由する必須`titleContent` slotとして渡し、静的タイトルへのnullフォールバックを持たない。
 - Board の「スレ」は `TabSessionStore.threadPresentationState` の現在選択済み Thread を通常の push navigation で開く。Thread の「板」は `TabSessionStore.boardPresentationState` の現在選択済み Board を対象とし、現在の Thread destination を破棄して Board 画面へ置換遷移する。
 - Pager が settle した時点で選択タブを確定し、ドラッグ途中では `TabSessionStore` の selected key を更新しない。
+- 最初または最後のタブで外向きにドラッグした場合は、消費できなかったdeltaを抵抗付きの境界フィードバックとして本文とタイトルカードへ表示し、指を離した後に元の位置へ戻す。固定ツール群とタブ選択状態は境界フィードバック中も変えない。
 - Pager ページ内の Scaffold/BottomBar を共通ホストへ再編し、検索モード、ツールバー縮退、シート・ポップアップ、タブ別スクロール位置保存を維持する。
 - 本文側で不要になる横スワイプ抑制用 pointer input を削除する。
 

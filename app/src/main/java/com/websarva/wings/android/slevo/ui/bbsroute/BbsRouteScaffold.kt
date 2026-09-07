@@ -2,12 +2,14 @@ package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
@@ -38,6 +40,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
@@ -215,13 +218,39 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val settledProgress =
             actionProgressStates.getOrPut(settledTabKey) { mutableFloatStateOf(1f) }
         val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-        val controllerModifier = Modifier.scrollable(
-            state = pagerState,
-            orientation = Orientation.Horizontal,
-            enabled = settledUiState.isTabSwipeEnabled,
-            reverseDirection = !isRtl,
-            flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
-        )
+        val rubberBandResistancePx = with(LocalDensity.current) {
+            PAGER_RUBBER_BAND_RESISTANCE.toPx()
+        }
+        val pagerOverscrollEffect = remember(pagerState, rubberBandResistancePx, tabs.size) {
+            PagerRubberBandOverscrollEffect(
+                scope = coroutineScope,
+                resistanceLimitPx = rubberBandResistancePx,
+            )
+        }
+        LaunchedEffect(pagerOverscrollEffect, settledUiState.isTabSwipeEnabled) {
+            if (!settledUiState.isTabSwipeEnabled) {
+                pagerOverscrollEffect.reset()
+            }
+        }
+        val controllerState: ScrollableState = remember(pagerState, tabs.size) {
+            if (tabs.size == 1) {
+                // PagerState reports no scrollable direction for one tab, so expose both directions
+                // to let the overscroll effect receive the boundary gesture.
+                PagerRubberBandScrollableState(pagerState)
+            } else {
+                pagerState
+            }
+        }
+        val controllerModifier = Modifier
+            .overscroll(pagerOverscrollEffect)
+            .scrollable(
+                state = controllerState,
+                orientation = Orientation.Horizontal,
+                overscrollEffect = pagerOverscrollEffect,
+                enabled = settledUiState.isTabSwipeEnabled,
+                reverseDirection = !isRtl,
+                flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
+            )
 
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
@@ -242,6 +271,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             getActionProgress = { tab ->
                                 actionProgressStates.getOrPut(getKey(tab)) { mutableFloatStateOf(1f) }.value
                             },
+                            overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
                             titleCard = titleCard,
                         )
                     }
@@ -251,7 +281,10 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .graphicsLayer {
+                            translationX = pagerOverscrollEffect.offsetPx
+                        },
                     state = pagerState,
                     key = { page -> getKey(tabs[page]) },
                     pageSpacing = 32.dp,
@@ -465,6 +498,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getKey: (TabInfo) -> Key,
     getActionProgress: (TabInfo) -> Float,
+    overscrollOffsetPx: () -> Float = { 0f },
     titleCard: @Composable (TabInfo, UiState, Float, Modifier) -> Unit,
 ) {
     // --- Visible page window ---
@@ -491,6 +525,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
                     isRtl = isRtl,
                     getUiState = getUiState,
                     getActionProgress = getActionProgress,
+                    overscrollOffsetPx = overscrollOffsetPx,
                     titleCard = titleCard,
                 )
             }
@@ -512,6 +547,7 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
     isRtl: Boolean,
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getActionProgress: (TabInfo) -> Float,
+    overscrollOffsetPx: () -> Float,
     titleCard: @Composable (TabInfo, UiState, Float, Modifier) -> Unit,
 ) {
     // --- Tab-specific state ---
@@ -528,10 +564,15 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
                     bodyPageSizePx = pagerState.layoutInfo.pageSize,
                     bodyPageSpacingPx = pagerState.layoutInfo.pageSpacing,
                 )
+                val titleOverscrollOffset = calculateTitleOverscrollOffset(
+                    overscrollOffsetPx = overscrollOffsetPx(),
+                    titleViewportWidthPx = size.width,
+                    bodyPageSizePx = pagerState.layoutInfo.pageSize,
+                )
                 // 本文とタイトルviewport内の表示進行率を揃えて移動させる。
                 translationX =
                     pagerState.getOffsetDistanceInPages(page) * titlePageDistance *
-                            if (isRtl) -1f else 1f
+                        (if (isRtl) -1f else 1f) + titleOverscrollOffset
             },
     ) {
         titleCard(
@@ -562,6 +603,24 @@ internal fun calculateTitlePageDistance(
 }
 
 /**
+ * 本文の境界変位をタイトルviewportの幅へ比例変換する。
+ *
+ * タイトルカードが本文と同じ表示進行率で境界へ追従するように、タイトルviewport幅を本文
+ * Pagerのページ幅で割る。初期レイアウトでどちらかの幅が未確定の場合は0を返す。
+ */
+internal fun calculateTitleOverscrollOffset(
+    overscrollOffsetPx: Float,
+    titleViewportWidthPx: Float,
+    bodyPageSizePx: Int,
+): Float {
+    if (titleViewportWidthPx <= 0f || bodyPageSizePx <= 0) {
+        return 0f
+    }
+
+    return overscrollOffsetPx * titleViewportWidthPx / bodyPageSizePx
+}
+
+/**
  * 現在ページ前後のタイトルカードを描画する範囲へ制限する。
  *
  * page削除・reorder直後にPagerが一時的な範囲外indexを返した場合は空範囲を返し、先頭ページへ暗黙に戻さない。
@@ -571,3 +630,5 @@ internal fun pagerTitlePageRange(currentPage: Int, pageCount: Int): IntRange {
 
     return (currentPage - 1).coerceAtLeast(0)..(currentPage + 1).coerceAtMost(pageCount - 1)
 }
+
+private val PAGER_RUBBER_BAND_RESISTANCE = 48.dp

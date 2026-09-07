@@ -29,6 +29,7 @@
 - [x] 4.1 `BbsRouteScaffold.kt` の`HorizontalPager.userScrollEnabled`を`false`へ固定し、下部コントローラー最外周へ同じ`PagerState`と`PagerDefaults.flingBehavior`を使う横方向`scrollable`を設定する。検索中と既存Thread popup条件では無効になることを検証する。
 - [x] 4.2 本文上の横dragではページが動かず、コントローラーのカード・ボタン・下段ツール上の横dragでは本文とタイトルviewportの表示進行率が指へ一対一追従するCompose UIテストを追加する。tapは既存click、touch slop超過後はdragとして成立することも検証する。
 - [x] 4.3 `BbsRouteScaffold.kt` の`consumeTabSwipeByDragDirection`適用と実装、不要importを削除し、本文の縦スクロール、クリック、長押し、既存gesture処理が動作することを関連テストで確認する。
+- [x] 4.4 `PagerRubberBandOverscrollEffect`を下部コントローラーの`scrollable`へ接続し、Pagerが消費できない端のdeltaを抵抗付き変位へ変換する。release/cancel/fling終了時のspring復帰、既存変位の反対方向での解放、1タブ、gesture無効時のリセットを実装する。
 
 ## 5. 画面種別ボタンと通常Navigation
 
@@ -41,6 +42,7 @@
 
 - [ ] 6.1 Board/Thread固有の検索、更新、ブックマーク、投稿、並び替え、自動スクロール、情報Sheet、ReplyPopupを操作し、callbackがsettled tabへだけ渡ることを追加テストまたは明記した手動確認手順で検証する。
 - [x] 6.2 drag中のtab削除・reorder、連続drag、drag cancel、1タブ、最初/最後のタブ、PendingMissing遷移で範囲外参照や暗黙のpage 0 fallbackが発生しないテストを追加する。
+- [ ] 6.2a 境界dragの抵抗計算とUI動作を検証し、入力距離に対する変位の逓減、本文・タイトルの同期、固定要素とselected keyの不変、最初/最後/1タブ、LTR/RTL、release/cancel/fling復帰、gesture無効状態を確認する。
 - [x] 6.3 新規・変更class/interfaceと非自明関数へ規約どおりのKDocを付け、30行超の関数を区分コメントで整理したうえでAndroid Studio formatter相当の書式を確認する。
 - [x] 6.4 `./gradlew compileDebugAndroidTestKotlin`、`./gradlew testDebugUnitTest`、`./gradlew assembleDebug`を順に実行し、全コマンド成功を記録する。
 - [ ] 6.5 実機またはエミュレーターでLTR/RTL、gesture/3ボタンnavigation、IME表示、TalkBack、drag中の本文・カード追従と固定ツール群を確認し、specの全scenarioを満たすことを記録する。
