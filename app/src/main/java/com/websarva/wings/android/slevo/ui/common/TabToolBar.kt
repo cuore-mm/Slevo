@@ -426,12 +426,12 @@ fun TabTitleCard(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .clip(MaterialTheme.shapes.largeIncreased),
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .animateContentSize(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
