@@ -709,7 +709,11 @@ private val TabToolBarPreviewActions = listOf(
     ),
 )
 
-private val TabToolBarPreviewTitleContent: @Composable (Modifier) -> Unit = { modifier ->
+@Composable
+private fun TabToolBarPreviewTitleContent(
+    modifier: Modifier,
+    actionsProgress: Float,
+) {
     TabTitleCard(
         modifier = modifier,
         title = "共通Toolbarのタイトル",
@@ -719,13 +723,14 @@ private val TabToolBarPreviewTitleContent: @Composable (Modifier) -> Unit = { mo
         onRefreshClick = {},
         titleStyle = MaterialTheme.typography.titleSmall,
         titleTextAlign = TextAlign.Start,
+        actionsProgress = actionsProgress,
     )
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, name = "TabToolBar Expanded")
 @Composable
-fun TabToolBarPreview() {
+fun TabToolBarExpandedPreview() {
     TabToolBar(
         actions = TabToolBarPreviewActions,
         onTabListClick = {},
@@ -740,6 +745,33 @@ fun TabToolBarPreview() {
             enabled = true,
             onClick = {},
         ),
-        titleContent = TabToolBarPreviewTitleContent,
+        titleContent = { modifier ->
+            TabToolBarPreviewTitleContent(modifier, 1f)
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, name = "TabToolBar Collapsed")
+@Composable
+fun TabToolBarCollapsedPreview() {
+    TabToolBar(
+        actions = TabToolBarPreviewActions,
+        onTabListClick = {},
+        onPostClick = {},
+        tabIconContentDescriptionRes = R.string.open_tablist,
+        postIconContentDescriptionRes = R.string.post,
+        destinationAction = TabDestinationAction(
+            icon = Icons.Filled.CropSquare,
+            label = "スレ",
+            contentDescription = "スレッドタブに移動",
+            position = TabDestinationPosition.End,
+            enabled = true,
+            onClick = {},
+        ),
+        actionsProgress = 0f,
+        titleContent = { modifier ->
+            TabToolBarPreviewTitleContent(modifier, 0f)
+        },
     )
 }
