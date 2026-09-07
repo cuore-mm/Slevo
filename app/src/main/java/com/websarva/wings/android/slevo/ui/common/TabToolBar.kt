@@ -6,16 +6,24 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,11 +39,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -46,11 +58,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import com.websarva.wings.android.slevo.R
-import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
-import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 
 /**
  * タブ型ボトムバーに並べる単体アクションの表示情報を保持する。
@@ -64,10 +73,35 @@ data class TabToolBarAction(
     val tint: Color? = null,
 )
 
+/**
+ * タイトルカード外に表示する画面種別切替アクションを保持する。
+ *
+ * Board/Thread固有のToolbarが内容を構成し、共通Headerが配置と描画を担当する。
+ */
+data class TabDestinationAction(
+    val icon: ImageVector,
+    val label: String,
+    val contentDescription: String,
+    val position: TabDestinationPosition,
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+)
+
+/**
+ * タイトルカードに対する画面種別切替アクションの論理配置を表す。
+ */
+enum class TabDestinationPosition {
+    Start,
+    End,
+}
+
 private const val CollapsedTitleScale = 0.85f
 private const val IconEnableThreshold = 0.5f
-private val ExpandedHeight = 96.dp
+private val ExpandedHeight = 108.dp
 private val CollapsedHeight = 56.dp
+private val TitleRowHeight = 48.dp
+private val ActionRowHeight = 48.dp
+private val ActionRowSpacing = 4.dp
 private val SideSlotMaxWidth = 48.dp
 private val ActionRowTranslation = 24.dp
 private val CollapsedIconTranslation = 8.dp
@@ -81,38 +115,43 @@ private val ExpandedTitleVerticalPadding = 0.dp
 /**
  * TabToolBar のレイアウト計算結果をまとめて保持する。
  *
- * 縮退率に応じた高さ・フォントサイズ・表示閾値を共有するために使う。
- * カード内外のアイコン枠幅もここでまとめて管理する。
+ * 縮退率に応じたバーの高さ、カード外アイコン枠、アクション行の移動量を保持する。
  */
 data class TabToolBarLayoutState(
     val clampedProgress: Float,
     val collapsedAlpha: Float,
     val expandedHeight: Dp,
     val sideSlotWidth: Dp,
+    val actionTranslationPx: Float,
+    val collapsedTranslationPx: Float,
+    val collapsedIconEnabled: Boolean,
+)
+
+/**
+ * タイトルカード内部の表示計算結果を保持する。
+ *
+ * カード内アクション枠、文字レイアウト、展開時の操作可否をToolbar本体から分離して管理する。
+ */
+private data class TabTitleCardLayoutState(
+    val clampedProgress: Float,
     val cardSideSlotWidth: Dp,
     val titleFontSize: TextUnit,
     val titleFontWeight: FontWeight,
     val titleMaxLines: Int,
     val titleHorizontalPadding: Dp,
     val titleVerticalPadding: Dp,
-    val actionTranslationPx: Float,
-    val collapsedTranslationPx: Float,
     val expandedTranslationPx: Float,
-    val collapsedIconEnabled: Boolean,
     val expandedIconEnabled: Boolean,
 )
 
 /**
  * TabToolBar の表示補間に使うレイアウト値を計算する。
  *
- * 進捗値とテキストスタイルから高さ・文字サイズ・太さ・行数・余白・表示閾値を導出する。
+ * 進捗値からバーの高さ、カード外アイコンの幅、アクション行の移動量を導出する。
  */
 @Composable
 fun rememberTabToolBarLayoutState(
     actionsProgress: Float,
-    titleStyle: TextStyle,
-    titleFontWeight: FontWeight,
-    titleMaxLines: Int,
 ): TabToolBarLayoutState {
     // --- Progress ---
     val clampedProgress = actionsProgress.coerceIn(0f, 1f)
@@ -128,6 +167,40 @@ fun rememberTabToolBarLayoutState(
         targetValue = SideSlotMaxWidth * collapsedAlpha,
         label = "CollapsedSideSlotWidth",
     )
+    // --- Translations ---
+    val density = LocalDensity.current
+    val actionTranslationPx = with(density) { ActionRowTranslation.toPx() }
+    val collapsedTranslationPx = with(density) { CollapsedIconTranslation.toPx() }
+
+    // --- Thresholds ---
+    val collapsedIconEnabled = collapsedAlpha > IconEnableThreshold
+
+    return TabToolBarLayoutState(
+        clampedProgress = clampedProgress,
+        collapsedAlpha = collapsedAlpha,
+        expandedHeight = expandedHeight,
+        sideSlotWidth = sideSlotWidth,
+        actionTranslationPx = actionTranslationPx,
+        collapsedTranslationPx = collapsedTranslationPx,
+        collapsedIconEnabled = collapsedIconEnabled,
+    )
+}
+
+/**
+ * タイトルカードの表示補間に使うレイアウト値を計算する。
+ *
+ * 縮退率とタイトルの文字設定から、カード内の操作枠・文字サイズ・余白を導出する。
+ */
+@Composable
+private fun rememberTabTitleCardLayoutState(
+    actionsProgress: Float,
+    titleStyle: TextStyle,
+    titleFontWeight: FontWeight,
+    titleMaxLines: Int,
+): TabTitleCardLayoutState {
+    // --- Progress and action slot ---
+    val clampedProgress = actionsProgress.coerceIn(0f, 1f)
+    val collapsedAlpha = 1f - clampedProgress
     val cardSideSlotWidth by animateDpAsState(
         targetValue = SideSlotMaxWidth * clampedProgress,
         label = "ExpandedCardSideSlotWidth",
@@ -158,31 +231,20 @@ fun rememberTabToolBarLayoutState(
         collapsedAlpha,
     )
 
-    // --- Translations ---
+    // --- Translation and threshold ---
     val density = LocalDensity.current
-    val actionTranslationPx = with(density) { ActionRowTranslation.toPx() }
-    val collapsedTranslationPx = with(density) { CollapsedIconTranslation.toPx() }
     val expandedTranslationPx = with(density) { ExpandedIconTranslation.toPx() }
-
-    // --- Thresholds ---
-    val collapsedIconEnabled = collapsedAlpha > IconEnableThreshold
     val expandedIconEnabled = clampedProgress > IconEnableThreshold
 
-    return TabToolBarLayoutState(
+    return TabTitleCardLayoutState(
         clampedProgress = clampedProgress,
-        collapsedAlpha = collapsedAlpha,
-        expandedHeight = expandedHeight,
-        sideSlotWidth = sideSlotWidth,
         cardSideSlotWidth = cardSideSlotWidth,
         titleFontSize = titleFontSize,
         titleFontWeight = resolvedTitleFontWeight,
         titleMaxLines = resolvedTitleMaxLines,
         titleHorizontalPadding = titleHorizontalPadding,
         titleVerticalPadding = titleVerticalPadding,
-        actionTranslationPx = actionTranslationPx,
-        collapsedTranslationPx = collapsedTranslationPx,
         expandedTranslationPx = expandedTranslationPx,
-        collapsedIconEnabled = collapsedIconEnabled,
         expandedIconEnabled = expandedIconEnabled,
     )
 }
@@ -193,43 +255,32 @@ fun rememberTabToolBarLayoutState(
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
  * `actionsProgress` でアクション群の縮退率を制御する。
  * 縮退時はタイトルを小さくし、カード外にタブ/書き込みアイコンを表示する。
+ * 縮退時は56dp、展開時はタイトル行と下段アクションが収まる108dpで表示する。
+ * タイトル領域は必須の`titleContent` slotから受け取り、画面種別アクションをタイトル外へ固定する。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TabToolBar(
     modifier: Modifier = Modifier,
-    title: String,
-    bookmarkState: BookmarkStatusState,
-    onBookmarkClick: () -> Unit,
     actions: List<TabToolBarAction>,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
     tabIconContentDescriptionRes: Int,
     postIconContentDescriptionRes: Int,
+    destinationAction: TabDestinationAction,
     actionsProgress: Float = 1f,
-    onTitleClick: (() -> Unit),
-    onRefreshClick: (() -> Unit),
-    isLoading: Boolean = false,
-    loadProgress: Float = 0f,
-    titleStyle: TextStyle = MaterialTheme.typography.titleSmall,
-    titleFontWeight: FontWeight = FontWeight.Bold,
-    titleMaxLines: Int = 2,
-    titleTextAlign: TextAlign = TextAlign.Start,
+    titleContent: @Composable (Modifier) -> Unit,
 ) {
     // --- Layout state ---
     val layoutState = rememberTabToolBarLayoutState(
         actionsProgress = actionsProgress,
-        titleStyle = titleStyle,
-        titleFontWeight = titleFontWeight,
-        titleMaxLines = titleMaxLines,
     )
-    val cardModifier = Modifier
-        .fillMaxWidth()
-        .padding(vertical = 4.dp)
+    val titleModifier = Modifier.fillMaxWidth()
 
     // --- Layout ---
     Box(modifier = modifier.fillMaxWidth()) {
         FlexibleBottomAppBar(
+            contentPadding = PaddingValues(horizontal = 8.dp),
             expandedHeight = layoutState.expandedHeight,
         ) {
             Column(
@@ -239,19 +290,14 @@ fun TabToolBar(
             ) {
                 // --- Header ---
                 TabToolBarHeader(
-                    title = title,
-                    bookmarkState = bookmarkState,
-                    onBookmarkClick = onBookmarkClick,
                     onTabListClick = onTabListClick,
                     onPostClick = onPostClick,
-                    onTitleClick = onTitleClick,
-                    onRefreshClick = onRefreshClick,
                     tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
-                    titleStyle = titleStyle,
-                    titleTextAlign = titleTextAlign,
+                    destinationAction = destinationAction,
                     layoutState = layoutState,
-                    cardModifier = cardModifier,
+                    titleModifier = titleModifier,
+                    titleContent = titleContent,
                 )
 
                 // --- Actions row ---
@@ -261,45 +307,32 @@ fun TabToolBar(
                 )
             }
         }
-        if (isLoading) {
-            LinearProgressIndicator(
-                progress = { loadProgress },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth(),
-                color = ProgressIndicatorDefaults.linearColor,
-                trackColor = ProgressIndicatorDefaults.linearTrackColor,
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
-            )
-        }
     }
 }
 
 /**
  * TabToolBar の上段ヘッダーを組み立てる。
  *
- * 左右の縮退アイコンと中央のタイトルカードをまとめて配置する。
+ * 左右の縮退アイコン、画面種別切替ボタン、中央のタイトルカードをまとめて配置する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TabToolBarHeader(
     modifier: Modifier = Modifier,
-    title: String,
-    bookmarkState: BookmarkStatusState,
-    onBookmarkClick: () -> Unit,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
-    onTitleClick: (() -> Unit),
-    onRefreshClick: () -> Unit,
     @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
-    titleStyle: TextStyle,
-    titleTextAlign: TextAlign,
+    destinationAction: TabDestinationAction,
     layoutState: TabToolBarLayoutState,
-    cardModifier: Modifier,
+    titleModifier: Modifier,
+    titleContent: @Composable (Modifier) -> Unit,
 ) {
+    // --- Fixed side actions and title slot ---
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(TitleRowHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CollapsedSideAction(
@@ -311,22 +344,32 @@ private fun TabToolBarHeader(
             onClick = onTabListClick,
         ) {
             Icon(
-                imageVector = Icons.Filled.CropSquare,
+                imageVector = Icons.Outlined.CropSquare,
                 contentDescription = stringResource(tabIconContentDescriptionRes),
             )
         }
 
-        ExpandedTitleActions(
-            modifier = cardModifier.weight(1f),
-            title = title,
-            bookmarkState = bookmarkState,
-            onTitleClick = onTitleClick,
-            onBookmarkClick = onBookmarkClick,
-            onRefreshClick = onRefreshClick,
-            titleStyle = titleStyle,
-            titleTextAlign = titleTextAlign,
-            layoutState = layoutState,
+        if (destinationAction.position == TabDestinationPosition.Start) {
+            TabDestinationIconButton(
+                modifier = Modifier.fillMaxHeight(),
+                action = destinationAction,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        titleContent(
+            titleModifier
+                .weight(1f)
+                .fillMaxHeight(),
         )
+
+        if (destinationAction.position == TabDestinationPosition.End) {
+            Spacer(modifier = Modifier.width(8.dp))
+            TabDestinationIconButton(
+                modifier = Modifier.fillMaxHeight(),
+                action = destinationAction,
+            )
+        }
 
         CollapsedSideAction(
             slotWidth = layoutState.sideSlotWidth,
@@ -337,7 +380,7 @@ private fun TabToolBarHeader(
             onClick = onPostClick,
         ) {
             Icon(
-                imageVector = Icons.Filled.Create,
+                imageVector = Icons.Outlined.Create,
                 contentDescription = stringResource(postIconContentDescriptionRes),
             )
         }
@@ -345,14 +388,14 @@ private fun TabToolBarHeader(
 }
 
 /**
- * タイトルカードの展開アイコンとタイトル文字列を描画する。
+ * タブのタイトル・ブックマーク・更新操作とロード進捗を一枚のカードとして描画する。
  *
- * 展開率に応じてカード内アイコンの表示とタイトル文字スタイルを切り替える。
- * アイコン用の幅を維持してタイトル幅の急変を防ぐ。
+ * `actionsProgress` に応じたカード内レイアウトを共有し、Pagerから渡されたModifier全体へ
+ * 平行移動を適用できるようにする。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ExpandedTitleActions(
+fun TabTitleCard(
     modifier: Modifier = Modifier,
     title: String,
     bookmarkState: BookmarkStatusState,
@@ -361,77 +404,163 @@ private fun ExpandedTitleActions(
     onRefreshClick: () -> Unit,
     titleStyle: TextStyle,
     titleTextAlign: TextAlign,
-    layoutState: TabToolBarLayoutState,
+    titleFontWeight: FontWeight = FontWeight.Bold,
+    titleMaxLines: Int = 2,
+    actionsProgress: Float = 1f,
+    isLoading: Boolean = false,
+    loadProgress: Float = 0f,
 ) {
+    // --- Layout state ---
+    val layoutState = rememberTabTitleCardLayoutState(
+        actionsProgress = actionsProgress,
+        titleStyle = titleStyle,
+        titleFontWeight = titleFontWeight,
+        titleMaxLines = titleMaxLines,
+    )
+
+    // --- Card content ---
     Card(
         modifier = modifier,
         shape = MaterialTheme.shapes.largeIncreased,
         onClick = onTitleClick,
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .animateContentSize(),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxSize()
+                .clip(MaterialTheme.shapes.largeIncreased),
         ) {
-            ExpandedCardAction(
-                slotWidth = layoutState.cardSideSlotWidth,
-                alpha = layoutState.clampedProgress,
-                translationY = layoutState.expandedTranslationPx,
-                enabled = layoutState.expandedIconEnabled,
-                tooltipText = stringResource(R.string.bookmark),
-                onClick = onBookmarkClick,
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .animateContentSize(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (bookmarkState.isBookmarked) {
-                    val tintColor =
-                        bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
-                            ?: LocalContentColor.current
-                    Box {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            tint = tintColor,
-                        )
+                ExpandedCardAction(
+                    slotWidth = layoutState.cardSideSlotWidth,
+                    alpha = layoutState.clampedProgress,
+                    translationY = layoutState.expandedTranslationPx,
+                    enabled = layoutState.expandedIconEnabled,
+                    tooltipText = stringResource(R.string.bookmark),
+                    onClick = onBookmarkClick,
+                ) {
+                    if (bookmarkState.isBookmarked) {
+                        val tintColor =
+                            bookmarkState.selectedGroup?.colorName?.let { bookmarkColor(it) }
+                                ?: LocalContentColor.current
+                        Box {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = tintColor,
+                            )
+                            Icon(
+                                imageVector = Icons.Outlined.StarOutline,
+                                contentDescription = stringResource(R.string.bookmark),
+                            )
+                        }
+                    } else {
                         Icon(
                             imageVector = Icons.Outlined.StarOutline,
                             contentDescription = stringResource(R.string.bookmark),
                         )
                     }
-                } else {
+                }
+
+                Text(
+                    text = title,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(
+                            horizontal = layoutState.titleHorizontalPadding,
+                            vertical = layoutState.titleVerticalPadding,
+                        )
+                        .animateContentSize(),
+                    fontWeight = layoutState.titleFontWeight,
+                    style = titleStyle.copy(fontSize = layoutState.titleFontSize),
+                    maxLines = layoutState.titleMaxLines,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = titleTextAlign,
+                )
+
+                ExpandedCardAction(
+                    slotWidth = layoutState.cardSideSlotWidth,
+                    alpha = layoutState.clampedProgress,
+                    translationY = layoutState.expandedTranslationPx,
+                    enabled = layoutState.expandedIconEnabled,
+                    tooltipText = stringResource(R.string.refresh),
+                    onClick = onRefreshClick,
+                ) {
                     Icon(
-                        imageVector = Icons.Outlined.StarOutline,
-                        contentDescription = stringResource(R.string.bookmark),
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
                     )
                 }
             }
 
-            Text(
-                text = title,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(
-                        horizontal = layoutState.titleHorizontalPadding,
-                        vertical = layoutState.titleVerticalPadding,
-                    )
-                    .animateContentSize(),
-                fontWeight = layoutState.titleFontWeight,
-                style = titleStyle.copy(fontSize = layoutState.titleFontSize),
-                maxLines = layoutState.titleMaxLines,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = titleTextAlign,
-            )
+            // --- Loading progress ---
+            if (isLoading) {
+                LinearProgressIndicator(
+                    progress = { loadProgress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(2.dp),
+                    color = ProgressIndicatorDefaults.linearColor,
+                    trackColor = ProgressIndicatorDefaults.linearTrackColor,
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                )
+            }
+        }
+    }
+}
 
-            ExpandedCardAction(
-                slotWidth = layoutState.cardSideSlotWidth,
-                alpha = layoutState.clampedProgress,
-                translationY = layoutState.expandedTranslationPx,
-                enabled = layoutState.expandedIconEnabled,
-                tooltipText = stringResource(R.string.refresh),
-                onClick = onRefreshClick,
+/**
+ * タイトルカード外に置く画面種別切替ボタンを描画する。
+ *
+ * アイコンの下に短い可視ラベルを表示し、Tooltipは使用しない。disabled時は遷移先の
+ * タブが解決できない状態を意味し、クリック不可とdisabled semanticsを公開する。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun TabDestinationIconButton(
+    action: TabDestinationAction,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier
+            .width(SideSlotMaxWidth)
+            .fillMaxHeight()
+            .graphicsLayer {
+                alpha = if (action.enabled) 1f else 0.38f
+            }
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = action.contentDescription
+                if (!action.enabled) {
+                    disabled()
+                }
+            },
+        enabled = action.enabled,
+        onClick = action.onClick,
+        shape = MaterialTheme.shapes.largeIncreased,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = stringResource(R.string.refresh),
+                    imageVector = action.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    text = action.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -533,11 +662,12 @@ private fun BottomActionsRow(
         return
     }
 
-    Spacer(modifier = Modifier.padding(2.dp))
+    Spacer(modifier = Modifier.height(ActionRowSpacing))
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(ActionRowHeight)
             .graphicsLayer {
                 alpha = layoutState.clampedProgress
                 translationY =
@@ -561,55 +691,87 @@ private fun BottomActionsRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
+private val TabToolBarPreviewActions = listOf(
+    TabToolBarAction(
+        icon = Icons.Filled.CropSquare,
+        contentDescriptionRes = R.string.open_tablist,
+        onClick = {},
+    ),
+    TabToolBarAction(
+        icon = Icons.Filled.Create,
+        contentDescriptionRes = R.string.post,
+        onClick = {},
+    ),
+    TabToolBarAction(
+        icon = Icons.Filled.Refresh,
+        contentDescriptionRes = R.string.refresh,
+        onClick = {},
+    ),
+)
+
 @Composable
-fun ThreadToolBarPreview() {
-    ThreadToolBar(
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(
-                title = "スレッドのタイトル"
-            ),
-            bookmarkStatusState = BookmarkStatusState(
-                isBookmarked = false,
-                selectedGroup = null
-            )
-        ),
-        isTreeSort = false,
-        onSortClick = {},
-        onPostClick = {},
-        onTabListClick = {},
-        onRefreshClick = {},
-        onSearchClick = {},
+private fun TabToolBarPreviewTitleContent(
+    modifier: Modifier,
+    actionsProgress: Float,
+) {
+    TabTitleCard(
+        modifier = modifier,
+        title = "共通Toolbarのタイトル",
+        bookmarkState = BookmarkStatusState(),
+        onTitleClick = {},
         onBookmarkClick = {},
-        onThreadInfoClick = {},
-        onMoreClick = {},
-        onAutoScrollClick = {}
+        onRefreshClick = {},
+        titleStyle = MaterialTheme.typography.titleSmall,
+        titleTextAlign = TextAlign.Start,
+        actionsProgress = actionsProgress,
     )
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
-@Preview(showBackground = true, name = "ThreadToolBar Collapsed")
+@Preview(showBackground = true, name = "TabToolBar Expanded")
 @Composable
-fun ThreadToolBarCollapsedPreview() {
-    ThreadToolBar(
-        uiState = ThreadUiState(
-            threadInfo = ThreadInfo(title = "スレッドのタイトル"),
-            bookmarkStatusState = BookmarkStatusState(
-                isBookmarked = false,
-                selectedGroup = null
-            )
-        ),
-        isTreeSort = false,
-        onSortClick = {},
-        onPostClick = {},
+fun TabToolBarExpandedPreview() {
+    TabToolBar(
+        actions = TabToolBarPreviewActions,
         onTabListClick = {},
-        onRefreshClick = {},
-        onSearchClick = {},
-        onBookmarkClick = {},
-        onThreadInfoClick = {},
-        onMoreClick = {},
-        onAutoScrollClick = {},
+        onPostClick = {},
+        tabIconContentDescriptionRes = R.string.open_tablist,
+        postIconContentDescriptionRes = R.string.post,
+        destinationAction = TabDestinationAction(
+            icon = Icons.Filled.CropSquare,
+            label = "スレ",
+            contentDescription = "スレッドタブに移動",
+            position = TabDestinationPosition.End,
+            enabled = true,
+            onClick = {},
+        ),
+        titleContent = { modifier ->
+            TabToolBarPreviewTitleContent(modifier, 1f)
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, name = "TabToolBar Collapsed")
+@Composable
+fun TabToolBarCollapsedPreview() {
+    TabToolBar(
+        actions = TabToolBarPreviewActions,
+        onTabListClick = {},
+        onPostClick = {},
+        tabIconContentDescriptionRes = R.string.open_tablist,
+        postIconContentDescriptionRes = R.string.post,
+        destinationAction = TabDestinationAction(
+            icon = Icons.Filled.CropSquare,
+            label = "スレ",
+            contentDescription = "スレッドタブに移動",
+            position = TabDestinationPosition.End,
+            enabled = true,
+            onClick = {},
+        ),
         actionsProgress = 0f,
+        titleContent = { modifier ->
+            TabToolBarPreviewTitleContent(modifier, 0f)
+        },
     )
 }

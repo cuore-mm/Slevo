@@ -33,6 +33,80 @@ class BbsRouteScaffoldSelectionTest {
         }
     }
 
+    /** タブ順が変わっても stable key から再解決した index を使用することを確認する。 */
+    @Test
+    fun reorderedTabs_resolvesSelectedKeyToNewIndex() {
+        val result = deriveTabDisplayDecision(
+            TabPresentationState(
+                listOf("last", "selected", "first"),
+                TabSelectionResolution.Selected("first"),
+            ),
+            getKey = { it },
+        )
+
+        assertEquals(TabDisplayDecision.Selected(2), result)
+    }
+
+    /** 1タブ時はそのページだけを描画範囲として返すことを確認する。 */
+    @Test
+    fun pagerTitlePageRange_withSingleTab_returnsSinglePage() {
+        assertEquals(0..0, pagerTitlePageRange(currentPage = 0, pageCount = 1))
+    }
+
+    /** 最初と最後のページでは範囲外の隣接ページを返さないことを確認する。 */
+    @Test
+    fun pagerTitlePageRange_clampsToAvailablePages() {
+        assertEquals(0..1, pagerTitlePageRange(currentPage = 0, pageCount = 2))
+        assertEquals(1..2, pagerTitlePageRange(currentPage = 2, pageCount = 3))
+    }
+
+    /** 削除中などの範囲外 page では page 0 fallback を返さないことを確認する。 */
+    @Test
+    fun pagerTitlePageRange_withOutOfBoundsPage_returnsEmptyRange() {
+        assertEquals(0 until 0, pagerTitlePageRange(currentPage = 3, pageCount = 2))
+        assertEquals(0 until 0, pagerTitlePageRange(currentPage = -1, pageCount = 2))
+    }
+
+    /** タイトルviewportが狭くても本文と同じページ進行率になる距離へ変換することを確認する。 */
+    @Test
+    fun calculateTitlePageDistance_scalesBodyPagePitchToTitleViewport() {
+        val result = calculateTitlePageDistance(
+            titleViewportWidthPx = 288f,
+            bodyPageSizePx = 360,
+            bodyPageSpacingPx = 32,
+        )
+
+        assertEquals(313.6f, result, 0.001f)
+    }
+
+    /** 本文Pagerの幅が未確定な初期レイアウトでは安全に移動距離0を返すことを確認する。 */
+    @Test
+    fun calculateTitlePageDistance_withUnknownBodyPageSize_returnsZero() {
+        assertEquals(
+            0f,
+            calculateTitlePageDistance(
+                titleViewportWidthPx = 288f,
+                bodyPageSizePx = 0,
+                bodyPageSpacingPx = 32,
+            ),
+            0f,
+        )
+    }
+
+    /** 本文の境界変位をタイトルviewport幅へ比例変換することを確認する。 */
+    @Test
+    fun calculateTitleOverscrollOffset_scalesByViewportRatio() {
+        assertEquals(
+            24f,
+            calculateTitleOverscrollOffset(
+                overscrollOffsetPx = 40f,
+                titleViewportWidthPx = 240f,
+                bodyPageSizePx = 400,
+            ),
+            0.001f,
+        )
+    }
+
     /** pending missing は programmatic scroll を発行せず現在 page を保持することを確認する。 */
     @Test
     fun pendingMissing_preservesCurrentPage() {

@@ -45,7 +45,9 @@ import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.thread.components.ThreadTabTitleCard
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadToolBar
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.thread.dialog.ResponseWebViewDialog
@@ -79,12 +81,17 @@ fun ThreadScaffold(
 ) {
     val routeViewModel: ThreadRouteViewModel = hiltViewModel()
     val threadPresentationState by tabSessionStore.threadPresentationState.collectAsState()
+    val boardPresentationState by tabSessionStore.boardPresentationState.collectAsState()
     val openThreadTabs = threadPresentationState.tabs
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var isPopupVisible by remember { mutableStateOf(false) }
     val popupDialogState = rememberPostItemDialogState()
     var popupMenuTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
     var popupDialogTarget by remember { mutableStateOf<PostDialogTarget?>(null) }
+    val selectedBoard = (boardPresentationState.selection as? TabSelectionResolution.Selected)
+        ?.key
+        ?.let { key -> boardPresentationState.tabs.firstOrNull { it.boardUrl == key } }
 
     val routeThreadId = parseBoardUrl(threadRoute.boardUrl)?.let { (host, board) ->
         ThreadId.of(host, board, threadRoute.threadKey)
@@ -144,8 +151,26 @@ fun ThreadScaffold(
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
-        bottomBar = { tab, uiState, actionProgress, openTabListSheet ->
+        titleCard = { tab, uiState, actionProgress, modifier ->
+            ThreadTabTitleCard(
+                modifier = modifier,
+                tab = tab,
+                uiState = uiState,
+                actionProgress = actionProgress,
+                onTitleClick = { selectedTab ->
+                    routeViewModel.openThreadInfoSheet(selectedTab.id.value)
+                },
+                onBookmarkClick = { selectedTab ->
+                    routeViewModel.openBookmarkSheet(selectedTab.id.value)
+                },
+                onRefreshClick = { selectedTab ->
+                    routeViewModel.reloadThread(selectedTab.id.value)
+                },
+            )
+        },
+        bottomBar = { tab, uiState, actionProgress, openTabListSheet, controllerModifier, titleContent ->
             BbsRouteBottomBar(
+                modifier = controllerModifier,
                 isSearchMode = uiState.isSearchMode,
                 onCloseSearch = { routeViewModel.closeSearch(tab.id.value) },
                 animationLabel = "BottomBarAnimation",
@@ -159,6 +184,27 @@ fun ThreadScaffold(
                     )
                 },
                 defaultContent = { modifier ->
+                    val openSelectedBoard: () -> Unit = {
+                        selectedBoard?.let { board ->
+                            coroutineScope.launch {
+                                val route = tabSessionStore.normalizeBoardRouteForNavigation(
+                                    AppRoute.Board(
+                                        boardId = board.boardId,
+                                        boardName = board.boardName,
+                                        boardUrl = board.boardUrl,
+                                    ),
+                                )
+                                val index = tabSessionStore.registerAndSelectBoardRoute(route)
+                                if (index >= 0) {
+                                    navController.showBoardScreenForTabSelection(
+                                        currentScreenRoute = threadRoute,
+                                        route = route,
+                                    )
+                                }
+                            }
+                        }
+                        Unit
+                    }
                     ThreadToolBar(
                         modifier = modifier,
                         uiState = uiState,
@@ -166,13 +212,13 @@ fun ThreadScaffold(
                         onSortClick = { routeViewModel.toggleSortType(tab.id.value) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
                         onTabListClick = openTabListSheet,
-                        onRefreshClick = { routeViewModel.reloadThread(tab.id.value) },
                         onSearchClick = { routeViewModel.startSearch(tab.id.value) },
-                        onBookmarkClick = { routeViewModel.openBookmarkSheet(tab.id.value) },
-                        onThreadInfoClick = { routeViewModel.openThreadInfoSheet(tab.id.value) },
                         onMoreClick = { routeViewModel.openMoreSheet(tab.id.value) },
                         onAutoScrollClick = { routeViewModel.toggleAutoScroll(tab.id.value) },
                         actionsProgress = if (uiState.isSearchMode) 0f else actionProgress,
+                        canOpenBoard = selectedBoard != null,
+                        onOpenBoardClick = openSelectedBoard,
+                        titleContent = titleContent,
                     )
                 }
             )
@@ -252,8 +298,9 @@ fun ThreadScaffold(
                             onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
                             onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
                             onOpenNewTab = openUrlDialog,
-                            onSwitchToNextTab = { tabSessionStore.animateThreadPage(1) },
-                            onSwitchToPreviousTab = { tabSessionStore.animateThreadPage(-1) },
+                            // タブ切替は下部コントローラーへ集約し、本文の横ジェスチャーでは変更しない。
+                            onSwitchToNextTab = {},
+                            onSwitchToPreviousTab = {},
                             onCloseTab = {
                                 if (uiState.threadInfo.key.isNotBlank() && uiState.boardInfo.url.isNotBlank()) {
                                     tabSessionStore.requestCloseThreadTab(

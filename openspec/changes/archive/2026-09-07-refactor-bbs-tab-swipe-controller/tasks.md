@@ -1,0 +1,48 @@
+## 1. settle基準のページ状態
+
+- [x] 1.1 `BbsRouteScaffold.kt` の `currentPage` ベースの `onTabSelected` Effect を `snapshotFlow { pagerState.settledPage }` と stable key の範囲確認へ置き換え、`PendingMissing` とselected-key同期中は通知しないことをコードと単体テストで確認する。
+- [x] 1.2 `BbsRouteScaffold.kt` の固定表示対象、`ObserveScrollPositionPersistence.isActive`、ページ固有overlayの対象をsettled pageへ揃え、drag途中の`currentPage`反転でUiStateや保存対象が切り替わらないテストを追加する。
+- [x] 1.3 `app/src/androidTest/.../BbsRouteScaffoldTest.kt` のpresentation harnessをproductionと同じsettled-page同期へ更新し、途中復帰、別ページへのsettle、`animateToPageFlow`完了、PendingMissingを検証する。
+
+## 2. Scaffoldとタブ別一時状態の再編
+
+- [x] 2.1 `BbsRouteScaffold.kt` をRoot `Box`と単一`Scaffold`へ再編し、`HorizontalPager`には本文だけ、Scaffoldの`bottomBar`にはsettled tabの固定コントローラーだけを構成する。本文末尾が展開・縮退・検索・IME時にも隠れないことをpreviewまたはUIテストで確認する。
+- [x] 2.2 `BookmarkSheetHost`、Board/Threadの`optionalSheetContent`、`TabsBottomSheet`、`UrlOpenDialog`をRoot Box上の正しい描画順へ移し、ReplyPopupや各Sheetが固定コントローラーを覆うことをCompose UIテストで確認する。
+- [x] 2.3 `BottomBarUtils.kt` と `BbsRouteScaffold.kt` の縮退progress/nested-scroll接続をstable tab key単位で保持し、各本文ページが自タブのprogressだけを更新し、新規タブは1f、削除タブは状態除去となるテストを追加する。
+- [x] 2.4 `BbsRouteBottomBar.kt` の通常表示と`SearchBottomBar`切替を単一bottomBarへ接続し直し、`TextFieldValue.composition`、BackHandler、`imePadding`、navigation bar insetが既存どおりであることを既存テストと追加UIテストで確認する。
+
+## 3. Pager連動タイトルカード
+
+- [x] 3.1 `TabToolBar.kt` のタイトルカードと固定アクション群を分離し、既存の`ExpandedTitleActions`相当をsettled/current/隣接tabから再利用できるComposableに整理する。ブックマーク、タイトル、更新のcallbackと縮退時表示を既存同等に保つ。
+- [x] 3.2 `BbsRouteScaffold.kt` と `TabToolBar.kt` の間へ同じ`PagerState`を渡し、current pageと前後一ページのカードだけをstable key付きで構成する。`getOffsetDistanceInPages`と本文Pagerの実ページ進行をタイトルviewport幅へ正規化してtranslationを計算し、表示進行率の同期距離と初期幅未確定時のフォールバックを単体テストで確認する。
+- [x] 3.3 `TabToolBar.kt` のツールバー全幅`LinearProgressIndicator`を削除し、各タイトル`Card`内の`Box`下端へCard幅のindicatorをoverlayする。縮退時の56dp高を増やさず、各カード自身の`isLoading`/`loadProgress`がカードと一緒に移動するテストを追加する。
+- [x] 3.4 タイトルviewportだけをclipし、Board右側「スレ」、Thread左側「板」、下段アクション群にはPager offsetを適用しない。途中dragとfling中も固定要素の画面座標が変化しないUIテストを追加する。
+- [x] 3.5 `ui/board/components/BoardToolBar.kt` を新設し、`BoardScaffold.kt` のBoard固有action構成とタイトル設定を専用adapterへ抽出する。`ThreadToolBar`と同じく共通`TabToolBar`へ委譲し、Board固有のPreviewと既存callbackの維持を確認する。
+- [x] 3.6 `TabToolBar`、`BoardToolBar`、`ThreadToolBar`の`titleCardContent`を必須`titleContent` slotへ整理する。静的タイトル用のnull fallbackと重複するタイトル・ブックマーク・更新・ロード進捗引数を削除し、各Previewは明示的なタイトルカードを渡す。
+- [x] 3.7 `BoardToolBar.kt` に`BoardTabTitleCard`、`ThreadToolBar.kt` に`ThreadTabTitleCard`を配置し、Board/ThreadのScaffoldからカード本体の具体構成を移す。PagerTitleCardsの範囲・offset・stable key処理と必須`titleContent` slotの境界は維持し、Scaffoldには画面固有callbackの接続だけを残す。
+- [x] 3.8 `TabToolBar`の展開高を108dp、縮退高を56dpへ整理し、タイトル行48dp、間隔4dp、アクション行48dp、外側上下padding各4dpの収支に揃える。タイトルカードと画面種別ボタンへ同じタイトル行高を適用し、展開時に下段アクション群がクリップされない回帰テストを追加する。
+- [x] 3.9 `TabDestinationButton`を独自`TabDestinationIconButton`へ置き換え、アイコン下の可視「板」「スレ」ラベルと通常の`String`によるcontent descriptionを表示する。Board/Threadの配置Rowを`TabToolBarHeader`へ集約し、専用Toolbarは`TabDestinationAction`の内容だけを渡す。Tooltipと`FeedbackTooltipIconButton`は使用しない。
+- [x] 3.10 `PagerTitleCards`のページ単位Composableをstable key単位へ切り出し、`collectAsState`、タブ別progress、タイトルカードrendererを`key(getKey(tab))`の内側へ配置する。描画windowが半ページ付近で移動しても別タブのUiStateやタイトルを表示しない回帰テストを追加する。
+
+## 4. 下部コントローラーによるPager操作
+
+- [x] 4.1 `BbsRouteScaffold.kt` の`HorizontalPager.userScrollEnabled`を`false`へ固定し、下部コントローラー最外周へ同じ`PagerState`と`PagerDefaults.flingBehavior`を使う横方向`scrollable`を設定する。検索中と既存Thread popup条件では無効になることを検証する。
+- [x] 4.2 本文上の横dragではページが動かず、コントローラーのカード・ボタン・下段ツール上の横dragでは本文とタイトルviewportの表示進行率が指へ一対一追従するCompose UIテストを追加する。tapは既存click、touch slop超過後はdragとして成立することも検証する。
+- [x] 4.3 `BbsRouteScaffold.kt` の`consumeTabSwipeByDragDirection`適用と実装、不要importを削除し、本文の縦スクロール、クリック、長押し、既存gesture処理が動作することを関連テストで確認する。
+- [x] 4.4 `PagerRubberBandOverscrollEffect`を下部コントローラーの`scrollable`へ接続し、Pagerが消費できない端のdeltaを抵抗付き変位へ変換する。release/cancel/fling終了時のspring復帰、既存変位の反対方向での解放、1タブ、gesture無効時のリセットを実装する。
+
+## 5. 画面種別ボタンと通常Navigation
+
+- [x] 5.1 `strings.xml`へ表示文言「板」「スレ」とTalkBack用content descriptionを追加し、`TabToolBar.kt`、`BoardScaffold.kt`、`ThreadToolBar.kt`へ左右固定ボタンのenabled状態とcallbackを配線する。Compose semanticsテストで位置、ラベル、disabled状態を確認する。
+- [x] 5.2 `BoardScaffold.kt` で`threadPresentationState`の`Selected`と同一snapshotの`ThreadTabInfo`から`AppRoute.Thread`を構築し、normalize→`registerAndSelectThreadRoute`→成功時`navigateToThreadScreen`の順でpushする。Loading/Empty/PendingMissing/登録失敗では遷移しない単体テストを追加する。
+- [x] 5.3 `ThreadScaffold.kt` で`boardPresentationState`の`Selected`と同一snapshotの`BoardTabInfo`から`AppRoute.Board`を構築し、normalize→`registerAndSelectBoardRoute`→成功時`showBoardScreenForTabSelection(currentScreenRoute = threadRoute, route = boardRoute)`の順で遷移する。直前がBoardなら現在Threadをpopして背後Boardへ戻し、背後にBoardがなければ現在Threadをreplaceする。Loading/Empty/PendingMissing/登録失敗では遷移せず、成功時は破棄したThreadへ戻らないテストを追加する。
+- [x] 5.4 `NavigationExtensionsTest.kt`へThread→Boardの遷移テストを追加し、背後にBoardがない場合は現在ThreadをreplaceしてSelected Boardを表示し、背後にBoardがある場合は現在Threadをpopして背後Boardのdestinationを変更せず表示することを確認する。既存タブ一覧シート・フルスクリーンタブ一覧のsurface遷移も継続して検証する。
+
+## 6. 回帰検証と品質確認
+
+- [x] 6.1 Board/Thread固有の検索、更新、ブックマーク、投稿、並び替え、自動スクロール、情報Sheet、ReplyPopupを操作し、callbackがsettled tabへだけ渡ることを追加テストまたは明記した手動確認手順で検証する。
+- [x] 6.2 drag中のtab削除・reorder、連続drag、drag cancel、1タブ、最初/最後のタブ、PendingMissing遷移で範囲外参照や暗黙のpage 0 fallbackが発生しないテストを追加する。
+- [x] 6.2a 境界dragの抵抗計算とUI動作を検証し、入力距離に対する変位の逓減、本文・タイトルの同期、固定要素とselected keyの不変、最初/最後/1タブ、LTR/RTL、release/cancel/fling復帰、gesture無効状態を確認する。
+- [x] 6.3 新規・変更class/interfaceと非自明関数へ規約どおりのKDocを付け、30行超の関数を区分コメントで整理したうえでAndroid Studio formatter相当の書式を確認する。
+- [x] 6.4 `./gradlew compileDebugAndroidTestKotlin`、`./gradlew testDebugUnitTest`、`./gradlew assembleDebug`を順に実行し、全コマンド成功を記録する。
+- [x] 6.5 実機またはエミュレーターでLTR/RTL、gesture/3ボタンnavigation、IME表示、TalkBack、drag中の本文・カード追従と固定ツール群を確認し、specの全scenarioを満たすことを記録する。

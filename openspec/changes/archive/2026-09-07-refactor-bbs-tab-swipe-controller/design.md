@@ -1,0 +1,158 @@
+## Context
+
+See `proposal.md` - Why. 現在の `BbsRouteScaffold` は `rememberPagerState` で同種タブ用状態を作り、`HorizontalPager` の各ページ内に `Scaffold`、`bottomBar`、本文、`BookmarkSheetHost`、`optionalSheetContent` を構成する。`TabToolBar` 全体がページに属するため、横移動時にはタイトルカードと下部アクションが一緒に動く。画面固有actionの構成はThreadだけが`ThreadToolBar`へ分離され、Boardは`BoardScaffold`へ残っている。
+
+本文には `consumeTabSwipeByDragDirection` が付き、Pager の `userScrollEnabled` は現在ページの `BaseUiState.isTabSwipeEnabled` に依存する。選択通知、固定表示対象、スクロール位置保存の active 判定はいずれも `PagerState.currentPage` を参照しており、`currentPage` がドラッグ途中で切り替わると settle 前に副作用が発生する。
+
+`TabToolBar` のロード進捗はタイトル `Card` の外側で、`FlexibleBottomAppBar` と同階層の全幅 `LinearProgressIndicator` として描画されている。Board/Thread の検索 UI は `BbsRouteBottomBar` が通常ツールバーと `SearchBottomBar` を切り替え、縦スクロールによる縮退はページ内 Scaffold の `nestedScroll` が `rememberBottomBarActionVisibility` を更新する。
+
+Compose Foundation は BOM 2026.02.00 配下の Pager を利用している。`PagerState` は `ScrollableState` であり、Pager 自身のユーザージェスチャーを無効化しても同じ状態を外部のスクロール入力から操作できる。
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- 本文 Pager を唯一のページ位置状態とし、下部コントローラーから直接操作する。
+- 描画中の連続位置と確定済みページを分離し、settle 後だけ選択副作用を実行する。
+- タイトルカードを独立して移動可能な表示単位にし、カード内情報とロード進捗を同じタブへ結び付ける。
+- 固定コントローラーへ再編しても、検索、縦スクロール縮退、シート、ポップアップ、スクロール位置復元を維持する。
+- 既存 route、タブの stable key、coordinator、repository の契約を変更しない。
+
+**Non-Goals:**
+
+- `AppRoute.Board` と `AppRoute.Thread` の統合または引数変更。
+- `TabSessionStore` の selected key や canonical/pending reconciliation の再設計。
+- タブ一覧画面の Board/Thread 切替 Pager の操作変更。
+- Board の「スレ」ボタンからスレッド一覧の先頭や閲覧履歴を選ぶ新しい推薦処理。
+- 検索、投稿、ブックマーク、更新処理そのものの変更。
+
+## Decisions
+
+### 1. 単一 Scaffold の content に本文 Pager、bottomBar に固定コントローラーを置く
+
+`BbsRouteScaffold` のページ内 `Scaffold` を除去し、ルート直下に一つの `Scaffold` を構成する。`content` slot には既存 `HorizontalPager` とページ固有本文だけを置き、`bottomBar` slot には settled page の状態で描画する `BbsRouteBottomBar` を一つだけ置く。
+
+Root は `Box` とし、単一 Scaffold の後に settled page の `BookmarkSheetHost` と `optionalSheetContent`、共通の `TabsBottomSheet` と `UrlOpenDialog` を描画する。これにより現在の「ページ固有 overlay が bottom bar も覆う」重なり順を維持する。Scaffold の `innerPadding` は各本文へ適用し、固定コントローラーの展開・縮退、検索 UI、IME、navigation bar insetに応じて本文末尾が隠れないようにする。
+
+代替案のページ内 Scaffold を残したまま固定バーを重ねる方式は、本文 bottom padding、IME inset、overlay の z-order を手動で二重管理するため採用しない。
+
+### 2. 本文 Pager の直接ジェスチャーを無効にし、固定コントローラーへ同じ PagerState の scrollable を付ける
+
+`HorizontalPager.userScrollEnabled` は常に `false` とする。下部コントローラーの最外周に横方向の `Modifier.scrollable` を設定し、本文と同じ `PagerState` と `PagerDefaults.flingBehavior(pagerState)` を渡す。`enabled` は settled page の `isTabSwipeEnabled` と Thread popup の既存制約から導出する。
+
+1タブ時は `PagerState` が両方向の `canScroll*` をfalseとしてoverscroll eventのdispatch自体を省略するため、controllerの`ScrollableState`だけをPagerStateへ委譲する薄いadapterで両方向を有効として公開する。ページ位置、delta消費、fling、MutatorMutexは引き続きPagerStateが保持し、第二のページ状態は作らない。
+
+この方式ではコントローラー内のボタンやカードの click は touch slop 未満で成立し、横ドラッグへ移行した場合は同じ scrollable が処理する。本文の Pager を掴ませるための `consumeTabSwipeByDragDirection` は不要になるため、関数と適用箇所を削除する。
+
+代替案の `pointerInput`、`dispatchRawDelta`、独自 velocity 計算は、RTL、nested scroll、fling、MutatorMutex、キャンセル処理を再実装するため採用しない。タイトル用の第二 PagerState も同期競合を生むため作らない。
+
+### 3. 描画用ページと副作用対象ページを分離する
+
+本文とタイトルカードの連続描画には `currentPage`、`currentPageOffsetFraction`、または `getOffsetDistanceInPages(page)` を使用する。次の処理は `snapshotFlow { pagerState.settledPage }` と `distinctUntilChanged` を通し、settle 後の index が現在の tabs の範囲内であることを確認してから実行する。
+
+- `onTabSelected(tab)` による `TabSessionStore` の selected key 更新
+- 固定ツール群が参照する tab と UiState の切替
+- `ObserveScrollPositionPersistence.isActive` の切替と離脱時保存
+- 現在タブ用 sheet/popup host の切替
+
+selected key から Pager を同期する既存 `scrollToPage`、`animateToPageFlow` の `animateScrollToPage` は維持する。これらの programmatic 操作も最終的な settled page だけを同じ通知経路で確定する。`PendingMissing` では既存どおり programmatic scroll と選択通知を抑止し、最後に有効だった表示を維持する。
+
+### 4. タイトルカード列を Pager の表示進行率へ正規化して平行移動する
+
+固定コントローラーのタイトル領域は clip された viewport とし、現在ページと隣接ページのカードだけを stable key 付きで構成する。各カードの相対位置は同じ `PagerState.getOffsetDistanceInPages(page)` から導出し、本文Pagerの`pageSize`をB、`pageSize + pageSpacing`を本文のページピッチD、タイトルviewportの実幅をTとしたとき、タイトル側の移動ピッチを`T × D ÷ B`としてピクセルへ変換する。これにより本文とタイトルは、それぞれのviewport内で隣接ページが現れるタイミングと表示進行率を揃え、固定ボタンによるタイトルviewportの狭さを考慮しても本文だけが先に見える状態を避ける。カードの固有コンテンツ幅や本文`pageSize`だけを移動単位にしてはならない。
+
+高頻度の offset は可能な限り `graphicsLayer` または layout modifier の更新フェーズで読み、全コントローラーの再コンポーズを避ける。実装時に LTR と RTL の両方で本文と同方向へ動くことを確認し、方向変換は `LayoutDirection` と採用した scrollable の reverse direction に一箇所で集約する。
+
+全タブの UiState Flow を常時購読するとタブ数に比例して負荷が増えるため、タイトルカードの構成対象は現在ページと前後一ページを基本とする。各ページの`getUiState(tab).collectAsState()`、進捗取得、カードrendererは`key(getKey(tab))`の内側へ置き、描画windowがページ位置を跨いでも位置ベースのrememberスロットで別タブのUiStateを再利用しない。タブ増減直後に index が範囲外となるカードは描画しない。
+
+### 5. タイトルカード内下端へロード進捗を重ねる
+
+`TabToolBar.ExpandedTitleActions` の `Card` 内を `Box` とし、既存のブックマーク・タイトル・更新を含む `Row` と、`Alignment.BottomCenter` の `LinearProgressIndicator` を重ねる。進捗は `fillMaxWidth` でカード幅だけを使用し、Card の shape で clip する。Column の追加要素として高さを消費させず、縮退時の 56dp とタイトル垂直位置を維持する。
+
+各カードはそのタブ自身の `isLoading` と `loadProgress` を受け取る。現在のツールバー全幅の進捗描画は削除する。これにより隣接カードが見えた場合も、ロード状態がカードと一緒に移動し、固定ツール群へ残らない。
+
+`TabToolBar` の高さは縮退時56dp、展開時108dpとする。展開時は外側の上下padding各4dp、タイトル行48dp、下段との間隔4dp、アクション行48dpで構成し、固定高の内側へ全要素を収める。`TabToolBarHeader`はタイトル行を48dpに固定し、Board/Threadのタイトルカードと画面種別ボタンは`fillMaxHeight()`で同じ行高へ揃える。タイトルslotへ渡すmodifierには追加の上下paddingを重ねない。
+
+### 6. タイトルカード外の要素は settled page に固定する
+
+Board はタイトル viewport の右にアイコンと「スレ」ラベル、Thread は左にアイコンと「板」ラベルを持つ固定ボタンを置く。既存の下段 `BottomActionsRow`、タブ一覧、投稿などタイトルカード外の操作要素も Pager offset を適用しない。ドラッグ中は最後に settle したタブの action callback と縮退 progress を維持し、settle 完了後に新しいタブへ一度に切り替える。
+
+縦スクロール縮退はタブごとに保持する。`BottomBarUtils.kt` の action visibility state/connection を、stable tab key で管理できる形へ分離し、各本文ページの nested scroll connection が自タブの progress だけを更新する。固定コントローラーは settled tab key の progress を読む。タブ削除時は不要な一時状態を除去し、新規タブは 1f の全表示で開始する。
+
+検索モードでは既存の `BbsRouteBottomBar` による `SearchBottomBar` 切替を維持し、`isTabSwipeEnabled == false` によりコントローラーの横スクロールを停止する。IME composition は既存の `TextFieldValue` をそのまま渡す。
+
+### 7. 「スレ」はpush、「板」は現在Threadを破棄する置換遷移とする
+
+Board の「スレ」は `TabSessionStore.threadPresentationState` の同一 snapshot から `Selected` key と一致する `ThreadTabInfo` を取得し、完全な `AppRoute.Thread` を構築する。既存パターンと同じく `normalizeThreadRouteForNavigation`、`registerAndSelectThreadRoute` を順に完了し、index が 0 以上の場合だけ `navigateToThreadScreen` を呼ぶ。`Loading`、`Empty`、`PendingMissing` ではボタンを disabled とし、不完全 route や先頭タブ fallbackを作らない。Board画面内のタブ一覧からThreadを選ぶ場合も、現在のBoard画面をback stackに残してThread routeをpushする既存の `showThreadScreenForTabSelection` の挙動を維持する。
+
+Thread の「板」は `TabSessionStore.boardPresentationState` の同一snapshotから `Selected` key と一致する `BoardTabInfo` を取得し、完全な `AppRoute.Board` を構築する。`normalizeBoardRouteForNavigation`、`registerAndSelectBoardRoute` を完了した後、`showBoardScreenForTabSelection(currentScreenRoute = threadRoute, route = boardRoute)` を呼ぶ。直前のback stack entryがBoardの場合は現在Threadを `popBackStack()` で破棄して背後のBoard画面へ戻り、Boardがない場合は `replaceCurrentScreen` が現在Threadを `popUpTo(inclusive = true)` で破棄してSelected Board routeを表示する。いずれも `navigateToBoardScreen`によるpushは行わない。`Loading`、`Empty`、`PendingMissing`ではボタンをdisabledとする。
+
+Board「スレ」は `navigateToThreadScreen` によりback stackへ積み、戻る操作で元Boardへ戻れるようにする。Thread「板」はタブ一覧の別種別選択と同じ `showBoardScreenForTabSelection` により、背後にBoardがあればその画面へpopし、なければ現在Threadだけをreplaceする。背後のBoardへ戻る場合も、そのdestination自体は変更せず、登録・選択済みのBoard tab stateを表示対象にする。Deep Link等で背後にBoardがない場合はSelected Board routeでreplaceする。クリックの多重実行はnavigation helperの`launchSingleTop`と登録完了待ちに従い、登録または選択が失敗した場合は遷移しない。
+
+表示文字列「板」「スレ」と content description は resource 化する。短い表示ラベルだけに依存せず、TalkBack で遷移先の画面種別が分かる説明を付ける。disabled 時も状態を意味的に公開する。
+
+### 8. 画面固有Toolbarの構成層をBoard/Threadで対称化する
+
+共通の見た目と縮退挙動は `TabToolBar` が担い、画面固有のaction一覧、UiStateからのアイコン選択、タイトルカードの具体的な構成、タイトルスタイル、画面種別アクションの内容は各画面の `BoardToolBar` と `ThreadToolBar` が構成する。タイトル行の左右配置と高さは共通 `TabToolBarHeader` が担い、専用Toolbarは`TabDestinationAction`を渡す。`BoardToolBar` は `BoardScaffold` の既存インライン構築を移動した薄いadapterとし、navigationやTabSessionStoreの操作はcallbackとして受け取る。これにより共通層からBoard/Thread固有stateへの依存を増やさず、両画面のScaffoldからToolbar構成責務を分離する。
+
+各専用Toolbarは単独のPreview入口を持つ。Previewは画面固有のaction構成とタイトル領域を確認するために使用し、Pager連動そのものの状態は `BbsRouteScaffold` のUIテストで検証する。
+
+Pager連動タイトルカードの受け渡しは、`BbsRouteScaffold` の `titleContent` を `BoardToolBar` / `ThreadToolBar` が共通 `TabToolBar` へ渡す必須slotに統一する。Pagerの表示範囲とoffset計算は `BbsRouteScaffold` に残し、カードの具体的な構成は `BoardToolBar.kt` の `BoardTabTitleCard` と `ThreadToolBar.kt` の `ThreadTabTitleCard` に置く。各Scaffoldはこのrendererへ画面固有callbackを束ねて渡すだけとし、Toolbarが静的 `TabTitleCard` を生成するnullフォールバックや、Toolbar APIに重複したタイトル・ブックマーク・更新・ロード進捗引数は設けない。画面種別ボタンはTooltipを使わず、アイコン・可視ラベル・通常の`String`によるcontent descriptionを持つ`TabDestinationAction`として渡す。
+
+### 9. Pager境界のラバーバンドフィードバックを表示層へ同期する
+
+下部コントローラーの `scrollable` には、本文Pagerと同じ `PagerState` へ渡されたスクロールdeltaを装飾するカスタム `OverscrollEffect` を設定する。`performScroll` が消費しなかった水平方向deltaだけを境界入力として蓄積し、距離が大きくなるほど増分が小さくなるラバーバンド関数で表示変位へ変換する。既存の `reverseDirection` が入力方向を処理するため、effectは受け取った画面座標系の境界deltaをそのまま表示変位の符号へ使い、RTL用の反転を追加しない。
+
+effectは通常のPager移動を妨げず、既存のdelta消費処理を必ず一度実行する。外向き入力で変位が発生している間は未消費deltaをeffectが消費し、nested scrollへ境界入力を漏らさない。既存変位と反対方向の入力では変位を先に戻し、残りだけをPagerへ渡す。リリースまたはfling終了時は、変位を `NoBouncy` の中程度に遅いspringで0へ戻す。検索中、Thread popup中、その他 `isTabSwipeEnabled == false` の場合はscrollableを無効にし、残った境界変位も0へ戻す。
+
+境界変位は `HorizontalPager` の本文表示層と `PagerTitleCards` のカード表示層にだけ適用する。タイトル側はタイトルviewport幅と本文Pagerの `pageSize` の比率で変位を換算し、通常のPager offsetと同じ表示進行率を維持する。画面種別ボタン、下段アクション、タブ一覧、投稿ボタンなど固定コントローラーの外側要素へは適用しない。1タブの場合も両方向を境界として同じフィードバックを表示するが、Pagerのpageやselected keyは変更しない。
+
+## Implementation Contract
+
+実装担当は次の境界を維持すること。
+
+1. `BbsRouteScaffold.kt` の `rememberPagerState` は一つだけとし、本文 `HorizontalPager`、コントローラー `scrollable`、タイトル offset の全てで同一 instanceを使用する。1タブ時に限りcontrollerの`ScrollableState`をPagerStateへ委譲するadapterを許可するが、ページ位置とスクロール処理の実体はPagerStateから分離しない。
+2. `HorizontalPager.userScrollEnabled` を `false` にし、`consumeTabSwipeByDragDirection` の呼び出しと実装を削除する。本文に別の横ドラッグ切替を追加しない。
+3. `currentPage` は連続描画にだけ使用する。`onTabSelected`、固定 bar の tab/UiState、scroll persistence active、page固有 overlay の切替には有効な `settledPage` を使用する。
+4. `TabPresentationState.PendingMissing` 中は既存表示を保持し、page 0 fallback、selected key 上書き、反対種ボタンからの不完全 route 遷移を行わない。
+5. `TabToolBar.kt` の全幅 progress indicator を削除し、各タイトル Card 内の bottom overlay として移す。ブックマーク・更新・タイトルの既存 callback と loading semantics を保持する。
+6. タイトル offset 用の別 `PagerState`、別 Pager、offset同期用 coroutineを追加しない。表示対象は stable key で識別し、`collectAsState`を含むタブ固有の状態取得とカードrendererをstable keyの内側へ置き、tab reorder/closeや描画window移動時に誤った UiState を再利用しない。
+7. `BbsRouteBottomBar` の検索切替、`BottomBarUtils.kt` の縦縮退、`BookmarkSheetHost`、Board/Thread の `optionalSheetContent` を単一 Scaffold 構造へ接続し直し、固定 bar より上に overlay を描く。
+8. Board の「スレ」はSelected `ThreadTabInfo`だけを対象とし、normalize、register-and-select、push navigateの順序を省略しない。Threadの「板」はSelected `BoardTabInfo`だけを対象とし、normalize、register-and-select、`showBoardScreenForTabSelection`による現在Threadの置換順序を省略しない。
+9. 新規または変更する class/interface、非自明関数にはリポジトリの KDoc 規約を適用し、30行を超える関数は処理区分コメントで分割する。
+10. Board/Thread固有のToolbar構成とタイトルカードrendererはそれぞれ `BoardToolBar` / `ThreadToolBar` に置き、共通 `TabToolBar` へ委譲する。専用ToolbarからTabSessionStoreやNavControllerを直接参照しない。各ScaffoldにはPager用rendererへのcallback接続だけを残す。
+11. Pager連動タイトルカードは必須の`titleContent` slotで受け渡し、`TabToolBar`および専用Toolbarに静的タイトル用のnullable fallback APIを残さない。
+12. `TabToolBar`の展開高は108dp、縮退高は56dpとし、タイトル行48dp・間隔4dp・アクション行48dp・外側上下padding各4dpの測定収支を維持する。タイトルカードと`TabDestinationIconButton`をタイトル行の高さへ揃え、下段アクション群を固定高の外へ押し出さない。
+13. `TabDestinationAction`はアイコン、可視ラベル、通常の`String`によるcontent description、論理配置、enabled、callbackを保持する。共通`TabToolBarHeader`は配置と48dpの縦型ボタン描画を担当し、Tooltipや`FeedbackTooltipIconButton`は使用しない。
+14. `PagerTitleCards`のタイトル側移動ピッチは、タイトルviewportの実幅をT、本文Pagerの`pageSize`をB、`pageSpacing`をSとした`T × (B + S) ÷ B`で計算する。本文Pagerの`getOffsetDistanceInPages`を唯一の進行状態として使い、Bが0の初期レイアウトでは安全なフォールバックを適用する。
+15. Pager境界では、下部コントローラーの`scrollable`に接続した単一のカスタム`OverscrollEffect`が`performScroll`の未消費水平方向deltaを受け取り、ラバーバンド抵抗とspring復帰を管理する。表示変位は本文Pagerとタイトルカードへだけ加算し、固定要素、settled page、selected key、settle基準の副作用は変更しない。`OverscrollEffect`のイベント処理用インスタンスを本文とタイトルへ個別attachせず、Composeの単一node制約を維持する。
+
+## Error Cases and Compatibility
+
+- tabs が drag/animation 中に削除・reorderされた場合、page index を stable key へ再解決し、範囲外 index の callback、UiState取得、タイトル描画を行わない。
+- settle前に presentationが `PendingMissing` へ移行した場合は選択通知を抑止し、coordinator の補正後 snapshot から再同期する。
+- 反対種タブがLoading/Empty/PendingMissingの場合、Board「スレ」またはThread「板」を無効化する。最後の既知tabやindex 0を暗黙に使用しない。
+- normalize/register-and-select が失敗した場合は navigation を実行せず、既存画面とselected keyを維持する。
+- `AppRoute.Board` / `AppRoute.Thread` の型と引数、既存 Deep Link、タブ一覧のreplace遷移は互換のまま維持する。
+- 固定 bar の inset は単一 Scaffold に集約し、3ボタン navigation、gesture navigation、IME表示時に本文 paddingを二重適用しない。
+- 境界dragはPagerの有効範囲外へpage indexを進めず、最初/最後のタブではラバーバンド変位だけを表示する。リリース、cancel、fling終了、gesture無効化では変位を0へ戻し、途中の選択通知や固定要素の移動を発生させない。
+
+## Testing Strategy
+
+- `BbsRouteScaffoldTest.kt` の presentation harness を `settledPage` 基準へ更新し、途中の `currentPage` 変化では選択callbackが発火せず、settle後に一度だけ発火することを検証する。
+- Compose UI テストで本文drag非反応、コントローラーdrag、途中復帰、fling、既存 animateToPageFlow、タイトルviewportと本文viewportの表示進行率一致、固定ツール群を検証する。
+- タイトルカードテストでブックマーク・タイトル・更新・ロード進捗が同じ semantics subtree/移動単位に属し、進捗がCard下端かつCard幅に収まることを検証する。
+- Board/Thread両方で展開・縮退、検索開始・終了、IME入力、popup中のスワイプ無効、タブ別縮退状態、スクロール位置保存・復元を検証する。
+- Toolbarの展開時にタイトル行と下段アクション群が同時に表示され、タイトルカードと画面種別ボタンの高さが揃うこと、縮退時に56dpへ収まることを寸法またはUIテストで検証する。
+- NavigationテストでBoard「スレ」のSelected/Loading/Empty/PendingMissing、push後のBack復帰、Thread「板」のSelected/Loading/Empty/PendingMissing、登録失敗、現在Threadの破棄を検証する。
+- LTR/RTL、ドラッグキャンセル、連続drag、drag中tab削除、TalkBack向けラベルとdisabled semanticsをinstrumented testまたは手動確認項目に含める。
+- 境界フィードバックの純粋な抵抗計算とCompose UI動作を検証する。最初/最後/1タブの外向きdrag、抵抗による逓減、release/cancel復帰、fling終了、無効状態、LTR/RTLの方向、本文・タイトルだけの変位、固定要素とselected keyの不変を確認する。
+- 実装後に `./gradlew assembleDebug` と `./gradlew testDebugUnitTest` を実行し、両方成功させる。
+
+## Migration Plan
+
+1. 先に settled page 選択確定とテストを導入し、既存Pager構造のまま副作用タイミングを安定させる。
+2. タイトルカードを固定ツール群から分離し、Card内ロード進捗とoffset描画を追加する。
+3. `BbsRouteScaffold` を単一 Scaffold へ再編し、外部 scrollable、各overlay、inset、タブ別縮退状態を接続する。
+4. Board/Threadの画面種別ボタンとnavigationを追加し、BoardのToolbar構成を`BoardToolBar`へ抽出したうえで、最後に不要な本文側gesture抑制を削除する。
+5. 全テストと手動確認完了後に提供する。問題時は単一コミット単位で新コントローラー変更を戻せば、データ移行なしで旧ページ内Scaffoldへ戻せる。

@@ -68,11 +68,30 @@ fun rememberBottomBarActionVisibility(
 ): BottomBarActionVisibility {
     // --- State ---
     val progress = remember { mutableStateOf(1f) }
+    return rememberBottomBarActionVisibility(
+        progress = progress,
+        scrollEnabled = scrollEnabled,
+        actionRowHeight = actionRowHeight,
+    )
+}
+
+/**
+ * 外部で保持している縮退率に対して、本文スクロール用の接続を構成する。
+ *
+ * タブごとの状態を親Composableで保持する場合に使用し、タブがPagerの構成対象から外れても
+ * 直前の縮退率を再利用できるようにする。
+ */
+@Composable
+fun rememberBottomBarActionVisibility(
+    progress: MutableState<Float>,
+    scrollEnabled: Boolean = true,
+    actionRowHeight: Dp = 48.dp,
+): BottomBarActionVisibility {
     val density = LocalDensity.current
     val actionRowHeightPx = with(density) { actionRowHeight.toPx().coerceAtLeast(1f) }
 
     // --- Scroll connection ---
-    val nestedScrollConnection = remember(scrollEnabled, actionRowHeightPx) {
+    val nestedScrollConnection = remember(progress, scrollEnabled, actionRowHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(
                 available: Offset,
