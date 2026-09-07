@@ -55,6 +55,63 @@ class TabToolBarTest {
             .assertIsNotEnabled()
     }
 
+    /** destinationModifierがdestinationボタンのroot Cardへ届くことを確認する。 */
+    @Test
+    fun destinationModifier_isAppliedToDestinationButton() {
+        composeRule.setContent {
+            MaterialTheme {
+                TabToolBar(
+                    actions = emptyList(),
+                    onTabListClick = {},
+                    onPostClick = {},
+                    tabIconContentDescriptionRes = R.string.open_tablist,
+                    postIconContentDescriptionRes = R.string.post,
+                    destinationAction = TabDestinationAction(
+                        icon = Icons.Filled.Forum,
+                        label = "スレ",
+                        contentDescription = "スレッドタブに移動",
+                        position = TabDestinationPosition.End,
+                        enabled = true,
+                        onClick = {},
+                    ),
+                    destinationModifier = Modifier.testTag("destination-card"),
+                    titleContent = { modifier -> Box(modifier.fillMaxSize()) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("destination-card").assertExists()
+    }
+
+    /** actionsRowModifierが個別buttonではなく下段アクション行へ届くことを確認する。 */
+    @Test
+    fun actionsRowModifier_isAppliedToActionRow() {
+        composeRule.setContent {
+            MaterialTheme {
+                TabToolBar(
+                    actions = emptyList(),
+                    onTabListClick = {},
+                    onPostClick = {},
+                    tabIconContentDescriptionRes = R.string.open_tablist,
+                    postIconContentDescriptionRes = R.string.post,
+                    destinationAction = TabDestinationAction(
+                        icon = Icons.Filled.Forum,
+                        label = "スレ",
+                        contentDescription = "スレッドタブに移動",
+                        position = TabDestinationPosition.End,
+                        enabled = true,
+                        onClick = {},
+                    ),
+                    actionsProgress = 1f,
+                    actionsRowModifier = Modifier.testTag("actions-row"),
+                    titleContent = { modifier -> Box(modifier.fillMaxSize()) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("actions-row").assertExists()
+    }
+
     /** 展開時は固定高108dpへタイトル行と下段アクション行を収めることを確認する。 */
     @Test
     fun expandedToolbar_displaysTitleAndActionRowsWithinHeight() {

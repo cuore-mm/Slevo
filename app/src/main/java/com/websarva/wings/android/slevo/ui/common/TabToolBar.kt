@@ -262,6 +262,8 @@ private fun rememberTabTitleCardLayoutState(
 @Composable
 fun TabToolBar(
     modifier: Modifier = Modifier,
+    destinationModifier: Modifier = Modifier,
+    actionsRowModifier: Modifier = Modifier,
     actions: List<TabToolBarAction>,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
@@ -295,6 +297,7 @@ fun TabToolBar(
                     tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
                     destinationAction = destinationAction,
+                    destinationModifier = destinationModifier,
                     layoutState = layoutState,
                     titleModifier = titleModifier,
                     titleContent = titleContent,
@@ -304,6 +307,7 @@ fun TabToolBar(
                 BottomActionsRow(
                     actions = actions,
                     layoutState = layoutState,
+                    modifier = actionsRowModifier,
                 )
             }
         }
@@ -324,6 +328,7 @@ private fun TabToolBarHeader(
     @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
     destinationAction: TabDestinationAction,
+    destinationModifier: Modifier,
     layoutState: TabToolBarLayoutState,
     titleModifier: Modifier,
     titleContent: @Composable (Modifier) -> Unit,
@@ -351,7 +356,7 @@ private fun TabToolBarHeader(
 
         if (destinationAction.position == TabDestinationPosition.Start) {
             TabDestinationIconButton(
-                modifier = Modifier.fillMaxHeight(),
+                modifier = destinationModifier.fillMaxHeight(),
                 action = destinationAction,
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -366,7 +371,7 @@ private fun TabToolBarHeader(
         if (destinationAction.position == TabDestinationPosition.End) {
             Spacer(modifier = Modifier.width(8.dp))
             TabDestinationIconButton(
-                modifier = Modifier.fillMaxHeight(),
+                modifier = destinationModifier.fillMaxHeight(),
                 action = destinationAction,
             )
         }
@@ -657,6 +662,7 @@ private fun ExpandedCardAction(
 private fun BottomActionsRow(
     actions: List<TabToolBarAction>,
     layoutState: TabToolBarLayoutState,
+    modifier: Modifier = Modifier,
 ) {
     if (layoutState.clampedProgress <= 0f) {
         return
@@ -665,7 +671,7 @@ private fun BottomActionsRow(
     Spacer(modifier = Modifier.height(ActionRowSpacing))
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(ActionRowHeight)
             .graphicsLayer {

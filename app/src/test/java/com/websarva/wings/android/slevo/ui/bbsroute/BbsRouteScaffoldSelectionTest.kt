@@ -137,4 +137,21 @@ class BbsRouteScaffoldSelectionTest {
             getKey = { it },
         )
     }
+
+    /** settle済みかつ非ドラッグ中のページだけがShared Transition候補になる。 */
+    @Test
+    fun sharedTransitionCandidate_requiresSettledPageAndIdlePager() {
+        assertEquals(
+            true,
+            isSharedTransitionCandidate(page = 1, settledPage = 1, isScrollInProgress = false),
+        )
+        assertEquals(
+            false,
+            isSharedTransitionCandidate(page = 0, settledPage = 1, isScrollInProgress = false),
+        )
+        assertEquals(
+            false,
+            isSharedTransitionCandidate(page = 1, settledPage = 1, isScrollInProgress = true),
+        )
+    }
 }

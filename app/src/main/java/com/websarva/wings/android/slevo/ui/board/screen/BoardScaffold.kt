@@ -25,6 +25,9 @@ import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
+import com.websarva.wings.android.slevo.ui.common.transition.BbsControllerSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerActionsSharedBounds
+import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerSharedBounds
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -113,9 +116,14 @@ fun BoardScaffold(
         },
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
-        titleCard = { tab, uiState, actionProgress, modifier ->
+        titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier ->
             BoardTabTitleCard(
-                modifier = modifier,
+                modifier = modifier.bbsControllerSharedBounds(
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    key = BbsControllerSharedBoundsKey.Board(tab.boardUrl),
+                    enabled = isSharedTransitionCandidate,
+                ),
                 tab = tab,
                 uiState = uiState,
                 actionProgress = actionProgress,
@@ -167,6 +175,18 @@ fun BoardScaffold(
                     }
                     BoardToolBar(
                         modifier = modifier,
+                        destinationModifier = selectedThread?.let { thread ->
+                            Modifier.bbsControllerSharedBounds(
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                key = BbsControllerSharedBoundsKey.Thread(thread.id.value),
+                                enabled = true,
+                            )
+                        } ?: Modifier,
+                        actionsRowModifier = Modifier.bbsControllerActionsSharedBounds(
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        ),
                         onSortClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                         onTabListClick = openTabListSheet,
