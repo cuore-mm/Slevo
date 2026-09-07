@@ -27,8 +27,8 @@
 
 ## 5. Shared Transitionと回帰テスト
 
-- [ ] 5.1 `app/src/androidTest/`に`SharedTransitionLayout`と`AnimatedContent`を使うコントローラーShared Boundsテストを追加し、同一`Board(identity)`および同一`Thread(identity)`で開始・途中・終了boundsが変化することをテストクロックで検証する。
-- [ ] 5.2 同テストでBoard/Thread型が異なる場合、identityが異なる場合、または`enabled=false`の場合に別要素へ誤接続しないことを検証する。
+- [x] 5.1 `app/src/androidTest/`に`SharedTransitionLayout`と`AnimatedContent`を使うコントローラーShared Boundsテストを追加し、同一`Board(identity)`および同一`Thread(identity)`で開始・途中・終了boundsが変化することをテストクロックで検証する。
+- [x] 5.2 同テストでBoard/Thread型が異なる場合、identityが異なる場合、または`enabled=false`の場合に別要素へ誤接続しないことを検証する。
 - [x] 5.3 複数タイトルを構成するテストケースを追加し、settle済みタイトルだけが候補となり、隣接タイトルやドラッグ中タイトルがdestinationボタンとShared Boundsを形成しないことを検証する。
 - [ ] 5.4 `AppScaffold.kt`、`AppNavGraph.kt`、`NavigationExtensions.kt`、TabSessionStore、Coordinator、`ImageSharedTransitionKeyFactory.kt`および画像Shared Transition適用箇所に意図しない差分がないことを`git diff`で確認する。
 
