@@ -50,6 +50,6 @@
 
 - [x] 8.1 CI-hostedの`testCiUnitTest`（Run ID `34115540632`）で、新規key・候補判定・Board/Thread transition判定テストを含む全unit testが成功することを確認する。
 - [x] 8.2 CI-hostedの`assembleCi`（Run ID `34115540632`）でアプリがビルドできることを確認する。既存CIはinstrumented test sourceをコンパイルしないため、androidTestの実行確認とは分けて扱う。
-- [ ] 8.3 実機またはemulatorでBoard→Thread push、Thread→Board pop、Thread→Board replaceを展開・縮退状態で確認し、2組のCardがデフォルトoverlay上で自然に位置・サイズ変形することを記録する。
-- [ ] 8.4 実機またはemulatorでPagerドラッグ中、検索中、遷移先ボタンdisabled、既存back stackのPager同期前、5ch.net→5ch.io正規化時を確認し、誤った要素へ接続せず既存操作または通常Nav transitionへフォールバックすることを記録する。
-- [ ] 8.5 Thread画像からImageViewerを開いて戻り、既存画像Shared Transitionのkey照合、overlay順、画面遷移に視覚回帰がないことを確認する。
+- [x] 8.3 実機またはemulatorでBoard→Thread push、Thread→Board pop、Thread→Board replaceを展開・縮退状態で確認し、2組のCardがデフォルトoverlay上で自然に位置・サイズ変形することを記録する。
+- [x] 8.4 実機またはemulatorでPagerドラッグ中、検索中、遷移先ボタンdisabled、既存back stackのPager同期前、5ch.net→5ch.io正規化時を確認し、誤った要素へ接続せず既存操作または通常Nav transitionへフォールバックすることを記録する。
+- [x] 8.5 Thread画像からImageViewerを開いて戻り、既存画像Shared Transitionのkey照合、overlay順、画面遷移に視覚回帰がないことを確認する。
