@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.common.transition
 
 import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.scaleToBounds
@@ -50,7 +49,7 @@ fun Modifier.bbsControllerSharedBounds(
         sharedBounds(
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = animatedVisibilityScope,
-            resizeMode = scaleToBounds(),
+            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
         )
     }
 }
@@ -68,11 +67,22 @@ fun Modifier.bbsControllerActionsSharedBounds(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ): Modifier = with(sharedTransitionScope) {
     sharedBounds(
-        sharedContentState = rememberSharedContentState(BbsControllerSharedBoundsKey.ActionsRow),
+        sharedContentState = rememberSharedContentState(
+            BbsControllerSharedBoundsKey.ActionsRow
+        ),
         animatedVisibilityScope = animatedVisibilityScope,
-        enter = fadeIn(animationSpec = tween(BbsControllerTransitionDurationMillis)),
-        exit = fadeOut(animationSpec = tween(BbsControllerTransitionDurationMillis)),
-        boundsTransform = BoundsTransform { _, _ ->
+        enter = fadeIn(
+            animationSpec = tween(
+                durationMillis = 240,
+                delayMillis = 120,
+            ),
+        ),
+        exit = fadeOut(
+            animationSpec = tween(
+                durationMillis = 140,
+            ),
+        ),
+        boundsTransform = { _, _ ->
             tween(BbsControllerTransitionDurationMillis)
         },
         resizeMode = scaleToBounds(),
