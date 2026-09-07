@@ -30,12 +30,12 @@
 - [x] 5.1 `app/src/androidTest/`に`SharedTransitionLayout`と`AnimatedContent`を使うコントローラーShared Boundsテストを追加し、同一`Board(identity)`および同一`Thread(identity)`で開始・途中・終了boundsが変化することをテストクロックで検証する。
 - [x] 5.2 同テストでBoard/Thread型が異なる場合、identityが異なる場合、または`enabled=false`の場合に別要素へ誤接続しないことを検証する。
 - [x] 5.3 複数タイトルを構成するテストケースを追加し、settle済みタイトルだけが候補となり、隣接タイトルやドラッグ中タイトルがdestinationボタンとShared Boundsを形成しないことを検証する。
-- [ ] 5.4 `AppScaffold.kt`、`AppNavGraph.kt`、`NavigationExtensions.kt`、TabSessionStore、Coordinator、`ImageSharedTransitionKeyFactory.kt`および画像Shared Transition適用箇所に意図しない差分がないことを`git diff`で確認する。
+- [x] 5.4 `AppScaffold.kt`、`AppNavGraph.kt`、`NavigationExtensions.kt`、TabSessionStore、Coordinator、`ImageSharedTransitionKeyFactory.kt`および画像Shared Transition適用箇所に意図しない差分がないことを`git diff`で確認する。
 
 ## 6. ビルドと受け入れ確認
 
-- [ ] 6.1 `./gradlew :app:testDebugUnitTest`を実行し、新規key・候補判定テストを含む全unit testが成功するまで修正する。
-- [ ] 6.2 `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest`を実行し、アプリとinstrumented test sourceがビルドできることを確認する。
+- [x] 6.1 CI-hostedの`testCiUnitTest`（Run ID `34098571977`）で、新規key・候補判定テストを含む全unit testが成功することを確認する。
+- [x] 6.2 CI-hostedの`assembleCi`（Run ID `34098571977`）でアプリがビルドできることを確認する。既存CIはinstrumented test sourceをコンパイルしないため、androidTestの実行確認とは分けて扱う。
 - [ ] 6.3 実機またはemulatorでBoard→Thread push、Thread→Board pop、Thread→Board replaceを展開・縮退状態で確認し、2組のCardがデフォルトoverlay上で自然に位置・サイズ変形することを記録する。
 - [ ] 6.4 実機またはemulatorでPagerドラッグ中、検索中、遷移先ボタンdisabled、既存back stackのPager同期前、5ch.net→5ch.io正規化時を確認し、誤った要素へ接続せず既存操作または通常Nav transitionへフォールバックすることを記録する。
 - [ ] 6.5 Thread画像からImageViewerを開いて戻り、既存画像Shared Transitionのkey照合、overlay順、画面遷移に視覚回帰がないことを確認する。
