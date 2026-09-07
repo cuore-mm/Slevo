@@ -3,7 +3,7 @@ package com.websarva.wings.android.slevo.ui.common.transition
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.SharedTransitionScope.ResizeMode.ScaleToBounds
+import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.scaleToBounds
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
@@ -41,7 +41,7 @@ fun Modifier.bbsControllerSharedBounds(
         sharedBounds(
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = animatedVisibilityScope,
-            resizeMode = ScaleToBounds,
+            resizeMode = scaleToBounds(),
         )
     }
 }
