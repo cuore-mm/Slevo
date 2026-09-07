@@ -99,19 +99,22 @@ internal class PagerRubberBandOverscrollEffect(
     /** 境界変位をspringで0へ戻すanimationを開始する。 */
     private fun launchReturnAnimation() {
         returnAnimationJob?.cancel()
-        if (offsetState.floatValue == 0f) {
+        if (rawOffsetPx == 0f) {
             rawOffsetPx = 0f
+            offsetState.floatValue = 0f
             return
         }
 
-        val initialOffset = offsetState.floatValue
+        val initialRawOffset = rawOffsetPx
         returnAnimationJob = scope.launch {
             animate(
-                initialValue = initialOffset,
+                initialValue = initialRawOffset,
                 targetValue = 0f,
                 animationSpec = returnAnimationSpec,
             ) { value, _ ->
-                offsetState.floatValue = value
+                // 表示値と次の入力で使うraw値を同じanimationフレームで更新する。
+                rawOffsetPx = value
+                offsetState.floatValue = calculateRubberBandOffset(value, resistanceLimitPx)
             }
             rawOffsetPx = 0f
             offsetState.floatValue = 0f

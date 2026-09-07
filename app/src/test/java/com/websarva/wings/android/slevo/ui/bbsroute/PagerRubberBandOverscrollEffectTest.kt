@@ -2,10 +2,14 @@ package com.websarva.wings.android.slevo.ui.bbsroute
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,6 +78,27 @@ class PagerRubberBandOverscrollEffectTest {
         } finally {
             scope.cancel()
         }
+    }
+
+    @Test
+    fun applyToScroll_duringReturnAnimationUsesCurrentRawOffset() = runTest {
+        val effect = PagerRubberBandOverscrollEffect(
+            scope = this,
+            resistanceLimitPx = 96f,
+        )
+        effect.applyToScroll(Offset(768f, 0f), NestedScrollSource.UserInput) { Offset.Zero }
+        val initialOffset = effect.offsetPx
+
+        effect.applyToFling(Velocity.Zero) { Velocity.Zero }
+        runCurrent()
+        advanceTimeBy(100L)
+        runCurrent()
+        val offsetDuringReturn = effect.offsetPx
+
+        effect.applyToScroll(Offset(1f, 0f), NestedScrollSource.UserInput) { Offset.Zero }
+
+        assertTrue(offsetDuringReturn < initialOffset)
+        assertTrue(effect.offsetPx < initialOffset)
     }
 
     @Test
