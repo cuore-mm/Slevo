@@ -503,7 +503,8 @@ fun TabTitleCard(
                     progress = { loadProgress.coerceIn(0f, 1f) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .height(2.dp),
                     color = ProgressIndicatorDefaults.linearColor,
                     trackColor = ProgressIndicatorDefaults.linearTrackColor,
                     strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,

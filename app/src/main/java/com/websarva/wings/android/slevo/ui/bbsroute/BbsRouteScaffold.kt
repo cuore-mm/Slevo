@@ -6,16 +6,17 @@ import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.BottomAppBarScrollBehavior
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -35,7 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -490,10 +491,11 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
  * 表示対象は現在ページと前後ページに限定し、本文とタイトルのviewportで表示進行率が
  * 一致するページ距離で移動させる。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTitleCards(
     modifier: Modifier,
-    pagerState: androidx.compose.foundation.pager.PagerState,
+    pagerState: PagerState,
     tabs: List<TabInfo>,
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getKey: (TabInfo) -> Key,
@@ -506,7 +508,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
     Box(
         modifier = modifier
             .fillMaxSize()
-            .clipToBounds(),
+            .clip(MaterialTheme.shapes.largeIncreased),
     ) {
         val visiblePages = pagerTitlePageRange(
             currentPage = pagerState.currentPage,
@@ -543,7 +545,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
 private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
     page: Int,
     tab: TabInfo,
-    pagerState: androidx.compose.foundation.pager.PagerState,
+    pagerState: PagerState,
     isRtl: Boolean,
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getActionProgress: (TabInfo) -> Float,
@@ -572,14 +574,14 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
                 // 本文とタイトルviewport内の表示進行率を揃えて移動させる。
                 translationX =
                     pagerState.getOffsetDistanceInPages(page) * titlePageDistance *
-                        (if (isRtl) -1f else 1f) + titleOverscrollOffset
+                            (if (isRtl) -1f else 1f) + titleOverscrollOffset
             },
     ) {
         titleCard(
             tab,
             uiState,
             actionProgress,
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxSize(),
         )
     }
 }
@@ -626,9 +628,9 @@ internal fun calculateTitleOverscrollOffset(
  * page削除・reorder直後にPagerが一時的な範囲外indexを返した場合は空範囲を返し、先頭ページへ暗黙に戻さない。
  */
 internal fun pagerTitlePageRange(currentPage: Int, pageCount: Int): IntRange {
-    if (pageCount <= 0 || currentPage !in 0 until pageCount) return 0 until 0
+    if (pageCount <= 0 || currentPage !in 0 until pageCount) return IntRange.EMPTY
 
     return (currentPage - 1).coerceAtLeast(0)..(currentPage + 1).coerceAtMost(pageCount - 1)
 }
 
-private val PAGER_RUBBER_BAND_RESISTANCE = 48.dp
+private val PAGER_RUBBER_BAND_RESISTANCE = 64.dp
