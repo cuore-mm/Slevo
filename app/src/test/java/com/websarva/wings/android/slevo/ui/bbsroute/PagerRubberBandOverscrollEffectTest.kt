@@ -1,13 +1,14 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
+import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -82,28 +83,52 @@ class PagerRubberBandOverscrollEffectTest {
 
     @Test
     fun applyToScroll_duringReturnAnimationUsesCurrentRawOffset() = runTest {
-        val effect = PagerRubberBandOverscrollEffect(
-            scope = this,
-            resistanceLimitPx = 96f,
-        )
-        effect.applyToScroll(Offset(768f, 0f), NestedScrollSource.UserInput) { Offset.Zero }
-        val initialOffset = effect.offsetPx
+        val frameClock = ManualFrameClock()
+        val animationScope = CoroutineScope(backgroundScope.coroutineContext + frameClock)
+        try {
+            val effect = PagerRubberBandOverscrollEffect(
+                scope = animationScope,
+                resistanceLimitPx = 96f,
+            )
+            effect.applyToScroll(Offset(768f, 0f), NestedScrollSource.UserInput) { Offset.Zero }
+            val initialOffset = effect.offsetPx
 
-        effect.applyToFling(Velocity.Zero) { Velocity.Zero }
-        runCurrent()
-        advanceTimeBy(100L)
-        runCurrent()
-        val offsetDuringReturn = effect.offsetPx
+            effect.applyToFling(Velocity.Zero) { Velocity.Zero }
+            runCurrent()
+            repeat(8) {
+                frameClock.dispatchFrame()
+                runCurrent()
+            }
+            val offsetDuringReturn = effect.offsetPx
 
-        effect.applyToScroll(Offset(1f, 0f), NestedScrollSource.UserInput) { Offset.Zero }
+            effect.applyToScroll(Offset(1f, 0f), NestedScrollSource.UserInput) { Offset.Zero }
 
-        assertTrue(offsetDuringReturn < initialOffset)
-        assertTrue(effect.offsetPx < initialOffset)
+            assertTrue(offsetDuringReturn < initialOffset)
+            assertTrue(effect.offsetPx < initialOffset)
+        } finally {
+            animationScope.cancel()
+        }
     }
 
     @Test
     fun calculateRubberBandOffset_returnsZeroForInvalidLimit() {
         assertEquals(0f, calculateRubberBandOffset(rawOffsetPx = 10f, resistanceLimitPx = 0f), 0f)
         assertEquals(0f, calculateRubberBandOffset(rawOffsetPx = 10f, resistanceLimitPx = -1f), 0f)
+    }
+
+    /** アニメーションを一定間隔のframeで進めるテスト用clock。 */
+    private class ManualFrameClock : MonotonicFrameClock {
+        private val frames = Channel<Long>(Channel.UNLIMITED)
+        private var frameTimeNanos = 0L
+
+        override suspend fun <R> withFrameNanos(onFrame: (Long) -> R): R {
+            return onFrame(frames.receive())
+        }
+
+        /** 次のframeを16ms進めてanimationへ通知する。 */
+        fun dispatchFrame() {
+            frameTimeNanos += 16_000_000L
+            frames.trySend(frameTimeNanos)
+        }
     }
 }
