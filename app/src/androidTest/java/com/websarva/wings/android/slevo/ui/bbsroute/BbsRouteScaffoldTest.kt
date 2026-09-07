@@ -250,7 +250,7 @@ class BbsRouteScaffoldTest {
                 getUiState = { uiStates.getValue(it) },
                 getKey = { it.boardUrl },
                 getActionProgress = { 1f },
-                titleCard = { tab, uiState, _, _, modifier ->
+                titleCard = { tab, uiState, _, _, modifier, _ ->
                     SideEffect {
                         if (tab.boardName != uiState.boardInfo.name) {
                             mismatchedTitles += tab.boardName to uiState.boardInfo.name
@@ -303,7 +303,7 @@ class BbsRouteScaffoldTest {
                 getUiState = { uiStates.getValue(it) },
                 getKey = { it.boardUrl },
                 getActionProgress = { 1f },
-                titleCard = { tab, _, _, isCandidate, modifier ->
+                titleCard = { tab, _, _, isCandidate, modifier, _ ->
                     Box(
                         modifier
                             .fillMaxSize()

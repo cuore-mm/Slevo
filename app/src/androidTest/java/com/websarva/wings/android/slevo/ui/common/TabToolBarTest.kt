@@ -8,15 +8,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performLongClick
 import androidx.compose.ui.test.fetchSemanticsNode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
 import com.websarva.wings.android.slevo.ui.board.components.BoardTabTitleCard
 import com.websarva.wings.android.slevo.ui.board.components.BoardToolBar
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
@@ -62,9 +67,7 @@ class TabToolBarTest {
             MaterialTheme {
                 TabToolBar(
                     actions = emptyList(),
-                    onTabListClick = {},
                     onPostClick = {},
-                    tabIconContentDescriptionRes = R.string.open_tablist,
                     postIconContentDescriptionRes = R.string.post,
                     destinationAction = TabDestinationAction(
                         icon = Icons.Filled.Forum,
@@ -90,9 +93,7 @@ class TabToolBarTest {
             MaterialTheme {
                 TabToolBar(
                     actions = emptyList(),
-                    onTabListClick = {},
                     onPostClick = {},
-                    tabIconContentDescriptionRes = R.string.open_tablist,
                     postIconContentDescriptionRes = R.string.post,
                     destinationAction = TabDestinationAction(
                         icon = Icons.Filled.Forum,
@@ -120,9 +121,7 @@ class TabToolBarTest {
                 TabToolBar(
                     modifier = Modifier.testTag("tab-toolbar"),
                     actions = emptyList(),
-                    onTabListClick = {},
                     onPostClick = {},
-                    tabIconContentDescriptionRes = R.string.open_tablist,
                     postIconContentDescriptionRes = R.string.post,
                     destinationAction = TabDestinationAction(
                         icon = Icons.Filled.Forum,
@@ -140,6 +139,7 @@ class TabToolBarTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("tab-toolbar").assertHeightIsEqualTo(108.dp)
+        composeRule.onNodeWithContentDescription("タブ一覧を開く").assertDoesNotExist()
     }
 
     /** 縮退時は下段アクションを構成せず、タイトル行を56dp内へ収めることを確認する。 */
@@ -150,9 +150,7 @@ class TabToolBarTest {
                 TabToolBar(
                     modifier = Modifier.testTag("tab-toolbar"),
                     actions = emptyList(),
-                    onTabListClick = {},
                     onPostClick = {},
-                    tabIconContentDescriptionRes = R.string.open_tablist,
                     postIconContentDescriptionRes = R.string.post,
                     destinationAction = TabDestinationAction(
                         icon = Icons.Filled.Forum,
@@ -170,6 +168,7 @@ class TabToolBarTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("tab-toolbar").assertHeightIsEqualTo(56.dp)
+        composeRule.onNodeWithContentDescription("タブ一覧を開く").assertDoesNotExist()
     }
 
     /** Boardのタイトルカードと画面種別ボタンが同じタイトル行高になることを確認する。 */
@@ -193,8 +192,8 @@ class TabToolBarTest {
                 BoardToolBar(
                     onSortClick = {},
                     onPostClick = {},
-                    onTabListClick = {},
                     onSearchClick = {},
+                    onMoreClick = {},
                     canOpenThread = true,
                     onOpenThreadClick = {},
                     titleContent = { modifier ->
@@ -204,6 +203,7 @@ class TabToolBarTest {
                             uiState = uiState,
                             actionProgress = 1f,
                             onTitleClick = {},
+                            onTitleLongClick = {},
                             onBookmarkClick = {},
                             onRefreshClick = {},
                         )
@@ -225,5 +225,40 @@ class TabToolBarTest {
             .height
 
         assertEquals(cardHeight, buttonHeight, 0.5f)
+    }
+
+    /** タイトルカード本体のクリック種別と子アクションの独立性を検証する。 */
+    @Test
+    fun titleCard_clickAndLongClickUseSeparateCallbacks() {
+        var titleClickCount = 0
+        var titleLongClickCount = 0
+        var bookmarkClickCount = 0
+        var refreshClickCount = 0
+
+        composeRule.setContent {
+            MaterialTheme {
+                TabTitleCard(
+                    modifier = Modifier.testTag("title-card"),
+                    title = "タイトル",
+                    bookmarkState = BookmarkStatusState(),
+                    onTitleClick = { titleClickCount++ },
+                    onTitleLongClick = { titleLongClickCount++ },
+                    onBookmarkClick = { bookmarkClickCount++ },
+                    onRefreshClick = { refreshClickCount++ },
+                    titleStyle = MaterialTheme.typography.titleSmall,
+                    titleTextAlign = TextAlign.Start,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("title-card").performClick()
+        composeRule.onNodeWithTag("title-card").performLongClick()
+        composeRule.onNodeWithContentDescription("ブックマーク").performClick()
+        composeRule.onNodeWithContentDescription("更新").performClick()
+
+        assertEquals(1, titleClickCount)
+        assertEquals(1, titleLongClickCount)
+        assertEquals(1, bookmarkClickCount)
+        assertEquals(1, refreshClickCount)
     }
 }

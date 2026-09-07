@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.CropSquare
 import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -38,6 +38,7 @@ fun BoardTabTitleCard(
     actionProgress: Float,
     modifier: Modifier = Modifier,
     onTitleClick: (BoardTabInfo) -> Unit,
+    onTitleLongClick: (BoardTabInfo) -> Unit,
     onBookmarkClick: (BoardTabInfo) -> Unit,
     onRefreshClick: (BoardTabInfo) -> Unit,
 ) {
@@ -46,6 +47,7 @@ fun BoardTabTitleCard(
         title = uiState.boardInfo.name,
         bookmarkState = uiState.bookmarkStatusState,
         onTitleClick = { onTitleClick(tab) },
+        onTitleLongClick = { onTitleLongClick(tab) },
         onBookmarkClick = { onBookmarkClick(tab) },
         onRefreshClick = { onRefreshClick(tab) },
         titleStyle = MaterialTheme.typography.titleMedium,
@@ -71,8 +73,8 @@ fun BoardToolBar(
     actionsRowModifier: Modifier = Modifier,
     onSortClick: () -> Unit,
     onPostClick: () -> Unit,
-    onTabListClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onMoreClick: () -> Unit,
     actionsProgress: Float = 1f,
     canOpenThread: Boolean,
     onOpenThreadClick: () -> Unit,
@@ -91,14 +93,14 @@ fun BoardToolBar(
             onClick = onSearchClick,
         ),
         TabToolBarAction(
-            icon = Icons.Outlined.CropSquare,
-            contentDescriptionRes = R.string.open_tablist,
-            onClick = onTabListClick,
-        ),
-        TabToolBarAction(
             icon = Icons.Outlined.Create,
             contentDescriptionRes = R.string.create_thread,
             onClick = onPostClick,
+        ),
+        TabToolBarAction(
+            icon = Icons.Outlined.Menu,
+            contentDescriptionRes = R.string.other_options,
+            onClick = onMoreClick,
         ),
     )
 
@@ -117,9 +119,7 @@ fun BoardToolBar(
         destinationModifier = destinationModifier,
         actionsRowModifier = actionsRowModifier,
         actions = actions,
-        onTabListClick = onTabListClick,
         onPostClick = onPostClick,
-        tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.create_thread,
         destinationAction = destinationAction,
         actionsProgress = actionsProgress,
@@ -147,8 +147,8 @@ fun BoardToolBarPreview() {
     BoardToolBar(
         onSortClick = {},
         onPostClick = {},
-        onTabListClick = {},
         onSearchClick = {},
+        onMoreClick = {},
         canOpenThread = true,
         onOpenThreadClick = {},
         titleContent = { modifier ->
@@ -158,6 +158,7 @@ fun BoardToolBarPreview() {
                 uiState = uiState,
                 actionProgress = 1f,
                 onTitleClick = {},
+                onTitleLongClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
             )

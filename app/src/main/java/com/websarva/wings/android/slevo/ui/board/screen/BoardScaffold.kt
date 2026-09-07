@@ -21,6 +21,7 @@ import com.websarva.wings.android.slevo.ui.bbsroute.BbsRouteScaffold
 import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.board.components.BoardTabTitleCard
 import com.websarva.wings.android.slevo.ui.board.components.BoardToolBar
+import com.websarva.wings.android.slevo.ui.board.dialog.BoardToolbarOverflowMenu
 import com.websarva.wings.android.slevo.ui.common.PostDialog
 import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
@@ -116,7 +117,7 @@ fun BoardScaffold(
         },
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
-        titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier ->
+        titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier, openTabListSheet ->
             BoardTabTitleCard(
                 modifier = modifier.bbsControllerSharedBounds(
                     sharedTransitionScope = sharedTransitionScope,
@@ -127,7 +128,10 @@ fun BoardScaffold(
                 tab = tab,
                 uiState = uiState,
                 actionProgress = actionProgress,
-                onTitleClick = { selectedTab ->
+                onTitleClick = {
+                    openTabListSheet()
+                },
+                onTitleLongClick = { selectedTab ->
                     routeViewModel.openBoardInfoSheet(selectedTab.boardUrl)
                 },
                 onBookmarkClick = { selectedTab ->
@@ -189,8 +193,8 @@ fun BoardScaffold(
                         ),
                         onSortClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
-                        onTabListClick = openTabListSheet,
                         onSearchClick = { routeViewModel.setSearchMode(tab.boardUrl, true) },
+                        onMoreClick = { routeViewModel.openMoreSheet(tab.boardUrl) },
                         actionsProgress = if (uiState.isSearchActive) 0f else actionProgress,
                         canOpenThread = selectedThread != null,
                         onOpenThreadClick = openSelectedThread,
@@ -292,6 +296,28 @@ fun BoardScaffold(
                     isSortAscending = uiState.isSortAscending,
                     onSortKeySelected = { routeViewModel.setSortKey(tab.boardUrl, it) },
                     onToggleSortOrder = { routeViewModel.toggleSortOrder(tab.boardUrl) },
+                )
+            }
+
+            if (uiState.showMoreSheet) {
+                BoardToolbarOverflowMenu(
+                    onDismissRequest = { routeViewModel.closeMoreSheet(tab.boardUrl) },
+                    onBookmarkClick = {
+                        routeViewModel.closeMoreSheet(tab.boardUrl)
+                        navController.navigate(AppRoute.BookmarkList)
+                    },
+                    onBoardListClick = {
+                        routeViewModel.closeMoreSheet(tab.boardUrl)
+                        navController.navigate(AppRoute.ServiceList)
+                    },
+                    onHistoryClick = {
+                        routeViewModel.closeMoreSheet(tab.boardUrl)
+                        navController.navigate(AppRoute.HistoryList)
+                    },
+                    onSettingsClick = {
+                        routeViewModel.closeMoreSheet(tab.boardUrl)
+                        navController.navigate(AppRoute.SettingsHome)
+                    },
                 )
             }
 

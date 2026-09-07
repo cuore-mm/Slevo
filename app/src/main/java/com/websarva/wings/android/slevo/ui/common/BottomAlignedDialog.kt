@@ -27,8 +27,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import com.websarva.wings.android.slevo.ui.thread.dialog.ThreadToolbarMenuContent
 
+/**
+ * コンテンツを画面下部に配置したモーダルダイアログを表示する。
+ *
+ * ダイアログ外のタップでdismissし、システムバーとIMEを避けてコンテンツを配置する。
+ */
 @Composable
 fun BottomAlignedDialog(
     onDismiss: () -> Unit,
@@ -86,7 +90,7 @@ fun BottomAlignedDialog(
 @Composable
 fun BottomAlignedDialogPreview() {
     BottomAlignedDialog(onDismiss = {}) {
-        ThreadToolbarMenuContent(
+        BbsToolbarMenuContent(
             onBookmarkClick = {},
             onBoardListClick = {},
             onHistoryClick = {},
@@ -95,5 +99,3 @@ fun BottomAlignedDialogPreview() {
         )
     }
 }
-
-

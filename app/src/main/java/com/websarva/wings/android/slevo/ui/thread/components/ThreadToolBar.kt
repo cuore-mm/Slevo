@@ -5,7 +5,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.CropSquare
 import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Pause
@@ -44,6 +43,7 @@ fun ThreadTabTitleCard(
     actionProgress: Float,
     modifier: Modifier = Modifier,
     onTitleClick: (ThreadTabInfo) -> Unit,
+    onTitleLongClick: (ThreadTabInfo) -> Unit,
     onBookmarkClick: (ThreadTabInfo) -> Unit,
     onRefreshClick: (ThreadTabInfo) -> Unit,
 ) {
@@ -52,6 +52,7 @@ fun ThreadTabTitleCard(
         title = uiState.threadInfo.title,
         bookmarkState = uiState.bookmarkStatusState,
         onTitleClick = { onTitleClick(tab) },
+        onTitleLongClick = { onTitleLongClick(tab) },
         onBookmarkClick = { onBookmarkClick(tab) },
         onRefreshClick = { onRefreshClick(tab) },
         titleStyle = MaterialTheme.typography.titleSmall,
@@ -79,7 +80,6 @@ fun ThreadToolBar(
     isTreeSort: Boolean,
     onSortClick: () -> Unit,
     onPostClick: () -> Unit,
-    onTabListClick: () -> Unit,
     onSearchClick: () -> Unit,
     onMoreClick: () -> Unit,
     onAutoScrollClick: () -> Unit,
@@ -118,11 +118,6 @@ fun ThreadToolBar(
             onClick = onSearchClick,
         ),
         TabToolBarAction(
-            icon = Icons.Outlined.CropSquare,
-            contentDescriptionRes = R.string.open_tablist,
-            onClick = onTabListClick,
-        ),
-        TabToolBarAction(
             icon = Icons.Outlined.Create,
             contentDescriptionRes = R.string.post,
             onClick = onPostClick,
@@ -144,9 +139,7 @@ fun ThreadToolBar(
         destinationModifier = destinationModifier,
         actionsRowModifier = actionsRowModifier,
         actions = actions,
-        onTabListClick = onTabListClick,
         onPostClick = onPostClick,
-        tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.post,
         destinationAction = destinationAction,
         actionsProgress = actionsProgress,
@@ -174,7 +167,6 @@ fun ThreadToolBarPreview() {
         isTreeSort = false,
         onSortClick = {},
         onPostClick = {},
-        onTabListClick = {},
         onSearchClick = {},
         onMoreClick = {},
         onAutoScrollClick = {},
@@ -187,6 +179,7 @@ fun ThreadToolBarPreview() {
                 uiState = uiState,
                 actionProgress = 1f,
                 onTitleClick = {},
+                onTitleLongClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
             )
@@ -214,7 +207,6 @@ fun ThreadToolBarCollapsedPreview() {
         isTreeSort = false,
         onSortClick = {},
         onPostClick = {},
-        onTabListClick = {},
         onSearchClick = {},
         onMoreClick = {},
         onAutoScrollClick = {},
@@ -228,6 +220,7 @@ fun ThreadToolBarCollapsedPreview() {
                 uiState = uiState,
                 actionProgress = 0f,
                 onTitleClick = {},
+                onTitleLongClick = {},
                 onBookmarkClick = {},
                 onRefreshClick = {},
             )

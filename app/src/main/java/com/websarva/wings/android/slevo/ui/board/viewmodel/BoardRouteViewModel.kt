@@ -187,6 +187,16 @@ class BoardRouteViewModel @Inject constructor(
         updateBoardSessionState(tabKey) { it.copy(showBoardInfoSheet = false) }
     }
 
+    /** その他メニューを開く。 */
+    fun openMoreSheet(tabKey: String) {
+        updateBoardSessionState(tabKey) { it.copy(showMoreSheet = true) }
+    }
+
+    /** その他メニューを閉じる。 */
+    fun closeMoreSheet(tabKey: String) {
+        updateBoardSessionState(tabKey) { it.copy(showMoreSheet = false) }
+    }
+
     /** スクロールリセットを消費する。 */
     fun consumeResetScroll(tabKey: String) {
         updateBoardSessionState(tabKey) { it.copy(resetScroll = false) }
@@ -292,6 +302,7 @@ class BoardRouteViewModel @Inject constructor(
                 threadInfoSheetTarget = session.threadInfoSheetTarget,
                 serviceName = tab.serviceName.ifBlank { parseServiceName(tab.boardUrl) },
                 showBoardInfoSheet = session.showBoardInfoSheet,
+                showMoreSheet = session.showMoreSheet,
                 currentSortKey = session.currentSortKey,
                 isSortAscending = session.isSortAscending,
                 isSearchActive = session.isSearchActive,
