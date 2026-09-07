@@ -263,6 +263,7 @@ private fun rememberTabTitleCardLayoutState(
 fun TabToolBar(
     modifier: Modifier = Modifier,
     destinationModifier: Modifier = Modifier,
+    actionsRowModifier: Modifier = Modifier,
     actions: List<TabToolBarAction>,
     onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
@@ -306,6 +307,7 @@ fun TabToolBar(
                 BottomActionsRow(
                     actions = actions,
                     layoutState = layoutState,
+                    modifier = actionsRowModifier,
                 )
             }
         }
@@ -660,6 +662,7 @@ private fun ExpandedCardAction(
 private fun BottomActionsRow(
     actions: List<TabToolBarAction>,
     layoutState: TabToolBarLayoutState,
+    modifier: Modifier = Modifier,
 ) {
     if (layoutState.clampedProgress <= 0f) {
         return
@@ -668,7 +671,7 @@ private fun BottomActionsRow(
     Spacer(modifier = Modifier.height(ActionRowSpacing))
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(ActionRowHeight)
             .graphicsLayer {

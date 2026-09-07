@@ -25,17 +25,31 @@
 - [x] 4.4 `ThreadScaffold.kt`で、`selectedBoard`を解決できて`canOpenBoard`がtrueのときだけBoardボタンのroot Modifierへ`Board(selectedBoard.boardUrl)`を適用し、`ThreadToolBar`へ渡す。既存の`openSelectedBoard`、route正規化、登録・選択、pop/replace処理を変更しない。
 - [x] 4.5 Board/Thread両側のModifier順を比較し、Shared Boundsが`TabTitleCard`と`TabDestinationIconButton`のroot `Card`だけに付き、内部Text、Icon、bookmark、refresh、progress、下段アクションには付いていないことを差分で確認する。
 
-## 5. Shared Transitionと回帰テスト
+## 5. 下段ツール群のShared Bounds
 
-- [x] 5.1 `app/src/androidTest/`に`SharedTransitionLayout`と`AnimatedContent`を使うコントローラーShared Boundsテストを追加し、同一`Board(identity)`および同一`Thread(identity)`で開始・途中・終了boundsが変化することをテストクロックで検証する。
-- [x] 5.2 同テストでBoard/Thread型が異なる場合、identityが異なる場合、または`enabled=false`の場合に別要素へ誤接続しないことを検証する。
-- [x] 5.3 複数タイトルを構成するテストケースを追加し、settle済みタイトルだけが候補となり、隣接タイトルやドラッグ中タイトルがdestinationボタンとShared Boundsを形成しないことを検証する。
-- [x] 5.4 `AppScaffold.kt`、`AppNavGraph.kt`、`NavigationExtensions.kt`、TabSessionStore、Coordinator、`ImageSharedTransitionKeyFactory.kt`および画像Shared Transition適用箇所に意図しない差分がないことを`git diff`で確認する。
+- [x] 5.5 `BbsControllerSharedBoundsKey`へ既存Board/Thread keyと衝突しない`ActionsRow` keyを追加し、Row専用helperへ300ms tweenのfadeIn/fadeOutとbounds transform、`scaleToBounds()`を定義する。既存タイトル・destinationボタン用helperの挙動が変わらないことを確認する。
+- [x] 5.6 `TabToolBar.kt`の`TabToolBar`、`BoardToolBar.kt`、`ThreadToolBar.kt`へ`actionsRowModifier`を伝播し、`BottomActionsRow`のroot Rowへ適用する。個別アクションbuttonへmodifierを付けず、`actionsProgress <= 0f`の早期returnを維持する。
+- [x] 5.7 `BoardScaffold.kt`と`ThreadScaffold.kt`から既存scopeを使ってRow用Modifierだけを注入し、検索時・完全縮退時・Pagerドラッグ時に既存挙動を変更しないことを確認する。
+- [x] 5.8 `TabToolBarTest.kt`とShared BoundsのComposeテストを更新し、Board/ThreadのRow全体が同一`ActionsRow` keyで照合され、個別アイコンが独立した共有対象にならないことを検証する。
 
-## 6. ビルドと受け入れ確認
+## 6. Board↔Thread Navigationのslide-only
 
-- [x] 6.1 CI-hostedの`testCiUnitTest`（Run ID `34098571977`）で、新規key・候補判定テストを含む全unit testが成功することを確認する。
-- [x] 6.2 CI-hostedの`assembleCi`（Run ID `34098571977`）でアプリがビルドできることを確認する。既存CIはinstrumented test sourceをコンパイルしないため、androidTestの実行確認とは分けて扱う。
-- [ ] 6.3 実機またはemulatorでBoard→Thread push、Thread→Board pop、Thread→Board replaceを展開・縮退状態で確認し、2組のCardがデフォルトoverlay上で自然に位置・サイズ変形することを記録する。
-- [ ] 6.4 実機またはemulatorでPagerドラッグ中、検索中、遷移先ボタンdisabled、既存back stackのPager同期前、5ch.net→5ch.io正規化時を確認し、誤った要素へ接続せず既存操作または通常Nav transitionへフォールバックすることを記録する。
-- [ ] 6.5 Thread画像からImageViewerを開いて戻り、既存画像Shared Transitionのkey照合、overlay順、画面遷移に視覚回帰がないことを確認する。
+- [x] 6.1 `TransitionSpecs.kt`へ既存300msと同じ方向のslide-only enter/exit/pop transitionを追加し、fadeを含めないことを確認する。
+- [x] 6.2 `AppNavGraph.kt`のBoard/Thread各enter、exit、popEnter、popExitへBoard↔Thread限定のslide-only分岐を追加する。Threadの既存ImageViewer分岐を先に評価し、Board/Thread以外のdestination分岐を変更しない。
+- [x] 6.3 Navigation transition判定テストまたはテスト可能なpure helperを追加し、Board→Thread push、Thread→Board pop、Thread→Board replaceの方向と300msを確認する。Navigation操作、route、TabSessionStoreは変更しない。
+- [x] 6.4 `TabToolBarTest.kt`およびShared Boundsテストで、slide-only Navigation中も既存タイトルカード↔destinationボタンのShared BoundsとRowのクロスフェードが併存することを確認する。
+
+## 7. 既存Shared Transitionと回帰テスト
+
+- [x] 7.1 `app/src/androidTest/`に`SharedTransitionLayout`と`AnimatedContent`を使うコントローラーShared Boundsテストを追加し、同一`Board(identity)`および同一`Thread(identity)`で開始・途中・終了boundsが変化することをテストクロックで検証する。
+- [x] 7.2 同テストでBoard/Thread型が異なる場合、identityが異なる場合、または`enabled=false`の場合に別要素へ誤接続しないことを検証する。
+- [x] 7.3 複数タイトルを構成するテストケースを追加し、settle済みタイトルだけが候補となり、隣接タイトルやドラッグ中タイトルがdestinationボタンとShared Boundsを形成しないことを検証する。
+- [x] 7.4 `AppScaffold.kt`、`AppNavGraph.kt`、`NavigationExtensions.kt`、TabSessionStore、Coordinator、`ImageSharedTransitionKeyFactory.kt`および画像Shared Transition適用箇所に意図しない差分がないことを`git diff`で確認する。
+
+## 8. ビルドと受け入れ確認
+
+- [x] 8.1 CI-hostedの`testCiUnitTest`（Run ID `34098571977`）で、新規key・候補判定テストを含む全unit testが成功することを確認する。
+- [x] 8.2 CI-hostedの`assembleCi`（Run ID `34098571977`）でアプリがビルドできることを確認する。既存CIはinstrumented test sourceをコンパイルしないため、androidTestの実行確認とは分けて扱う。
+- [ ] 8.3 実機またはemulatorでBoard→Thread push、Thread→Board pop、Thread→Board replaceを展開・縮退状態で確認し、2組のCardがデフォルトoverlay上で自然に位置・サイズ変形することを記録する。
+- [ ] 8.4 実機またはemulatorでPagerドラッグ中、検索中、遷移先ボタンdisabled、既存back stackのPager同期前、5ch.net→5ch.io正規化時を確認し、誤った要素へ接続せず既存操作または通常Nav transitionへフォールバックすることを記録する。
+- [ ] 8.5 Thread画像からImageViewerを開いて戻り、既存画像Shared Transitionのkey照合、overlay順、画面遷移に視覚回帰がないことを確認する。

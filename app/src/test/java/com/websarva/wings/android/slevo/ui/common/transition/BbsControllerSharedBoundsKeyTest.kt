@@ -34,4 +34,17 @@ class BbsControllerSharedBoundsKeyTest {
             BbsControllerSharedBoundsKey.Thread("thread-b"),
         )
     }
+
+    /** 下段アクション行はBoard/Threadのidentityとは独立した固定共有対象である。 */
+    @Test
+    fun actionsRowKey_isStableAndDistinct() {
+        assertEquals(
+            BbsControllerSharedBoundsKey.ActionsRow,
+            BbsControllerSharedBoundsKey.ActionsRow,
+        )
+        assertNotEquals(
+            BbsControllerSharedBoundsKey.ActionsRow,
+            BbsControllerSharedBoundsKey.Board("actions"),
+        )
+    }
 }

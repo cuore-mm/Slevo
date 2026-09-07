@@ -19,7 +19,7 @@
 - **AND** 既存の通常画面遷移を継続する
 
 ### Requirement: Shared Transitionを画面種別切替の確定要素に限定する
-システムはBoard/Thread画面種別切替のShared Transition対象を、Pagerがsettleして横ドラッグされていないタイトルカードと、解決済み遷移先を持つ画面種別ボタンに限定しなければならないMUST。同種タブPagerのドラッグ、検索表示、下部コントローラーの展開・縮退、および既存の状態管理をShared Transitionのために変更してはならないMUST NOT。
+システムはBoard/Thread画面種別切替のShared Transition対象を、Pagerがsettleして横ドラッグされていないタイトルカード、解決済み遷移先を持つ画面種別ボタン、および現在の下段ツール群を表す`BottomActionsRow`全体に限定しなければならないMUST。同種タブPagerのドラッグ、検索表示、下部コントローラーの展開・縮退の状態管理をShared Transitionのために変更してはならないMUST NOT。下段ツール群のShared Boundsは個別アイコンを対応付けず、Board/Threadの行全体を共通keyで接続しなければならないMUST。
 
 #### Scenario: 同種タブPagerをドラッグする
 - **WHEN** ユーザーがBoardまたはThreadの下部コントローラーを横ドラッグして同種タブを移動する
@@ -35,11 +35,16 @@
 - **THEN** システムは既存の検索状態と展開・縮退状態の管理を変更せず、現在表示されている対象要素だけでShared Boundsの照合を行う
 
 ### Requirement: 既存Shared TransitionとNavigationを維持する
-システムはBoard/ThreadコントローラーのShared Boundsを既存の共通Shared Transition領域内で実行しなければならないMUST。BoardとThreadを別navigation destinationとして維持し、既存のpush、pop、replace、およびImageViewerのShared Transitionの照合・描画設定を変更してはならないMUST NOT。
+システムはBoard/ThreadコントローラーのShared Boundsを既存の共通Shared Transition領域内で実行しなければならないMUST。BoardとThreadを別navigation destinationとして維持し、既存のpush、pop、replaceを変更してはならないMUST。Board↔Thread間のNavigationは既存の方向と時間を維持したslide-onlyとし、それ以外のdestination間NavigationおよびImageViewerのShared Transitionの照合・描画設定を変更してはならないMUST NOT。
 
 #### Scenario: BoardとThreadを切り替える
 - **WHEN** 下部コントローラーからBoard画面とThread画面を切り替える
-- **THEN** システムは既存のrouteとback stack操作を実行しながら、対応する下部コントローラー要素のShared Boundsを実行する
+- **THEN** システムは既存のrouteとback stack操作を実行しながら、画面全体ではslide-onlyのNavigationを実行する
+- **AND** 対応するタイトルカード、画面種別ボタン、および下段ツール群のShared Boundsを実行する
+
+#### Scenario: Board/Thread以外のdestinationへ遷移する
+- **WHEN** BoardまたはThreadからImageViewerを含むBoard/Thread以外のdestinationへ遷移する
+- **THEN** システムはBoard↔Thread専用のslide-onlyを適用せず、既存のdestination別Navigation transitionを使用する
 
 #### Scenario: ThreadからImageViewerを開いて戻る
 - **WHEN** ユーザーがThread画面の画像からImageViewerを開き、その後Thread画面へ戻る

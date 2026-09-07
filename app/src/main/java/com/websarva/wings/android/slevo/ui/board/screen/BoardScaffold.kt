@@ -26,6 +26,7 @@ import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.transition.BbsControllerSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerActionsSharedBounds
 import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerSharedBounds
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
@@ -182,6 +183,10 @@ fun BoardScaffold(
                                 enabled = true,
                             )
                         } ?: Modifier,
+                        actionsRowModifier = Modifier.bbsControllerActionsSharedBounds(
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        ),
                         onSortClick = { routeViewModel.openSortBottomSheet(tab.boardUrl) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                         onTabListClick = openTabListSheet,

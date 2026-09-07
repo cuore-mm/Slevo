@@ -73,6 +73,30 @@ class BbsControllerSharedBoundsTest {
         assertTrue(matchReports.any { it })
     }
 
+    /** Board/Threadで同じ固定ActionsRow keyを使う行全体がShared Boundsへ接続される。 */
+    @Test
+    fun actionsRowKey_isMatchedDuringAnimatedContentTransition() {
+        val matchReports = mutableListOf<Boolean>()
+        lateinit var showLargeRow: () -> Unit
+        composeRule.mainClock.autoAdvance = false
+        composeRule.setContent {
+            SharedBoundsHarness(
+                sourceKey = BbsControllerSharedBoundsKey.ActionsRow,
+                targetKey = BbsControllerSharedBoundsKey.ActionsRow,
+                useActionsRowModifier = true,
+                onTargetRequested = { showLargeRow = it },
+                onMatchReported = { matchReports += it },
+            )
+        }
+
+        composeRule.mainClock.advanceTimeBy(100)
+        composeRule.runOnIdle { showLargeRow() }
+        composeRule.mainClock.advanceTimeBy(150)
+        composeRule.runOnIdle { }
+
+        assertTrue(matchReports.any { it })
+    }
+
     /** 異なる種別・identity・無効状態ではShared Boundsのmatchが成立しない。 */
     @Test
     fun mismatchedOrDisabledKey_doesNotMatch() {
@@ -129,6 +153,7 @@ private fun SharedBoundsHarness(
     sourceKey: BbsControllerSharedBoundsKey,
     targetKey: BbsControllerSharedBoundsKey,
     enabled: Boolean = true,
+    useActionsRowModifier: Boolean = false,
     onTargetRequested: (() -> Unit) -> Unit,
     onMatchReported: (Boolean) -> Unit,
 ) {
@@ -143,15 +168,23 @@ private fun SharedBoundsHarness(
             val key = if (targetVisible) targetKey else sourceKey
             val sharedState = with(sharedScope) { rememberSharedContentState(key) }
             SideEffect { onMatchReported(sharedState.isMatchFound) }
+            val sharedModifier = if (useActionsRowModifier) {
+                Modifier.bbsControllerActionsSharedBounds(
+                    sharedTransitionScope = sharedScope,
+                    animatedVisibilityScope = this,
+                )
+            } else {
+                Modifier.bbsControllerSharedBounds(
+                    sharedTransitionScope = sharedScope,
+                    animatedVisibilityScope = this,
+                    key = key,
+                    enabled = enabled,
+                )
+            }
             Box(
                 modifier = Modifier
                     .size(if (targetVisible) 160.dp else 64.dp)
-                    .bbsControllerSharedBounds(
-                        sharedTransitionScope = sharedScope,
-                        animatedVisibilityScope = this,
-                        key = key,
-                        enabled = enabled,
-                    ),
+                    .then(sharedModifier),
             )
         }
     }

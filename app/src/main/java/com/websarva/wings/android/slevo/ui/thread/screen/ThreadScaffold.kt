@@ -39,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.transition.BbsControllerSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerActionsSharedBounds
 import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerSharedBounds
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
@@ -222,6 +223,10 @@ fun ThreadScaffold(
                                 enabled = true,
                             )
                         } ?: Modifier,
+                        actionsRowModifier = Modifier.bbsControllerActionsSharedBounds(
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        ),
                         uiState = uiState,
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { routeViewModel.toggleSortType(tab.id.value) },

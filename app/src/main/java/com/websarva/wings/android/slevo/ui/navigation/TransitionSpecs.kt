@@ -8,7 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 
-private const val DefaultAnimDuration = 300
+internal const val DefaultAnimDuration = 300
 
 // --- 通常画面用トランジション ---
 fun defaultEnterTransition(): EnterTransition =
@@ -34,3 +34,50 @@ fun defaultPopExitTransition(): ExitTransition =
         targetOffsetX = { fullWidth -> fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeOut(animationSpec = tween(DefaultAnimDuration))
+
+/** Board/Thread切替用にfadeを含めず右から入るtransitionを返す。 */
+fun boardThreadEnterTransition(): EnterTransition =
+    slideInHorizontally(
+        initialOffsetX = { fullWidth -> fullWidth },
+        animationSpec = tween(DefaultAnimDuration)
+    )
+
+/** Board/Thread切替用にfadeを含めず左へ抜けるtransitionを返す。 */
+fun boardThreadExitTransition(): ExitTransition =
+    slideOutHorizontally(
+        targetOffsetX = { fullWidth -> -fullWidth },
+        animationSpec = tween(DefaultAnimDuration)
+    )
+
+/** Board/Thread切替のpop用にfadeを含めず左から入るtransitionを返す。 */
+fun boardThreadPopEnterTransition(): EnterTransition =
+    slideInHorizontally(
+        initialOffsetX = { fullWidth -> -fullWidth },
+        animationSpec = tween(DefaultAnimDuration)
+    )
+
+/** Board/Thread切替のpop用にfadeを含めず右へ抜けるtransitionを返す。 */
+fun boardThreadPopExitTransition(): ExitTransition =
+    slideOutHorizontally(
+        targetOffsetX = { fullWidth -> fullWidth },
+        animationSpec = tween(DefaultAnimDuration)
+    )
+
+/** 2つのNav routeがBoardとThreadの組み合わせかを判定する。 */
+fun isBoardThreadTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    fun String?.isRouteNamed(routeName: String): Boolean {
+        val routeNamePart = this
+            ?.substringAfterLast('.')
+            ?.substringBefore('/')
+            ?.substringBefore('?')
+        return routeNamePart == routeName
+    }
+
+    return (initialRoute.isRouteNamed(AppRoute.RouteName.BOARD) &&
+            targetRoute.isRouteNamed(AppRoute.RouteName.THREAD)) ||
+            (initialRoute.isRouteNamed(AppRoute.RouteName.THREAD) &&
+                    targetRoute.isRouteNamed(AppRoute.RouteName.BOARD))
+}

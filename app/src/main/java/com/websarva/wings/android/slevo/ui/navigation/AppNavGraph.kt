@@ -123,10 +123,50 @@ fun AppNavGraph(
         )
         //スレッド一覧
         composable<AppRoute.Board>(
-            enterTransition = { defaultEnterTransition() },
-            exitTransition = { defaultExitTransition() },
-            popEnterTransition = { defaultPopEnterTransition() },
-            popExitTransition = { defaultPopExitTransition() }
+            enterTransition = {
+                if (isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    boardThreadEnterTransition()
+                } else {
+                    defaultEnterTransition()
+                }
+            },
+            exitTransition = {
+                if (isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    boardThreadExitTransition()
+                } else {
+                    defaultExitTransition()
+                }
+            },
+            popEnterTransition = {
+                if (isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    boardThreadPopEnterTransition()
+                } else {
+                    defaultPopEnterTransition()
+                }
+            },
+            popExitTransition = {
+                if (isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    boardThreadPopExitTransition()
+                } else {
+                    defaultPopExitTransition()
+                }
+            }
         ) { backStackEntry ->
             val boardRoute: AppRoute.Board = backStackEntry.toRoute()
             BoardScaffold(
@@ -140,32 +180,44 @@ fun AppNavGraph(
         //スレッド画面
         composable<AppRoute.Thread>(
             enterTransition = {
-                if (initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
-                    null
-                } else {
-                    defaultEnterTransition()
+                when {
+                    initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> boardThreadEnterTransition()
+                    else -> defaultEnterTransition()
                 }
             },
             exitTransition = {
                 // ImageViewer へ遷移するときは Nav アニメなし
-                if (targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
-                    null
-                } else {
-                    defaultExitTransition()
+                when {
+                    targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> boardThreadExitTransition()
+                    else -> defaultExitTransition()
                 }
             },
             popEnterTransition = {
-                if (initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
-                    null
-                } else {
-                    defaultPopEnterTransition()
+                when {
+                    initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> boardThreadPopEnterTransition()
+                    else -> defaultPopEnterTransition()
                 }
             },
             popExitTransition = {
-                if (targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER)) {
-                    null
-                } else {
-                    defaultPopExitTransition()
+                when {
+                    targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isBoardThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> boardThreadPopExitTransition()
+                    else -> defaultPopExitTransition()
                 }
             }
         ) { backStackEntry ->

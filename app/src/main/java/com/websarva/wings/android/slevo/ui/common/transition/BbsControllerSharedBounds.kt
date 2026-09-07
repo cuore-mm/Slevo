@@ -1,11 +1,17 @@
 package com.websarva.wings.android.slevo.ui.common.transition
 
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.scaleToBounds
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+
+const val BbsControllerTransitionDurationMillis = 300
 
 /**
  * Board/Thread下部コントローラーで共有する対象のidentityを表す。
@@ -19,6 +25,9 @@ sealed interface BbsControllerSharedBoundsKey {
 
     /** スレッドタブを表す共有identity。 */
     data class Thread(val identity: String) : BbsControllerSharedBoundsKey
+
+    /** 下段アクション行全体を表す共有identity。 */
+    data object ActionsRow : BbsControllerSharedBoundsKey
 }
 
 /**
@@ -44,4 +53,28 @@ fun Modifier.bbsControllerSharedBounds(
             resizeMode = scaleToBounds(),
         )
     }
+}
+
+/**
+ * Board/Thread下部コントローラーのアクション行全体へShared Boundsを追加する。
+ *
+ * BoardとThreadで異なるアクション内容を行単位でクロスフェードし、タイトルや画面種別
+ * ボタンとは別の固定keyで標準overlay上へ配置する。
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun Modifier.bbsControllerActionsSharedBounds(
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+): Modifier = with(sharedTransitionScope) {
+    sharedBounds(
+        sharedContentState = rememberSharedContentState(BbsControllerSharedBoundsKey.ActionsRow),
+        animatedVisibilityScope = animatedVisibilityScope,
+        enter = fadeIn(animationSpec = tween(BbsControllerTransitionDurationMillis)),
+        exit = fadeOut(animationSpec = tween(BbsControllerTransitionDurationMillis)),
+        boundsTransform = BoundsTransform { _, _ ->
+            tween(BbsControllerTransitionDurationMillis)
+        },
+        resizeMode = scaleToBounds(),
+    )
 }

@@ -1,6 +1,6 @@
 ## Context
 
-提案の背景は`proposal.md`を参照する。現在、`AppScaffold.kt`の単一`SharedTransitionLayout`が`AppNavGraph`を包み、`AppNavGraph.kt`は各Board/Thread destinationの`BoardScaffold`と`ThreadScaffold`へ`SharedTransitionScope`とdestination固有の`AnimatedVisibilityScope`を渡している。画像遷移はこの構成を使用しているが、下部コントローラーの`TabTitleCard`と`TabDestinationIconButton`にはscopeもshared modifierも届いていない。
+提案の背景は`proposal.md`を参照する。現在、`AppScaffold.kt`の単一`SharedTransitionLayout`が`AppNavGraph`を包み、`AppNavGraph.kt`は各Board/Thread destinationの`BoardScaffold`と`ThreadScaffold`へ`SharedTransitionScope`とdestination固有の`AnimatedVisibilityScope`を渡している。画像遷移とタイトルカード・画面種別ボタンのShared Boundsはこの構成を使用しているが、下部コントローラーの`BottomActionsRow`にはshared modifierが届いていない。Board/ThreadのNavigationは`TransitionSpecs.kt`の300ms slide+fadeである。
 
 Board/Thread共通の`BbsRouteScaffold.kt`はタイトルカードをPagerの`currentPage - 1..currentPage + 1`の範囲で最大3枚composeする。タイトルカードはページごとの`Modifier`を`BoardTabTitleCard`または`ThreadTabTitleCard`から`TabTitleCard`のroot `Card`へ渡せる。一方、`TabToolBarHeader`から`TabDestinationIconButton`へ渡すModifierは内部で固定され、Board/Thread Scaffoldから注入できない。
 
@@ -15,11 +15,13 @@ Boardの安定タブidentityは`BoardTabInfo.boardUrl`、Threadの安定タブid
 - Pager内の重複キーを防ぎ、settle済みタイトルだけを候補にする。
 - Board/Thread固有コードでshared key生成とModifier設定を重複させない。
 - 既存のアクセシビリティラベル、クリック領域、無効状態を維持する。
+- Board↔Thread間のNavigationからfadeだけを外し、既存方向・300msのslideを維持する。
+- Board/Threadで内容が異なる下段ツール群をRow全体のクロスフェードで切り替える。
 
 **Non-Goals:**
 
 - `AppRoute.Board`と`AppRoute.Thread`の統合。
-- NavHostのenter/exit/pop transition、back stack操作、route引数の変更。
+- Board↔Thread以外のNavHost transition、back stack操作、route引数の変更。
 - TabSessionStore、各Coordinator、ViewModel、Pagerの選択・スクロール処理の変更。
 - 同種タブPagerのドラッグをShared Transitionとして扱うこと。
 - 検索・縮退アニメーション、ImageViewer、PostDialog、ReplyPopupのShared Transition変更。
@@ -91,9 +93,23 @@ Board/Thread Scaffoldでは、既に受け取っている2つのscopeと選択�
 
 ボタン側は対応TabInfoが解決済みで既存`canOpenBoard`または`canOpenThread`がtrueの場合だけ有効にする。タイトル側はDecision 4の候補Booleanがtrueの場合だけ有効にする。
 
-### 6. Navigationと既存Shared Transitionを変更しない
+### 6. 下段ツール群をRow全体で共有する
 
-`AppScaffold.kt`の`SharedTransitionLayout`、`AppNavGraph.kt`のdestination定義とtransition分岐、`NavigationExtensions.kt`のpush/pop/replaceを変更しない。新しいshared key型は画像用`ImageSharedTransitionKeyFactory`とnamespaceを共有せず、画像系ファイルにも変更を加えない。
+`BbsControllerSharedBoundsKey`に`data object ActionsRow`を追加する。`BottomActionsRow`は各destinationのsettled tabに対して1つだけcomposeされるため、タイトルPagerのような複数同時composeによるidentity衝突は発生しない。既存の`Board`/`Thread`キーとは型を分け、タイトルカードや画面種別ボタンと誤照合しない。
+
+`BbsControllerSharedBounds.kt`へRow専用helperを追加し、`rememberSharedContentState(ActionsRow)`、`sharedBounds`、`enter = fadeIn(tween(300))`、`exit = fadeOut(tween(300))`、`boundsTransform = BoundsTransform { _, _ -> tween(300) }`、`resizeMode = scaleToBounds()`を共通設定する。`renderInOverlayDuringTransition`は指定せず、標準overlayを使う。Row helperはBoard/Thread ScaffoldからModifierとして注入し、共通`BottomActionsRow`へ無条件に付与しない。
+
+Rowではshared modifierを先に置き、その後に`fillMaxWidth`、`height`、既存`graphicsLayer`を置く。`graphicsLayer`の`actionsProgress`によるalpha/translationYは維持し、`clampedProgress <= 0f`の早期returnと検索時の通常Toolbar非composeも変更しない。
+
+### 7. Board↔ThreadだけNavigationをslide-onlyにする
+
+`TransitionSpecs.kt`に既存300msと同じ方向のslide-only enter/exit/pop関数を追加する。`AppNavGraph.kt`では各Board/Thread destinationのenter、exit、popEnter、popExitで、初期destinationと対象destinationがBoard/Threadの組み合わせの場合だけslide-onlyを返す。Thread側の既存ImageViewer判定を先に評価し、ImageViewerのNavigation挙動を変えない。Board/Thread以外の組み合わせは既存`default*Transition()`を返す。
+
+この条件はNav transitionのstateから直接判定し、visibleEntriesや独立したremember stateを追加しない。push、pop、replaceのNavigation操作とTabSessionStore、Pager、検索・縮退状態は変更しない。
+
+### 8. Navigationと既存Shared Transitionの互換性
+
+`AppScaffold.kt`の`SharedTransitionLayout`、`NavigationExtensions.kt`のpush/pop/replaceは変更しない。`AppNavGraph.kt`のBoard/Thread transition分岐だけはDecision 7に従って変更する。新しいshared key型は画像用`ImageSharedTransitionKeyFactory`とnamespaceを共有せず、画像系ファイルにも変更を加えない。
 
 検索時に`BbsRouteBottomBar`が通常コンテンツをcomposeしていなければ対応keyは存在せず、Shared Boundsなしで既存遷移を続ける。縮退状態では表示中の同じroot Cardへ適用されるため、現在のサイズから遷移する。
 
@@ -104,8 +120,9 @@ Board/Thread Scaffoldでは、既に受け取っている2つのscopeと選択�
 3. `BbsRouteScaffold`が各タイトルページについてsettle済み・非ドラッグ中かを算出し、タイトルslotへ渡す。
 4. ScaffoldのタイトルslotがTabInfo identityとscopeからタイトルCard用Modifierを作る。
 5. Scaffoldのbottom barが他画面種別の選択済みTabInfo identityとscopeからボタン用Modifierを作り、`BoardToolBar`または`ThreadToolBar`へ渡す。
-6. Nav transition中、同じ型とidentityのkeyが両destinationに存在する場合だけComposeが2つのroot Cardを照合してboundsを変形する。
-7. key不一致または対象非表示の場合、shared pairは成立せず既存Nav transitionだけが進行する。
+6. Scaffoldが同じscopeからRow用Modifierを作り、`BoardToolBar`または`ThreadToolBar`経由で`BottomActionsRow`へ渡す。
+7. Nav transition中、同じ型とidentityのkeyが両destinationに存在する場合だけComposeがタイトル・ボタンのroot Cardを照合し、`ActionsRow` keyが両destinationに存在する場合だけ下段Rowを照合する。
+8. key不一致または対象非表示の場合、該当shared pairは成立せず、Board↔Threadではslide-only、その他では既存Nav transitionだけが進行する。
 
 ## Implementation Contract
 
@@ -118,7 +135,7 @@ Board/Thread Scaffoldでは、既に受け取っている2つのscopeと選択�
 - shared modifierは`TabTitleCard`と`TabDestinationIconButton`のroot `Card`だけへ付ける。
 - タイトルのshared modifierはsettle済みかつ非ドラッグ中の場合だけ有効にする。
 - ボタンのshared modifierは対応するTabInfoを解決でき、既存の遷移可否が有効な場合だけ付ける。
-- `AppRoute`、NavHost transition、Navigation helper、TabSessionStore、Coordinator、ViewModel、Pagerのselection処理を変更しない。
+- `AppRoute`、Navigation helper、TabSessionStore、Coordinator、ViewModel、Pagerのselection処理を変更しない。NavHost transitionはBoard↔Threadのslide-only分岐だけを追加する。
 - ImageViewer、PostDialog、ReplyPopupのshared key、scope伝播、有効化条件、overlay設定を変更しない。
 - 新しいclass、interface、data class、sealed interfaceと非自明関数にはリポジトリ規約に従うKDocを付け、Preview関数にはKDocを付けない。
 
@@ -127,11 +144,13 @@ Board/Thread Scaffoldでは、既に受け取っている2つのscopeと選択�
 - [選択済みTabInfoが未解決] → ボタンは既存どおりdisabledとし、shared modifierを付けない。
 - [Pagerドラッグ中] → タイトル候補を無効にし、Pagerのドラッグとsettleだけを実行する。
 - [検索UIが通常ツールバーを置換] → composeされていない要素を補完せず、Shared Boundsなしで遷移する。
+- [下段Rowが完全縮退] → 既存の早期returnを維持し、Row用Shared BoundsなしでBoard↔Threadのslide-onlyを継続する。
 - [net/io正規化でidentity不一致] → 誤マッチさせず通常Nav transitionへフォールバックする。
 - [既存back stack destinationのPagerが目的ページへ未同期] → 対応タイトルが存在しなければそのpairをスキップし、Pager同期処理は変更しない。
 - [複数タブ] → 型とstable identityの組み合わせでキーを一意にし、固定キーを使用しない。
 - [アクセシビリティ] → 既存Cardのclickable、enabled、ラベル、content descriptionを保持し、shared modifierによる新しい操作要素を追加しない。
 - [API互換性] → 変更対象はアプリ内Composable APIであり、追加引数には可能な箇所でデフォルト値を設ける。永続形式と外部APIは変更しない。
+- [Navigationの対象外destination] → Board↔Thread判定に一致しない場合は既存のdestination別transitionを返す。
 
 ## Testing Strategy
 
@@ -147,6 +166,8 @@ Board/Thread Scaffoldでは、既に受け取っている2つのscopeと選択�
 - 異なる型またはidentityではshared pairが成立しないことを検証する。
 - `TabToolBarTest.kt`でdestination Modifier追加後もクリック、disabled semantics、可視ラベル、タイトルカード操作が維持されることを検証する。
 - `BbsRouteScaffoldTest.kt`で横ドラッグ中の選択通知回数、settle後のタブ、タイトルカード外ツール群の固定を回帰確認する。
+- `TabToolBarTest.kt`でRow用Modifierが下段Rowへ届き、個別action buttonへ付与されないことを検証する。
+- `AppNavGraph`のtransition判定について、Board↔Threadの4方向がslide-only、他destinationとImageViewerが従来分岐であることを検証する。
 
 ### Build and manual acceptance
 
