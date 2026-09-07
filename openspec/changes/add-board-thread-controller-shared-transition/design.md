@@ -70,7 +70,7 @@ Shared Transition用コードは`BoardTabInfo.boardUrl`と`ThreadTabInfo.id.valu
 - `renderInOverlayDuringTransition`は指定せず、Shared Transitionの標準overlay描画を使用する。
 - 初期実装では`zIndexInOverlay`、`clipInOverlayDuringTransition`、`renderInSharedTransitionScopeOverlay`を追加しない。実機またはテストで具体的なz-order/clip不具合を再現した場合だけ別変更として検討する。
 
-shared modifierはタイトルカードと画面種別ボタンのroot `Card`に適用する。Shared Boundsの両側でModifier順序を揃え、shared modifierの後に`fillMaxSize`または`fillMaxHeight`などのサイズModifierが評価されるように組み立てる。内部のText、Icon、bookmark、refresh、progressには個別のshared modifierを付けない。
+shared modifierはタイトルカードと画面種別ボタンのroot `Card`、および下段アクション行のroot `Row`に適用する。Shared Boundsの両側でModifier順序を揃え、shared modifierの後に`fillMaxSize`、`fillMaxHeight`、`fillMaxWidth`などのサイズModifierが評価されるように組み立てる。内部のText、Icon、bookmark、refresh、progress、個別action buttonには個別のshared modifierを付けない。
 
 ### 4. Pagerからsettle済み候補情報だけをタイトルslotへ渡す
 
@@ -132,7 +132,7 @@ Rowではshared modifierを先に置き、その後に`fillMaxWidth`、`height`�
 - Shared Transition用コード内で5ch.net/io正規化を実行しない。
 - shared keyが一致しない場合のフォールバックのために、別identityのkeyへ置換しない。
 - `sharedBounds`には`ScaleToBounds()`を指定し、overlayはデフォルト設定を維持する。
-- shared modifierは`TabTitleCard`と`TabDestinationIconButton`のroot `Card`だけへ付ける。
+- タイトル・画面種別ボタン用shared modifierは`TabTitleCard`と`TabDestinationIconButton`のroot `Card`へ、Row用shared modifierは`BottomActionsRow`のroot `Row`へだけ付ける。
 - タイトルのshared modifierはsettle済みかつ非ドラッグ中の場合だけ有効にする。
 - ボタンのshared modifierは対応するTabInfoを解決でき、既存の遷移可否が有効な場合だけ付ける。
 - `AppRoute`、Navigation helper、TabSessionStore、Coordinator、ViewModel、Pagerのselection処理を変更しない。NavHost transitionはBoard↔Threadのslide-only分岐だけを追加する。

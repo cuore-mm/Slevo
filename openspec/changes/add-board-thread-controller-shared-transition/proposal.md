@@ -22,7 +22,7 @@
 
 ### Modified Capabilities
 
-- `separated-board-thread-tab-navigation`: 下部コントローラーからBoard/Threadを切り替える際のタイトルカードと画面種別ボタンのShared Bounds、および不一致時のフォールバック要件を追加する。
+- `separated-board-thread-tab-navigation`: 下部コントローラーからBoard/Threadを切り替える際のタイトルカード、画面種別ボタン、下段アクション行のShared Bounds、および不一致時のフォールバック要件を追加する。
 
 ## Impact
 

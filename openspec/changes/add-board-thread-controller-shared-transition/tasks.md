@@ -23,7 +23,7 @@
 - [x] 4.2 `BoardScaffold.kt`で、`selectedThread`を解決できて`canOpenThread`がtrueのときだけThreadボタンのroot Modifierへ`Thread(selectedThread.id.value)`を適用し、`BoardToolBar`へ渡す。既存の`openSelectedThread`、route正規化、登録・選択、Navigation処理を変更しない。
 - [x] 4.3 `app/src/main/java/com/websarva/wings/android/slevo/ui/thread/screen/ThreadScaffold.kt`で、候補となるThreadタイトルカードのroot Modifierへ`Thread(tab.id.value)`を適用する。shared modifierの後に既存サイズModifierが適用され、候補外では通常Cardのままであることを確認する。
 - [x] 4.4 `ThreadScaffold.kt`で、`selectedBoard`を解決できて`canOpenBoard`がtrueのときだけBoardボタンのroot Modifierへ`Board(selectedBoard.boardUrl)`を適用し、`ThreadToolBar`へ渡す。既存の`openSelectedBoard`、route正規化、登録・選択、pop/replace処理を変更しない。
-- [x] 4.5 Board/Thread両側のModifier順を比較し、Shared Boundsが`TabTitleCard`と`TabDestinationIconButton`のroot `Card`だけに付き、内部Text、Icon、bookmark、refresh、progress、下段アクションには付いていないことを差分で確認する。
+- [x] 4.5 Board/Thread両側のModifier順を比較し、タイトル・画面種別ボタン用Shared Boundsが`TabTitleCard`と`TabDestinationIconButton`のroot `Card`へ、Row用Shared Boundsが`BottomActionsRow`のroot `Row`へだけ付き、内部Text、Icon、bookmark、refresh、progress、個別action buttonには付いていないことを差分で確認する。
 
 ## 5. 下段ツール群のShared Bounds
 
@@ -48,8 +48,8 @@
 
 ## 8. ビルドと受け入れ確認
 
-- [x] 8.1 CI-hostedの`testCiUnitTest`（Run ID `34098571977`）で、新規key・候補判定テストを含む全unit testが成功することを確認する。
-- [x] 8.2 CI-hostedの`assembleCi`（Run ID `34098571977`）でアプリがビルドできることを確認する。既存CIはinstrumented test sourceをコンパイルしないため、androidTestの実行確認とは分けて扱う。
+- [x] 8.1 CI-hostedの`testCiUnitTest`（Run ID `34115540632`）で、新規key・候補判定・Board/Thread transition判定テストを含む全unit testが成功することを確認する。
+- [x] 8.2 CI-hostedの`assembleCi`（Run ID `34115540632`）でアプリがビルドできることを確認する。既存CIはinstrumented test sourceをコンパイルしないため、androidTestの実行確認とは分けて扱う。
 - [ ] 8.3 実機またはemulatorでBoard→Thread push、Thread→Board pop、Thread→Board replaceを展開・縮退状態で確認し、2組のCardがデフォルトoverlay上で自然に位置・サイズ変形することを記録する。
 - [ ] 8.4 実機またはemulatorでPagerドラッグ中、検索中、遷移先ボタンdisabled、既存back stackのPager同期前、5ch.net→5ch.io正規化時を確認し、誤った要素へ接続せず既存操作または通常Nav transitionへフォールバックすることを記録する。
 - [ ] 8.5 Thread画像からImageViewerを開いて戻り、既存画像Shared Transitionのkey照合、overlay順、画面遷移に視覚回帰がないことを確認する。
