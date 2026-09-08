@@ -49,5 +49,7 @@
 
 - [x] 8.1 `WindowInsets(0)`、`navigationBarsPadding`、`statusBarsPadding`、`safeDrawingPadding`、`imePadding`、`Modifier.padding(innerPadding)` をコード検索し、各残存箇所がdesign.mdの所有規則に一致することを確認する。
 - [x] 8.2 変更したclass/interfaceと非自明関数のKDoc、30行超関数のセクションコメント、Preview関数にKDocを付けない規約を確認する。
-- [ ] 8.3 `./gradlew :app:assembleDebug :app:testDebugUnitTest` を実行して成功させる。
+- [x] 8.3 `./gradlew :app:assembleDebug :app:testDebugUnitTest` を実行して成功させる。CI workflow の `testCiUnitTest`／`assembleCi` 相当検証で成功を確認した。
 - [ ] 8.4 接続端末またはエミュレータで `./gradlew :app:connectedDebugAndroidTest` を実行して成功させる。実行環境がない場合は未実施理由と手動確認結果を記録する。
+
+> 8.4 未実施記録: 現在の Android CI workflow に接続テスト job がなく、利用可能な接続端末／エミュレータもないため実行していない。手動端末確認も未実施。
