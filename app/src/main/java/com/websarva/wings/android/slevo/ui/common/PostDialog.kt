@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -100,7 +101,6 @@ fun PostDialog(
         modifier = Modifier
             .fillMaxSize()
             .zIndex(1f),
-        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
@@ -111,17 +111,25 @@ fun PostDialog(
                     indication = null
                 ) { onDismissRequest() }
         )
-        PostDialogContent(
-            uiState = uiState,
-            onAction = onAction,
-            onImageUpload = onImageUpload,
-            onImageUrlClick = onImageUrlClick,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-            mode = mode,
+        // 背景 scrim は画面全体を覆い、操作対象だけを safe drawing 領域へ収める。
+        Box(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 24.dp)
-        )
+                .fillMaxSize()
+                .safeDrawingPadding(),
+            contentAlignment = Alignment.Center,
+        ) {
+            PostDialogContent(
+                uiState = uiState,
+                onAction = onAction,
+                onImageUpload = onImageUpload,
+                onImageUrlClick = onImageUrlClick,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                mode = mode,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 24.dp)
+            )
+        }
     }
 }
 

@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +73,7 @@ fun BoardScreen(
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     searchQuery: String,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     // --- Momentum stats ---
     val (momentumMean, momentumStd) = remember(threads) {
@@ -144,8 +147,11 @@ fun BoardScreen(
                 enabled = showScrollbar,
             ) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .consumeWindowInsets(contentPadding),
                     state = listState,
+                    contentPadding = contentPadding,
                 ) {
                     // リスト全体の先頭に区切り線を追加
                     if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示

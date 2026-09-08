@@ -203,7 +203,7 @@ fun BoardScaffold(
                 }
             )
         },
-        content = { tab, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+        content = { tab, uiState, listState, modifier, contentPadding, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.pendingToastResId) {
                 uiState.pendingToastResId?.let { resId ->
                     Toast.makeText(context, resId, Toast.LENGTH_SHORT).show()
@@ -219,6 +219,7 @@ fun BoardScaffold(
             }
             BoardScreen(
                 modifier = modifier,
+                contentPadding = contentPadding,
                 threads = uiState.threads ?: emptyList(),
                 onClick = { threadInfo ->
                     coroutineScope.launch {

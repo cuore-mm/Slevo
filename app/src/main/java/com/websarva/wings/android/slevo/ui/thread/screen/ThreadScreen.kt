@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,6 +99,7 @@ fun ThreadScreen(
     onImageRetry: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     // --- Layout measurement ---
     var listSize by remember { mutableStateOf(IntSize.Zero) }
@@ -245,9 +248,11 @@ fun ThreadScreen(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(1f)
+                        .consumeWindowInsets(contentPadding)
                         .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
                         .onSizeChanged { size -> listSize = size },
                     state = listState,
+                    contentPadding = contentPadding,
                     content = lazyColumnContent,
                 )
                 // 中央の区切り線
@@ -274,9 +279,11 @@ fun ThreadScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .consumeWindowInsets(contentPadding)
                         .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
                         .onSizeChanged { size -> listSize = size },
                     state = listState,
+                    contentPadding = contentPadding,
                     content = lazyColumnContent,
                 )
             }

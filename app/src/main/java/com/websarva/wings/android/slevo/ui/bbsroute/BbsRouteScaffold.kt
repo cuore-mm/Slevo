@@ -5,8 +5,8 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.pager.HorizontalPager
@@ -107,6 +107,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         uiState: UiState,
         listState: LazyListState,
         modifier: Modifier,
+        contentPadding: PaddingValues,
         navController: NavHostController,
         openTabListSheet: () -> Unit,
         openUrlDialog: () -> Unit,
@@ -284,7 +285,6 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 HorizontalPager(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .graphicsLayer {
                             translationX = pagerOverscrollEffect.offsetPx
@@ -342,6 +342,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             uiState,
                             listState,
                             contentModifier,
+                            innerPadding,
                             navController,
                             { showTabListSheet = true },
                             {

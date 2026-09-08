@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -25,26 +26,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 
+/** カテゴリ一覧のロード結果を表示し、カテゴリ選択を親へ通知する。 */
 @Composable
 fun BoaredCategoryListScreen(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     uiState: BoardCategoryListUiState,
     onCategoryClick: (CategoryInfo) -> Unit
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         when {
             uiState.errorMessage != null -> {
-                Text(
-                    text = uiState.errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(contentPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = uiState.errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             else -> {
                 CategoryGrid(
                     categories = uiState.categories,
+                    contentPadding = contentPadding,
                     onCategoryClick = onCategoryClick
                 )
             }
@@ -55,6 +66,7 @@ fun BoaredCategoryListScreen(
 @Composable
 fun CategoryGrid(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     categories: List<CategoryInfo>,
     onCategoryClick: (CategoryInfo) -> Unit
 ) {
@@ -68,8 +80,11 @@ fun CategoryGrid(
         }
 
     LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(8.dp),
+        modifier = modifier.consumeWindowInsets(contentPadding),
+        contentPadding = addPaddingValues(
+            base = PaddingValues(8.dp),
+            additional = contentPadding,
+        ),
     ) {
         items(
             items = rows,

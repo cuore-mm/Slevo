@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -210,6 +211,7 @@ fun BackupScreenContent(
     ) { innerPadding ->
         Column(
             modifier = Modifier
+                .consumeWindowInsets(innerPadding)
                 .padding(innerPadding)
                 .fillMaxSize(),
         ) {
@@ -246,6 +248,7 @@ fun BackupScreenContent(
 
 // --- helpers ---
 
+/** 現在時刻を含むバックアップファイル名を生成する。 */
 private fun buildBackupFilename(): String {
     val df = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
     return "slevo-backup-${df.format(Date())}.zip"

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.BuildConfig
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 import com.websarva.wings.android.slevo.ui.settings.SettingsCardWithListItems
 import com.websarva.wings.android.slevo.ui.settings.listItemSpecOfBasic
 
@@ -67,9 +69,12 @@ fun AboutScreen(
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 24.dp),
+                .fillMaxSize()
+                .consumeWindowInsets(innerPadding),
+            contentPadding = addPaddingValues(
+                PaddingValues(horizontal = 8.dp, vertical = 24.dp),
+                innerPadding,
+            ),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // --- App Info Header ---

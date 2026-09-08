@@ -1,9 +1,8 @@
 package com.websarva.wings.android.slevo.ui
 
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -20,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -56,9 +54,6 @@ fun AppScaffold(
     /* ① 共有する TopAppBarState を用意 */
     val topBarState = rememberTopAppBarState()
 
-    /* ② BottomBar の高さ(px) を取得しておく */
-    val bottomBarHeightDp = 56.dp
-
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
@@ -85,12 +80,12 @@ fun AppScaffold(
     )
 
     Scaffold(
+        // ルートは下部アプリ chrome の占有領域だけを子画面へ渡す。
+        contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(pendingRestoreSnackbarHostState) },
         bottomBar = {
             RenderBottomBar(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(bottomBarHeightDp),
+                modifier = Modifier,
                 navController = navController,
                 navBackStackEntry = navBackStackEntry,
                 onMoreClick = { showMoreMenu = true }
@@ -100,7 +95,7 @@ fun AppScaffold(
 
         SharedTransitionLayout {
             AppNavGraph(
-                parentPadding = innerPadding,
+                appChromePadding = innerPadding,
                 navController = navController,
                 topBarState = topBarState,
                 settingsViewModel = settingsViewModel,

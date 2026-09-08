@@ -1,7 +1,6 @@
 package com.websarva.wings.android.slevo.ui.bottombar
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -18,13 +17,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 
+/**
+ * 主要ルートへの NavigationBar を表示する。
+ *
+ * 選択状態は現在の destination 階層から計算し、Insets と標準寸法は Material 3 に委譲する。
+ */
 @Composable
 fun NavigationBottomBar(
     currentDestination: NavDestination?,
@@ -107,8 +110,6 @@ private data class TopLevelRoute(
 @Composable
 fun HomeBottomNavigationBarPreview() {
     NavigationBottomBar(
-        modifier = Modifier
-            .height(56.dp),
         currentDestination = null,
         onClick = {},
         onMoreClick = {}

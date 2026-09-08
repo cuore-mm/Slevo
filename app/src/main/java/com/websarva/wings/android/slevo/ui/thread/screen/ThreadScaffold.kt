@@ -245,7 +245,7 @@ fun ThreadScaffold(
                 }
             )
         },
-        content = { tab, uiState, listState, modifier, navController, openTabListSheet, openUrlDialog ->
+        content = { tab, uiState, listState, modifier, contentPadding, navController, openTabListSheet, openUrlDialog ->
             LaunchedEffect(uiState.threadInfo.key, uiState.isLoading) {
                 // スレッドタイトルが空でなく、投稿リストが取得済みの場合にタブ情報を更新
                 if (
@@ -274,6 +274,7 @@ fun ThreadScaffold(
             }
             ThreadScreen(
                 modifier = modifier,
+                contentPadding = contentPadding,
                 uiState = uiState,
                 listState = listState,
                 navController = navController,

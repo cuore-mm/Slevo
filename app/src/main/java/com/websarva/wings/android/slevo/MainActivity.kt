@@ -2,9 +2,9 @@ package com.websarva.wings.android.slevo
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Process
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -45,8 +45,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // --- Window setup ---
         enableEdgeToEdge()
-        // レイアウトをキーボード表示時にリサイズさせる（ime パディングが即座に反映されやすくなる）
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
         // --- Deep link initialization ---
         updateDeepLinkIntent(intent)
@@ -67,15 +65,18 @@ class MainActivity : ComponentActivity() {
             val isSystemDark = isSystemInDarkTheme()
             val isDarkTheme = uiState.themeMode.resolveDarkTheme(isSystemDark)
 
-            // 2) LocalView を使って Window を取り出し、InsetsController を作成
+            // --- System bar appearance ---
             val view = LocalView.current
             val window = (view.context as Activity).window
             val insetsController = WindowInsetsControllerCompat(window, view)
 
-            // 3) サイドエフェクトで毎フレーム、ステータスバーのアイコン色を制御
             SideEffect {
-                // true にすると「ステータスバー背景が明るい → アイコンをダークに」なる
+                // アプリテーマを背景へ適用する通常画面の system bar 外観を同期する。
                 insetsController.isAppearanceLightStatusBars = !isDarkTheme
+                insetsController.isAppearanceLightNavigationBars = !isDarkTheme
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    window.isNavigationBarContrastEnforced = false
+                }
             }
 
             SlevoTheme(darkTheme = isDarkTheme) {

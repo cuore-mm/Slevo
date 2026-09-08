@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,10 +35,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import kotlinx.coroutines.delay
 
+/** 登録済みサービスを表示する LazyColumn と読み込み・空状態を構成する。 */
 @Composable
 fun ServiceListScreen(
     uiState: ServiceListUiState,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     onClick: (ServiceInfo) -> Unit,
     onLongClick: (Long) -> Unit,
 ) {
@@ -71,14 +75,23 @@ fun ServiceListScreen(
             CircularProgressIndicator(Modifier.align(Alignment.Center))
         } else if (!uiState.isLoading && uiState.services.isEmpty()) {
             // 空ならセンターにメッセージを表示
-            Text(
-                text = stringResource(R.string.message_no_registered_bbs),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.align(Alignment.Center)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(R.string.message_no_registered_bbs),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(contentPadding),
+                contentPadding = contentPadding,
             ) {
                 itemsIndexed(
                     items = uiState.services,

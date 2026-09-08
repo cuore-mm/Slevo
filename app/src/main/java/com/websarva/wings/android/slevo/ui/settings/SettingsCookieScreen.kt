@@ -1,8 +1,8 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
+/** 保存済み Cookie を一覧表示し、個別削除を受け付ける設定画面。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsCookieScreen(
@@ -41,8 +42,9 @@ fun SettingsCookieScreen(
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
+                .consumeWindowInsets(innerPadding),
+            contentPadding = innerPadding,
         ) {
             items(
                 items = uiState.cookies,
@@ -88,4 +90,3 @@ fun SettingsCookieScreen(
         }
     }
 }
-

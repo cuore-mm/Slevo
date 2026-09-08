@@ -9,8 +9,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.websarva.wings.android.slevo.R
@@ -36,6 +38,11 @@ import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 
+/**
+ * NGワードを種類別に表示・編集する設定画面。
+ *
+ * 選択モードでは画面専用の操作バーを表示し、その占有領域を一覧末尾の余白へ渡す。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsNgScreen(
@@ -50,6 +57,7 @@ fun SettingsNgScreen(
         NgType.THREAD_TITLE,
     )
     val selectedIndex = tabs.indexOf(uiState.selectedTab)
+    val layoutDirection = LocalLayoutDirection.current
 
     Scaffold(
         topBar = {
@@ -79,7 +87,7 @@ fun SettingsNgScreen(
         bottomBar = {
             if (uiState.selectMode) {
                 BbsSelectBottomBar(
-                    modifier = Modifier.navigationBarsPadding(),
+                    modifier = Modifier,
                     onDelete = { viewModel.removeSelected() },
                     onOpen = {}
                 )
@@ -88,8 +96,12 @@ fun SettingsNgScreen(
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
+                .padding(
+                    top = innerPadding.calculateTopPadding(),
+                    start = innerPadding.calculateStartPadding(layoutDirection),
+                    end = innerPadding.calculateEndPadding(layoutDirection),
+                )
         ) {
             TabRow(selectedTabIndex = selectedIndex) {
                 tabs.forEachIndexed { index, type ->
@@ -107,7 +119,13 @@ fun SettingsNgScreen(
                 }
             }
             val filtered = uiState.ngs.filter { it.type == uiState.selectedTab }
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .consumeWindowInsets(innerPadding),
+                contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
+            ) {
                 items(filtered, key = { it.id }) { ng ->
                     val isSelected = ng.id in uiState.selected
                     ListItem(
@@ -156,4 +174,3 @@ fun SettingsNgScreen(
         }
     }
 }
-

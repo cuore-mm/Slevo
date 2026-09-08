@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
@@ -66,6 +67,8 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.filterBoardTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
+import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -84,6 +87,7 @@ import kotlin.math.roundToInt
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
+    appChromePadding: PaddingValues = PaddingValues(),
     tabSessionStore: TabSessionStore,
     tabListViewModel: TabListViewModel,
     navController: NavHostController,
@@ -238,14 +242,24 @@ fun TabScreenContent(
     // --- Scaffold ---
     Scaffold(
         modifier = modifier,
-        contentWindowInsets = WindowInsets(0),
+        contentWindowInsets = WindowInsets.safeDrawing,
     ) { innerPadding ->
+        val contentPadding = mergeScaffoldPaddingValues(innerPadding, appChromePadding)
+        val layoutDirection = LocalLayoutDirection.current
         // TabListBottomControls と上部検索領域に合わせたリスト余白。
         val topSearchHeight = TabListLayoutDefaults.topSearchHeight
         val bottomControlsHeight = TabListLayoutDefaults.listBottomPadding
-        val listPadding = PaddingValues(
+        val listPadding = addPaddingValues(
+            base = PaddingValues(
             top = topSearchHeight + TabListLayoutDefaults.listTopSpacing,
             bottom = bottomControlsHeight,
+            ),
+            additional = PaddingValues(
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                top = 0.dp,
+                end = contentPadding.calculateEndPadding(layoutDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
         )
 
         Box(
@@ -264,9 +278,9 @@ fun TabScreenContent(
                     ) {
                         CircularWavyProgressIndicator()
                     }
-                } else {
+                    } else {
                     TabsPagerContent(
-                        modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
+                        modifier = Modifier,
                         pagerState = pagerState,
                         navController = navController,
                          closeDrawer = closeDrawer,
@@ -355,7 +369,12 @@ fun TabScreenContent(
             TabListBottomControls(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(
+                        start = contentPadding.calculateStartPadding(layoutDirection),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    ),
                 pagerState = pagerState,
                 hazeState = hazeState,
                 isRefreshing = isRefreshing,
@@ -374,7 +393,11 @@ fun TabScreenContent(
             TabListTopControls(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = innerPadding.calculateTopPadding()),
+                    .padding(
+                        top = contentPadding.calculateTopPadding(),
+                        start = contentPadding.calculateStartPadding(layoutDirection),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                    ),
                 hazeState = hazeState,
                 isSearchMode = isSearchMode,
                 isSelectionMode = isSelectionMode,

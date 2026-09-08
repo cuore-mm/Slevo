@@ -9,14 +9,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import com.websarva.wings.android.slevo.ui.util.isThreeButtonNavigation
 
 /**
  * 検索中と通常時の下部コントローラーを切り替える。
@@ -35,18 +31,9 @@ fun BbsRouteBottomBar(
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
-    val context = LocalContext.current
-    val isThreeButtonBar = remember { isThreeButtonNavigation(context) }
-
-    val searchModifier = if (isThreeButtonBar) {
-        Modifier
-            .navigationBarsPadding()
-            .imePadding()
-    } else {
-        Modifier.imePadding()
-    }
-
-    val defaultModifier = Modifier.navigationBarsPadding()
+    // Material 3 の BottomAppBar が navigation bar Insets を所有し、検索時だけ IME を追加する。
+    val searchModifier = Modifier.imePadding()
+    val defaultModifier = Modifier
 
     val closeSearch: () -> Unit = {
         keyboardController?.hide()
