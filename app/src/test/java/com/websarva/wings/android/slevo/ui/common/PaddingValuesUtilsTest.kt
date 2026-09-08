@@ -33,8 +33,8 @@ class PaddingValuesUtilsTest {
 
         val result = mergeScaffoldPaddingValues(screen, PaddingValues())
 
-        assertEquals(10.dp, result.calculateStartPadding(LayoutDirection.Rtl))
-        assertEquals(6.dp, result.calculateEndPadding(LayoutDirection.Rtl))
+        assertEquals(6.dp, result.calculateStartPadding(LayoutDirection.Rtl))
+        assertEquals(10.dp, result.calculateEndPadding(LayoutDirection.Rtl))
     }
 
     /** 画面側のbottomだけがある場合、その値を保持することを確認する。 */
