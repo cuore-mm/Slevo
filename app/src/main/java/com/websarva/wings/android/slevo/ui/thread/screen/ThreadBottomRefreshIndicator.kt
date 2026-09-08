@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 
 /**
@@ -67,7 +68,7 @@ fun BoxScope.ThreadBottomRefreshIndicator(
 
     val indicatorModifier = Modifier
         .align(Alignment.BottomCenter)
-        .padding(bottom = bottomInset)
+        .padding(bottom = bottomInset + 16.dp)
         .graphicsLayer(
             scaleX = animatedScale,
             scaleY = animatedScale,

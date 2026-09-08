@@ -78,7 +78,7 @@ Activity は `MainActivity` のみで、`targetSdk` は35、`compileSdk` は36�
 
 `BbsRouteScaffold.kt` は画面全体の背景を端まで描画したまま、Scaffoldの上に操作を持たないステータスバー保護レイヤーを重ねる。レイヤーは `WindowInsets.statusBars` と同じ高さにし、テーマのsurface系色を半透明の縦グラデーションとして描画する。これによりステータスバーのアイコン視認性を保ちつつ、本文のedge-to-edge背景を切り詰めない。
 
-`ThreadBottomRefreshIndicator.kt` はウィンドウ下端からの固定16dpではなく、`ThreadScreen.kt` が受け取った `contentPadding.calculateBottomPadding()` を下端余白として使用する。これには画面固有の下部ツールバーとnavigation barの占有領域が含まれるため、同じ値を別のbottom paddingとして加算しない。
+`ThreadBottomRefreshIndicator.kt` はウィンドウ下端からの固定余白ではなく、`ThreadScreen.kt` が受け取った `contentPadding.calculateBottomPadding()` に視覚的な余白を加えた値を下端余白として使用する。これには画面固有の下部ツールバーとnavigation barの占有領域が含まれるため、Insetsの値を別のbottom paddingとして重ねて加算しない。
 
 ### 5. 非 Lazy コンテンツは種類別に処理する
 
