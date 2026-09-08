@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.CropSquare
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Card
@@ -397,6 +396,7 @@ fun TabTitleCard(
     isLoading: Boolean = false,
     loadProgress: Float = 0f,
 ) {
+    val shape = MaterialTheme.shapes.largeIncreased
     // --- Layout state ---
     val layoutState = rememberTabTitleCardLayoutState(
         actionsProgress = actionsProgress,
@@ -407,18 +407,20 @@ fun TabTitleCard(
 
     // --- Card content ---
     Card(
-        modifier = modifier.combinedClickable(
-            onClickLabel = stringResource(R.string.open_tablist),
-            onLongClickLabel = stringResource(R.string.show_details),
-            onClick = onTitleClick,
-            onLongClick = onTitleLongClick,
-        ),
-        shape = MaterialTheme.shapes.largeIncreased,
+        modifier = modifier
+            .clip(shape)
+            .combinedClickable(
+                onClickLabel = stringResource(R.string.open_tablist),
+                onLongClickLabel = stringResource(R.string.show_details),
+                onClick = onTitleClick,
+                onLongClick = onTitleLongClick,
+            ),
+        shape = shape,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(MaterialTheme.shapes.largeIncreased),
+                .clip(shape),
         ) {
             Row(
                 modifier = Modifier
