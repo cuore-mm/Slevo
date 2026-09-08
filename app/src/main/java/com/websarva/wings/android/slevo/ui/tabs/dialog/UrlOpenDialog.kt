@@ -22,6 +22,7 @@ import com.websarva.wings.android.slevo.R
  * URL入力用のダイアログを表示する。
  *
  * 入力エラーがある場合はテキストフィールドをエラー状態で表示する。
+ * 標準ダイアログウィンドウがIMEによるリサイズを処理するため、ここではIME余白を重ねて適用しない。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

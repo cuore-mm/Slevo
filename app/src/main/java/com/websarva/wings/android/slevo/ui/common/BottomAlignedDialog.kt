@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -60,11 +59,10 @@ fun BottomAlignedDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .then(scrimClick)
-                // ナビバー/IMEを避けつつ “外側の余白” として効かせる
+                // safeDrawingはナビバーとIMEの大きい方を含むため、下部Insetsをここで一度だけ消費する。
                 .windowInsetsPadding(
                     WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
                 )
-                .imePadding()
                 .padding(bottom = 12.dp),
             contentAlignment = Alignment.BottomCenter
         ) {

@@ -64,6 +64,10 @@ Activity は `MainActivity` のみで、`targetSdk` は35、`compileSdk` は36�
 
 `BbsRouteScaffold.kt` は Pager 全体への `Modifier.padding(innerPadding)` を除去し、画面 Scaffold の padding を Board／Thread の content lambda まで渡す。Board／Thread の各 LazyColumn が contentPadding を所有する。これにより Pager とリスト背景は端まで描画され、静止時の項目だけが安全位置に置かれる。
 
+### 4.1 タブ一覧の上部操作群と背景効果
+
+`TabScreenContent.kt` の上部操作群は、背景の haze レイヤーと操作コンテンツの安全余白を分離する。haze レイヤーはステータスバーを含む上部全域から `topSearchHeight` の下端まで描画し、検索・その他ボタンだけに `contentPadding.calculateTopPadding()` を適用する。タブ一覧の Lazy コンテナには、同じ top inset、上部操作群の高さ、`listTopSpacing` を加えた値を `contentPadding.top` として渡し、最上部の先頭項目が操作群と重ならないようにする。
+
 ### 5. 非 Lazy コンテンツは種類別に処理する
 
 - `verticalScroll()` を使う Column は、スクロール Modifier の外側へ全体 padding を付けず、内容の先頭・末尾に安全領域相当の Spacer または内側コンテナ padding を置く。
@@ -77,6 +81,8 @@ Activity は `MainActivity` のみで、`targetSdk` は35、`compileSdk` は36�
 `AndroidManifest.xml` の `MainActivity` へ `android:windowSoftInputMode="adjustResize"` を追加し、`MainActivity.kt` の `window.setSoftInputMode(SOFT_INPUT_ADJUST_RESIZE)` と関連 import を削除する。
 
 検索 BottomBar、`PostDialog.kt`、`BottomAlignedDialog.kt` は既存の `imePadding()` の位置と祖先で消費される Insets を確認する。同じ階層で IME を含む `contentWindowInsets` と `imePadding()` を併用しない。検索 BottomBar はジェスチャー／3ボタン判定で navigation bar padding を分岐せず、Material 3 の navigation bar Insets と IME 差分だけで動作させる。
+
+タブ一覧の `Scaffold` は `WindowInsets.safeDrawing` を直接指定せず、Material 3 の `ScaffoldDefaults.contentWindowInsets`（system bar／cutout 用、IMEを含まない）を使用する。これにより、URL入力用 `AlertDialog` がIMEを所有している間も、ダイアログ背後の `TabListBottomControls` は navigation bar の位置に留まる。ダイアログ内の入力欄と確定操作は、標準 Dialog のウィンドウと必要なIME用余白で保護する。
 
 ### 7. 通常画面の system bar 外観を MainActivity で一元化する
 
@@ -108,6 +114,7 @@ Activity は `MainActivity` のみで、`targetSdk` は35、`compileSdk` は36�
 - API 24〜28では navigation bar contrast API を呼ばず、利用可能な system bar icon APIだけを使用する。
 - API 29以降では3ボタンナビゲーションのコントラスト強制を無効化した状態でも、下部バー背景とアイコンが判読可能でなければならない。
 - IME Insets が0へ戻るアニメーション中も固定検索欄を画面下端へ飛ばさず、Material 3 の navigation bar Insetsへ戻す。
+- タブ一覧でURL入力ダイアログを表示してIMEが開いている間も、背後の固定下部操作群はIME高さをbottom paddingへ取り込まず、表示前と同じnavigation bar位置を維持する。
 - 横画面では start/end の display cutout を画面 Scaffold側の paddingとして保持する。
 - `appChromePadding.bottom` と画面 Scaffold の bottom を加算すると過剰余白になるため、必ず最大値を選ぶ。
 - 画像ビューアの DisposableEffect が終了した場合は、変更前に保存した可視状態、アイコン外観、contrast値へ戻す。

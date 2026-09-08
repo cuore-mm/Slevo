@@ -26,7 +26,7 @@
 
 ## 5. ルート BottomBar 配下の一覧画面
 
-- [x] 5.1 `TabScreenContent.kt` と `TabsScaffold.kt` を更新し、局所的なInsets責務を明示したうえで、タブ一覧の先頭・末尾と固定Top／Bottom controlsへ `appChromePadding` と画面Insetsを一度だけ適用する。スクロール領域がバー背後まで続くことを確認する。
+- [x] 5.1 `TabScreenContent.kt` と `TabsScaffold.kt` を更新し、タブ一覧の `Scaffold` はIMEを含まない既定Insetsを使用する。上部haze背景をステータスバーまで延長し、操作コンテンツだけをtop safe inset内へ配置する。タブ一覧の先頭・末尾と固定Top／Bottom controlsへ `appChromePadding` と画面Insetsを一度だけ適用し、先頭項目が上部操作群と重ならず、スクロール領域がバー背後まで続くことを確認する。
 - [x] 5.2 `BookmarkListScaffold.kt` とお気に入りのLazyコンテナを更新し、合成paddingを `contentPadding` と `consumeWindowInsets` に移す。通常・選択モードでTopAppBarとルート／選択BottomBarに項目が隠れないことを確認する。
 - [x] 5.3 `RegisteredBBSNavigation.kt`、`ServiceListScreen.kt`、`CategorisedBoardListScreen.kt`、`BoaredCategoryListScreen.kt` を更新し、画面Scaffoldと `appChromePadding` の合成値を各 `LazyColumn.contentPadding` へ渡す。3画面すべてで先頭・末尾と横画面のstart/end安全領域を確認する。
 - [x] 5.4 `HistoryListScaffold.kt` と履歴のLazyコンテナを更新し、ルートBottomBar非表示時は画面Scaffoldのbottom Insets、選択モード時は選択BottomBarの占有領域だけが適用されることを確認する。
@@ -34,7 +34,7 @@
 ## 6. その他画面とオーバーレイの棚卸し
 
 - [x] 6.1 Settings系7画面、`AboutScreen.kt`、`OpenSourceLicenseScreen.kt` のスクロール方式と背景所有者を確認し、LazyコンテナはcontentPaddingへ移行し、`verticalScroll`は内容内の先頭・末尾余白へ移行する。非スクロール画面はScaffold背景が端まで描画される場合のみ既存paddingを維持する。
-- [ ] 6.2 `BottomAlignedDialog.kt`、`PostDialog.kt`、TextFieldを含む標準Dialog／AlertDialog、`SlevoBottomSheet.kt` を確認し、safeDrawingとIMEが同じ辺へ二重適用されないよう修正する。各入力欄と主要確定操作がIME表示中に到達可能であることをUIテストまたは端末確認で検証する。
+- [ ] 6.2 `BottomAlignedDialog.kt`、`PostDialog.kt`、TextFieldを含む標準Dialog／AlertDialog、`SlevoBottomSheet.kt` を確認し、safeDrawingとIMEが同じ辺へ二重適用されないよう修正する。URL入力ダイアログを含む各入力欄と主要確定操作がIME表示中に到達可能であり、背後のタブ一覧固定下部操作群がIMEで移動しないことをUIテストまたは端末確認で検証する。
 - [x] 6.3 `ThreadScaffold.kt` の `ReplyPopup` など固定オーバーレイを全件確認し、重要なタップ対象だけに `safeDrawing` を一度適用し、背景コンテナへ全体safe paddingを追加していないことをコード検索で確認する。
 - [x] 6.4 `ImageViewerScreenContent.kt`、`ImageViewerTopBar.kt`、`ImageViewerThumbnailBar.kt` の局所的なゼロInsetsと明示Insetsを維持し、status bar高の背景要素が重複描画されていないか確認して必要な場合だけ条件を修正する。
 
