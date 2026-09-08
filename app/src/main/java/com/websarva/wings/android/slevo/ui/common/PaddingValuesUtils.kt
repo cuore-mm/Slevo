@@ -17,16 +17,16 @@ internal fun mergeScaffoldPaddingValues(
 ): PaddingValues = object : PaddingValues {
     override fun calculateTopPadding(): Dp = screenPadding.calculateTopPadding()
 
+    override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp =
+        screenPadding.calculateLeftPadding(layoutDirection)
+
     override fun calculateBottomPadding(): Dp = max(
         screenPadding.calculateBottomPadding().value,
         appChromePadding.calculateBottomPadding().value,
     ).dp
 
-    override fun calculateStartPadding(layoutDirection: LayoutDirection): Dp =
-        screenPadding.calculateStartPadding(layoutDirection)
-
-    override fun calculateEndPadding(layoutDirection: LayoutDirection): Dp =
-        screenPadding.calculateEndPadding(layoutDirection)
+    override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp =
+        screenPadding.calculateRightPadding(layoutDirection)
 }
 
 /**
@@ -41,12 +41,12 @@ internal fun addPaddingValues(
     override fun calculateTopPadding(): Dp =
         base.calculateTopPadding() + additional.calculateTopPadding()
 
+    override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp =
+        base.calculateLeftPadding(layoutDirection) + additional.calculateLeftPadding(layoutDirection)
+
     override fun calculateBottomPadding(): Dp =
         base.calculateBottomPadding() + additional.calculateBottomPadding()
 
-    override fun calculateStartPadding(layoutDirection: LayoutDirection): Dp =
-        base.calculateStartPadding(layoutDirection) + additional.calculateStartPadding(layoutDirection)
-
-    override fun calculateEndPadding(layoutDirection: LayoutDirection): Dp =
-        base.calculateEndPadding(layoutDirection) + additional.calculateEndPadding(layoutDirection)
+    override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp =
+        base.calculateRightPadding(layoutDirection) + additional.calculateRightPadding(layoutDirection)
 }
