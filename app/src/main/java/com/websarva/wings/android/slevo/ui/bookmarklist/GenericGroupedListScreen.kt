@@ -17,9 +17,15 @@ import com.websarva.wings.android.slevo.data.model.Groupable
 import com.websarva.wings.android.slevo.data.model.GroupedData
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 
+/**
+ * グループ化されたデータを LazyColumn で表示する共通コンテナ。
+ *
+ * 渡された contentPadding はスクロール領域へ適用し、同じ Insets が子へ伝播しないよう消費する。
+ */
 @Composable
 fun <G : Groupable, I> GenericGroupedListScreen(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(vertical = 8.dp, horizontal = 16.dp),
     groupedDataList: List<GroupedData<G, I>>,
     @StringRes emptyListMessageResId: Int, // リスト全体が空の場合のメッセージID
     @StringRes emptyGroupMessageResId: Int, // グループ内が空の場合のメッセージID
@@ -27,13 +33,20 @@ fun <G : Groupable, I> GenericGroupedListScreen(
     itemContent: @Composable (item: I) -> Unit // 各アイテムを表示するコンポーザブルラムダ
 ) {
     if (groupedDataList.isEmpty()) {
-        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(contentPadding),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(text = stringResource(emptyListMessageResId))
         }
     } else {
         LazyColumn(
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 16.dp)
+            modifier = modifier
+                .fillMaxSize()
+                .consumeWindowInsets(contentPadding),
+            contentPadding = contentPadding,
         ) {
             groupedDataList.forEach { groupedData ->
                 // --- グループヘッダー ---

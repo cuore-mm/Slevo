@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -31,7 +30,7 @@ fun BookmarkSelectBottomBar(
     onOpen: () -> Unit
 ) {
     BottomAppBar(
-        modifier = modifier.height(56.dp),
+        modifier = modifier,
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -59,7 +58,7 @@ fun BbsSelectBottomBar(
     onOpen: () -> Unit
 ) {
     BottomAppBar(
-        modifier = modifier.height(56.dp),
+        modifier = modifier,
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),

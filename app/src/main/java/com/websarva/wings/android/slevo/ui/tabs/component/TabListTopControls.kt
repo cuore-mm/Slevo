@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
@@ -48,13 +49,16 @@ import kotlin.math.roundToInt
  * タブ一覧上部の検索領域を提供する。
  *
  * 通常時は右上に検索ボタンとその他ボタン、検索モード時は上部に検索バーを表示する。
- * いずれの場合も同じ固定高さの full-width haze 領域を持つ。
+ * いずれの場合も操作領域の高さに上部 safe inset を加えた full-width haze 領域を持つ。
+ *
+ * @param topInset ステータスバーまたはディスプレイカットアウトを避ける操作コンテンツの上余白。
  */
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TabListTopControls(
     modifier: Modifier = Modifier,
     hazeState: HazeState,
+    topInset: Dp = 0.dp,
     isSearchMode: Boolean,
     isSelectionMode: Boolean = false,
     selectedTabCount: Int = 0,
@@ -73,7 +77,8 @@ fun TabListTopControls(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(TabListLayoutDefaults.topSearchHeight)
+            // haze はステータスバーの背後まで広げ、操作コンテンツだけ safe inset の下へ置く。
+            .height(topInset + TabListLayoutDefaults.topSearchHeight)
             .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
                 progressive = HazeProgressive.verticalGradient(
                     startIntensity = 0.3f,
@@ -85,79 +90,86 @@ fun TabListTopControls(
                 interactionSource = tapGuardInteractionSource,
                 indication = null,
                 onClick = {},
-            )
-            .padding(
-                horizontal = TabListLayoutDefaults.controlsHorizontalPadding,
-                vertical = TabListLayoutDefaults.topSearchVerticalPadding,
             ),
-        contentAlignment = Alignment.CenterEnd,
     ) {
-        val visibilityAnimationSpec =
-            tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
-        val slideAnimationSpec =
-            tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
-
-        AnimatedVisibility(
-            visible = isSearchMode,
-            enter = slideInVertically(
-                initialOffsetY = { -it },
-                animationSpec = slideAnimationSpec,
-            ) + fadeIn(animationSpec = visibilityAnimationSpec),
-            exit = slideOutVertically(
-                targetOffsetY = { -it },
-                animationSpec = slideAnimationSpec,
-            ) + fadeOut(animationSpec = visibilityAnimationSpec),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = topInset)
+                .height(TabListLayoutDefaults.topSearchHeight)
+                .padding(
+                    horizontal = TabListLayoutDefaults.controlsHorizontalPadding,
+                    vertical = TabListLayoutDefaults.topSearchVerticalPadding,
+                ),
+            contentAlignment = Alignment.CenterEnd,
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(TabListLayoutDefaults.searchBarHeight),
-                shape = MaterialTheme.shapes.extraLargeIncreased,
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = TabListLayoutDefaults.searchBarElevation),
+            val visibilityAnimationSpec =
+                tween<Float>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+            val slideAnimationSpec =
+                tween<IntOffset>(durationMillis = TabListAnimationDefaults.VISIBILITY_MILLIS)
+
+            AnimatedVisibility(
+                visible = isSearchMode,
+                enter = slideInVertically(
+                    initialOffsetY = { -it },
+                    animationSpec = slideAnimationSpec,
+                ) + fadeIn(animationSpec = visibilityAnimationSpec),
+                exit = slideOutVertically(
+                    targetOffsetY = { -it },
+                    animationSpec = slideAnimationSpec,
+                ) + fadeOut(animationSpec = visibilityAnimationSpec),
             ) {
-                SearchInputField(
-                    searchInputValue = searchInputValue,
-                    onSearchInputChange = onSearchInputChange,
-                    onCloseSearch = onCloseSearch,
-                    focusRequestId = searchFocusRequestId,
-                    onFocusRequestConsumed = onSearchFocusRequestConsumed,
-                    placeholderResId = R.string.search,
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = !isSearchMode,
-            enter = fadeIn(animationSpec = visibilityAnimationSpec),
-            exit = fadeOut(animationSpec = visibilityAnimationSpec),
-        ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                AnimatedVisibility(
-                    modifier = Modifier.align(Alignment.CenterStart),
-                    visible = isSelectionMode,
-                    enter = fadeIn(animationSpec = visibilityAnimationSpec),
-                    exit = fadeOut(animationSpec = visibilityAnimationSpec),
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(TabListLayoutDefaults.searchBarHeight),
+                    shape = MaterialTheme.shapes.extraLargeIncreased,
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = TabListLayoutDefaults.searchBarElevation),
                 ) {
-                    TabActionButton(
-                        imageVector = ArrowBackIosCentered,
-                        contentDescription = stringResource(R.string.back),
-                        onClick = onBackFromSelection,
+                    SearchInputField(
+                        searchInputValue = searchInputValue,
+                        onSearchInputChange = onSearchInputChange,
+                        onCloseSearch = onCloseSearch,
+                        focusRequestId = searchFocusRequestId,
+                        onFocusRequestConsumed = onSearchFocusRequestConsumed,
+                        placeholderResId = R.string.search,
                     )
                 }
-                Row(
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TabActionButton(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = stringResource(R.string.search),
-                        onClick = onSearchClick,
-                    )
-                    MoreButton(
-                        moreButtonBounds = moreButtonBounds,
-                        enabled = !isSelectionMode || selectedTabCount > 0,
-                        onMoreClick = onMoreClick,
-                    )
+            }
+
+            AnimatedVisibility(
+                visible = !isSearchMode,
+                enter = fadeIn(animationSpec = visibilityAnimationSpec),
+                exit = fadeOut(animationSpec = visibilityAnimationSpec),
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    AnimatedVisibility(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        visible = isSelectionMode,
+                        enter = fadeIn(animationSpec = visibilityAnimationSpec),
+                        exit = fadeOut(animationSpec = visibilityAnimationSpec),
+                    ) {
+                        TabActionButton(
+                            imageVector = ArrowBackIosCentered,
+                            contentDescription = stringResource(R.string.back),
+                            onClick = onBackFromSelection,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TabActionButton(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = stringResource(R.string.search),
+                            onClick = onSearchClick,
+                        )
+                        MoreButton(
+                            moreButtonBounds = moreButtonBounds,
+                            enabled = !isSelectionMode || selectedTabCount > 0,
+                            onMoreClick = onMoreClick,
+                        )
+                    }
                 }
             }
         }

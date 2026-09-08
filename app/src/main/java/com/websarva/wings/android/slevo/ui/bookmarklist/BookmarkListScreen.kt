@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,10 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,12 +38,15 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.Gr
 import com.websarva.wings.android.slevo.data.datasource.local.entity.bookmark.ThreadBookmarkGroupEntity
 import com.websarva.wings.android.slevo.data.model.GroupedData
 import com.websarva.wings.android.slevo.ui.theme.BookmarkColor
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 import kotlinx.coroutines.launch
 
+/** 板・スレッドのブックマークをタブごとの Lazy コンテナへ表示する。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarkScreen(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     scrollBehavior: TopAppBarScrollBehavior,
     boardGroups: List<GroupWithBoards>,
     onBoardClick: (BoardEntity) -> Unit,
@@ -60,11 +67,28 @@ fun BookmarkScreen(
         pageCount = { 2 }
     )
 
+    val layoutDirection = LocalLayoutDirection.current
+    val listContentPadding = addPaddingValues(
+        base = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        additional = PaddingValues(
+            start = contentPadding.calculateStartPadding(layoutDirection),
+            top = 0.dp,
+            end = contentPadding.calculateEndPadding(layoutDirection),
+            bottom = contentPadding.calculateBottomPadding(),
+        ),
+    )
+
     Column(modifier = modifier.fillMaxSize()) {
         // タブ行
         TabRow(
             selectedTabIndex = pagerState.currentPage,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    top = contentPadding.calculateTopPadding(),
+                    start = contentPadding.calculateStartPadding(layoutDirection),
+                    end = contentPadding.calculateEndPadding(layoutDirection),
+                )
         ) {
             listOf(stringResource(R.string.board), stringResource(R.string.thread))
                 .forEachIndexed { index, text ->
@@ -94,6 +118,7 @@ fun BookmarkScreen(
             when (page) {
                 0 -> BookmarkBoardScreen(
                     modifier = screenModifier,
+                    contentPadding = listContentPadding,
                     boardGroups = boardGroups,
                     onBoardClick = onBoardClick,
                     selectMode = selectMode,
@@ -103,6 +128,7 @@ fun BookmarkScreen(
 
                 1 -> BookmarkThreadListScreen(
                     modifier = screenModifier,
+                    contentPadding = listContentPadding,
                     groupedThreadBookmarks = threadGroups,
                     onThreadClick = onThreadClick,
                     selectMode = selectMode,
@@ -117,6 +143,7 @@ fun BookmarkScreen(
 @Composable
 fun BookmarkBoardScreen(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     boardGroups: List<GroupWithBoards>,
     onBoardClick: (BoardEntity) -> Unit,
     selectMode: Boolean,
@@ -129,6 +156,7 @@ fun BookmarkBoardScreen(
 
     GenericGroupedListScreen(
         modifier = modifier,
+        contentPadding = contentPadding,
         groupedDataList = groupedDataList,
         emptyListMessageResId = R.string.no_registered_boards,
         emptyGroupMessageResId = R.string.no_registered_boards,
@@ -149,6 +177,7 @@ fun BookmarkBoardScreen(
 @Composable
 fun BookmarkThreadListScreen(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     groupedThreadBookmarks: List<GroupWithThreadBookmarks>,
     onThreadClick: (BookmarkThreadEntity) -> Unit,
     selectMode: Boolean,
@@ -161,6 +190,7 @@ fun BookmarkThreadListScreen(
 
     GenericGroupedListScreen(
         modifier = modifier,
+        contentPadding = contentPadding,
         groupedDataList = groupedDataList,
         emptyListMessageResId = R.string.no_bookmarked_threads,
         emptyGroupMessageResId = R.string.no_bookmarked_threads,

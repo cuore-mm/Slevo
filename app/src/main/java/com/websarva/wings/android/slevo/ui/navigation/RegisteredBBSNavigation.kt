@@ -10,16 +10,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -36,13 +33,15 @@ import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListTopBarScreen
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
+import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 import kotlinx.coroutines.launch
 
+/** 登録済みサービス、カテゴリ、板一覧のナビゲーション先を構成する。 */
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.addRegisteredBBSNavigation(
-    parentPadding: PaddingValues,
+    appChromePadding: PaddingValues,
     navController: NavHostController,
     openDrawer: () -> Unit,
     tabSessionStore: TabSessionStore,
@@ -151,15 +150,10 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     }
                 },
             ) { innerPadding ->
-
+                val contentPadding = mergeScaffoldPaddingValues(innerPadding, appChromePadding)
                 ServiceListScreen(
-                    modifier = Modifier.padding(
-                        // 左右と下は親のpadding、上は子のpaddingを使用
-                        start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
-                        top = innerPadding.calculateTopPadding(),
-                        end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
-                        bottom = parentPadding.calculateBottomPadding()
-                    ),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = contentPadding,
                     uiState = uiState,
                     onClick = { service ->
                         if (service.menuUrl != null) {
@@ -242,14 +236,10 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     )
                 },
             ) { innerPadding ->
+                val contentPadding = mergeScaffoldPaddingValues(innerPadding, appChromePadding)
                 BoaredCategoryListScreen(
-                    modifier = Modifier.padding(
-                        // 左右と下は親のpadding、上は子のpaddingを使用
-                        start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
-                        top = innerPadding.calculateTopPadding(),
-                        end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
-                        bottom = parentPadding.calculateBottomPadding()
-                    ),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = contentPadding,
                     uiState = uiState,
                     onCategoryClick = { category ->
                         navController.navigate(
@@ -290,14 +280,10 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                     )
                 },
             ) { innerPadding ->
+                val contentPadding = mergeScaffoldPaddingValues(innerPadding, appChromePadding)
                 CategorisedBoardListScreen(
-                    modifier = Modifier.padding(
-                        // 左右と下は親のpadding、上は子のpaddingを使用
-                        start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
-                        top = innerPadding.calculateTopPadding(),
-                        end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
-                        bottom = parentPadding.calculateBottomPadding()
-                    ),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = contentPadding,
                     boards = uiState.boards,
                     onBoardClick = { board ->
                         coroutineScope.launch {

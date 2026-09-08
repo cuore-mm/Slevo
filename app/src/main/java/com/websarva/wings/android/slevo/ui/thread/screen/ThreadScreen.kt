@@ -9,8 +9,12 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +35,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -97,6 +102,7 @@ fun ThreadScreen(
     onImageRetry: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     // --- Layout measurement ---
     var listSize by remember { mutableStateOf(IntSize.Zero) }
@@ -172,6 +178,7 @@ fun ThreadScreen(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
+    val layoutDirection = LocalLayoutDirection.current
 
     var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
     ObserveGestureHintInvalidResetEffect(
@@ -245,17 +252,29 @@ fun ThreadScreen(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(1f)
+                        .consumeWindowInsets(contentPadding)
                         .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
                         .onSizeChanged { size -> listSize = size },
                     state = listState,
+                    contentPadding = contentPadding,
                     content = lazyColumnContent,
                 )
                 // 中央の区切り線
-                VerticalDivider()
+                VerticalDivider(
+                    modifier = Modifier.padding(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    )
+                )
 
                 // 右側: 固定の勢いバー
                 MomentumBar(
                     modifier = Modifier
+                        .padding(
+                            top = contentPadding.calculateTopPadding(),
+                            bottom = contentPadding.calculateBottomPadding(),
+                            end = contentPadding.calculateEndPadding(layoutDirection),
+                        )
                         .width(24.dp)
                         .fillMaxHeight(),
                     posts = displayPosts,
@@ -266,20 +285,27 @@ fun ThreadScreen(
                 )
             }
         } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(contentPadding)
+                    .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
+                    .onSizeChanged { size -> listSize = size },
+                state = listState,
+                contentPadding = contentPadding,
+                content = lazyColumnContent,
+            )
             SlevoLazyColumnScrollbar(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                    ),
                 state = listState,
                 enabled = showScrollbar,
-            ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
-                        .onSizeChanged { size -> listSize = size },
-                    state = listState,
-                    content = lazyColumnContent,
-                )
-            }
+            ) {}
         }
 
         ThreadBottomRefreshIndicator(
@@ -287,6 +313,7 @@ fun ThreadScreen(
                 uiState.loadingSource == ThreadLoadingSource.BOTTOM_PULL,
             overscroll = bottomRefreshHandle.overscroll,
             refreshThresholdPx = bottomRefreshHandle.refreshThresholdPx,
+            bottomInset = contentPadding.calculateBottomPadding(),
         )
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)

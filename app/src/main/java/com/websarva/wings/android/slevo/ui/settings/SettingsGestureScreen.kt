@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenu
 import com.websarva.wings.android.slevo.ui.common.AnchoredOverlayMenuItem
 import com.websarva.wings.android.slevo.ui.common.VerticalAnchorAlignment
 import com.websarva.wings.android.slevo.ui.common.ConfirmBottomDialog
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 import com.websarva.wings.android.slevo.ui.common.FeedbackTooltipIconButton
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
 import kotlin.math.roundToInt
@@ -163,9 +165,9 @@ fun SettingsGestureScreenContent(
 
         LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp),
+                .fillMaxSize()
+                .consumeWindowInsets(innerPadding),
+            contentPadding = addPaddingValues(PaddingValues(vertical = 8.dp), innerPadding),
         ) {
             item {
                 SettingsCardWithListItems(

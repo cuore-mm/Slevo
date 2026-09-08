@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,10 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 
+/** カテゴリに属する板を2列の行へ変換して表示する。 */
 @Composable
 fun CategorisedBoardListScreen(
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     boards:  List<BoardInfo>,
     onBoardClick: (BoardInfo) -> Unit
 ) {
@@ -33,8 +37,11 @@ fun CategorisedBoardListScreen(
     }
 
     LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(8.dp),
+        modifier = modifier.consumeWindowInsets(contentPadding),
+        contentPadding = addPaddingValues(
+            base = PaddingValues(8.dp),
+            additional = contentPadding,
+        ),
     ) {
         itemsIndexed(rows) { index, (left, right) ->
             Row(

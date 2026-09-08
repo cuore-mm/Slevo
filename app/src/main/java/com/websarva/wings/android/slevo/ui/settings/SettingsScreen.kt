@@ -1,8 +1,8 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
@@ -22,7 +22,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoTopAppBar
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 
+/** 各設定カテゴリへの遷移項目をグループ化して表示する設定トップ画面。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -46,9 +48,9 @@ fun SettingsScreen(
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(8.dp)
+                .fillMaxSize()
+                .consumeWindowInsets(innerPadding),
+            contentPadding = addPaddingValues(PaddingValues(8.dp), innerPadding),
         ) {
             item {
                 val generalGroup = listOf(

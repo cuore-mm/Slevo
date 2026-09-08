@@ -12,6 +12,12 @@ import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 
+/**
+ * 現在の route と選択状態に応じて、ルート専用の下部ナビゲーションを描画する。
+ *
+ * Tabs、Bookmark、BBS一覧だけがこのルート chrome を使用し、HistoryやBoard／Threadなどは
+ * 各画面の Scaffold が固有の下部バーを所有する。
+ */
 @Composable
 fun RenderBottomBar(
     modifier: Modifier = Modifier,

@@ -29,10 +29,13 @@ import kotlinx.serialization.Serializable
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
+/**
+ * アプリのナビゲーション先を構成し、ルート下部 chrome の占有領域を対象画面へ渡す。
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppNavGraph(
-    parentPadding: PaddingValues,
+    appChromePadding: PaddingValues,
     navController: NavHostController,
     topBarState: TopAppBarState,
     settingsViewModel: SettingsViewModel,
@@ -93,7 +96,7 @@ fun AppNavGraph(
             }
         ) {
             BookmarkListScaffold(
-                parentPadding = parentPadding,
+                appChromePadding = appChromePadding,
                 topBarState = topBarState,
                 navController = navController,
                 openDrawer = openDrawer,
@@ -110,13 +113,13 @@ fun AppNavGraph(
             HistoryListScaffold(
                 navController = navController,
                 topBarState = topBarState,
-                parentPadding = parentPadding,
+                appChromePadding = appChromePadding,
                 tabSessionStore = tabSessionStore
             )
         }
         //掲示板一覧
         addRegisteredBBSNavigation(
-            parentPadding = parentPadding,
+            appChromePadding = appChromePadding,
             navController = navController,
             openDrawer = openDrawer,
             tabSessionStore = tabSessionStore
@@ -278,7 +281,7 @@ fun AppNavGraph(
             }
         ) {
             TabsScaffold(
-                parentPadding = parentPadding,
+                appChromePadding = appChromePadding,
                 tabSessionStore = tabSessionStore,
                 navController = navController
             )

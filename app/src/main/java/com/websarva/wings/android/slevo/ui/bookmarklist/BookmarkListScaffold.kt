@@ -8,9 +8,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
@@ -21,10 +19,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
+import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoardScreen
@@ -32,10 +30,15 @@ import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import kotlinx.coroutines.launch
 
+/**
+ * ブックマーク画面の AppBar、一覧、選択用 BottomBar を構成する。
+ *
+ * ルート chrome と画面 Scaffold の余白は一覧コンテナへ一度だけ渡す。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarkListScaffold(
-    parentPadding: PaddingValues,
+    appChromePadding: PaddingValues,
     navController: NavHostController,
     topBarState: TopAppBarState,
     openDrawer: () -> Unit,
@@ -77,15 +80,10 @@ fun BookmarkListScaffold(
             }
         },
     ) { innerPadding ->
-
+        val contentPadding = mergeScaffoldPaddingValues(innerPadding, appChromePadding)
         BookmarkScreen(
-            modifier = Modifier.padding(
-                // 左右と下は親のpadding、上は子のpaddingを使用
-                start = parentPadding.calculateStartPadding(LayoutDirection.Ltr),
-                top = innerPadding.calculateTopPadding(),
-                end = parentPadding.calculateEndPadding(LayoutDirection.Ltr),
-                bottom = parentPadding.calculateBottomPadding()
-            ),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             scrollBehavior = scrollBehavior,
             boardGroups = uiState.boardList,
             onBoardClick = { board ->

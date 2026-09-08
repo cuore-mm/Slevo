@@ -8,17 +8,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +38,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
@@ -66,6 +69,8 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.model.filterBoardTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.common.addPaddingValues
+import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -84,6 +89,7 @@ import kotlin.math.roundToInt
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
+    appChromePadding: PaddingValues = PaddingValues(),
     tabSessionStore: TabSessionStore,
     tabListViewModel: TabListViewModel,
     navController: NavHostController,
@@ -238,14 +244,26 @@ fun TabScreenContent(
     // --- Scaffold ---
     Scaffold(
         modifier = modifier,
-        contentWindowInsets = WindowInsets(0),
+        // URLダイアログは別ウィンドウでIMEを所有するため、背後の固定操作群は
+        // system barだけを基準に配置する。
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
     ) { innerPadding ->
+        val contentPadding = mergeScaffoldPaddingValues(innerPadding, appChromePadding)
+        val layoutDirection = LocalLayoutDirection.current
         // TabListBottomControls と上部検索領域に合わせたリスト余白。
         val topSearchHeight = TabListLayoutDefaults.topSearchHeight
         val bottomControlsHeight = TabListLayoutDefaults.listBottomPadding
-        val listPadding = PaddingValues(
-            top = topSearchHeight + TabListLayoutDefaults.listTopSpacing,
-            bottom = bottomControlsHeight,
+        val listPadding = addPaddingValues(
+            base = PaddingValues(
+                top = topSearchHeight + TabListLayoutDefaults.listTopSpacing,
+                bottom = bottomControlsHeight,
+            ),
+            additional = PaddingValues(
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                top = contentPadding.calculateTopPadding(),
+                end = contentPadding.calculateEndPadding(layoutDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
         )
 
         Box(
@@ -264,9 +282,9 @@ fun TabScreenContent(
                     ) {
                         CircularWavyProgressIndicator()
                     }
-                } else {
+                    } else {
                     TabsPagerContent(
-                        modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
+                        modifier = Modifier,
                         pagerState = pagerState,
                         navController = navController,
                          closeDrawer = closeDrawer,
@@ -355,7 +373,12 @@ fun TabScreenContent(
             TabListBottomControls(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(
+                        start = contentPadding.calculateStartPadding(layoutDirection),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    ),
                 pagerState = pagerState,
                 hazeState = hazeState,
                 isRefreshing = isRefreshing,
@@ -374,8 +397,12 @@ fun TabScreenContent(
             TabListTopControls(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = innerPadding.calculateTopPadding()),
+                    .padding(
+                        start = contentPadding.calculateStartPadding(layoutDirection),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                    ),
                 hazeState = hazeState,
+                topInset = contentPadding.calculateTopPadding(),
                 isSearchMode = isSearchMode,
                 isSelectionMode = isSelectionMode,
                 selectedTabCount = listUiState.selectedTabCount,

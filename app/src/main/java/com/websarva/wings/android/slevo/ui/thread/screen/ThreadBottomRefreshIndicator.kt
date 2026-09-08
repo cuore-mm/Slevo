@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 
@@ -20,6 +21,8 @@ import androidx.compose.ui.util.lerp
  *
  * プル中は `overscroll` 量に応じた回転と拡大を行い、消える際も縮小と右回転を継続する。
  * 更新中は既存どおり右回転表示を維持する。
+ *
+ * @param bottomInset 下部ツールバーとnavigation barを避けるための下部Insets。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -27,6 +30,7 @@ fun BoxScope.ThreadBottomRefreshIndicator(
     isRefreshing: Boolean,
     overscroll: Float,
     refreshThresholdPx: Float,
+    bottomInset: Dp,
 ) {
     // --- Progress calculation ---
     val rawProgress = if (refreshThresholdPx > 0f) {
@@ -64,7 +68,7 @@ fun BoxScope.ThreadBottomRefreshIndicator(
 
     val indicatorModifier = Modifier
         .align(Alignment.BottomCenter)
-        .padding(bottom = 16.dp)
+        .padding(bottom = bottomInset + 16.dp)
         .graphicsLayer(
             scaleX = animatedScale,
             scaleY = animatedScale,

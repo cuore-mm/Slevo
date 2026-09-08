@@ -3,7 +3,10 @@ package com.websarva.wings.android.slevo.ui.history
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +28,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** 履歴を日付見出し付きの LazyColumn で表示し、選択操作を処理する。 */
 @Composable
 fun HistoryListScreen(
     histories: List<ThreadHistoryDao.HistoryWithLastAccess>,
@@ -33,13 +37,14 @@ fun HistoryListScreen(
     onOpenThread: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
     onToggleSelection: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
     onStartSelection: (ThreadHistoryDao.HistoryWithLastAccess) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier
 ) {
     if (histories.isEmpty()) {
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(contentPadding)
         ) {
             Text(stringResource(R.string.no_history))
         }
@@ -48,7 +53,12 @@ fun HistoryListScreen(
 
     val formatter = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
 
-    LazyColumn(modifier = modifier) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .consumeWindowInsets(contentPadding),
+        contentPadding = contentPadding,
+    ) {
         var currentDate: String? = null
         histories.forEach { history ->
             val date = formatter.format(Date(history.lastAccess ?: 0L))

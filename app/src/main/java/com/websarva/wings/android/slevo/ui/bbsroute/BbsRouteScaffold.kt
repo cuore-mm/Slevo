@@ -5,8 +5,12 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.pager.HorizontalPager
@@ -38,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -107,6 +112,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         uiState: UiState,
         listState: LazyListState,
         modifier: Modifier,
+        contentPadding: PaddingValues,
         navController: NavHostController,
         openTabListSheet: () -> Unit,
         openUrlDialog: () -> Unit,
@@ -280,11 +286,10 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         )
                     }
                 },
-            ) { innerPadding ->
+                ) { innerPadding ->
                 HorizontalPager(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .graphicsLayer {
                             translationX = pagerOverscrollEffect.offsetPx
@@ -342,6 +347,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             uiState,
                             listState,
                             contentModifier,
+                            innerPadding,
                             navController,
                             { showTabListSheet = true },
                             {
@@ -352,6 +358,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                     }
                 }
             }
+            BbsRouteStatusBarProtection()
 
             BookmarkSheetHost(
                 sheetState = bookmarkSheetState,
@@ -486,6 +493,30 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         // Empty は onEmptyTabs の navigation に委譲し、tab content は構成しない。
         Box(modifier = Modifier.fillMaxSize())
     }
+}
+
+/**
+ * 板・スレッド画面のステータスバー領域に半透明の視認性保護背景を描画する。
+ *
+ * 背景とコンテンツのedge-to-edge描画は維持し、ステータスバーのアイコンと時刻だけを
+ * テーマ連動のsurface色で読みやすくする。
+ */
+@Composable
+private fun BbsRouteStatusBarProtection() {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsTopHeight(WindowInsets.statusBars)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        surfaceColor.copy(alpha = 0.92f),
+                        surfaceColor.copy(alpha = 0.76f),
+                    )
+                )
+            )
+    )
 }
 
 /**

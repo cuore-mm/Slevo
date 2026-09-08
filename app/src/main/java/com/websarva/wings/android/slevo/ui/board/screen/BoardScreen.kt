@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -71,6 +75,7 @@ fun BoardScreen(
     gestureSettings: GestureSettings = GestureSettings.DEFAULT,
     onGestureAction: (GestureAction) -> Unit = {},
     searchQuery: String,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     // --- Momentum stats ---
     val (momentumMean, momentumStd) = remember(threads) {
@@ -91,6 +96,7 @@ fun BoardScreen(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
+    val layoutDirection = LocalLayoutDirection.current
 
     PullToRefreshBox(
         modifier = modifier,
@@ -136,41 +142,49 @@ fun BoardScreen(
                         onGestureAction(action)
                     }
                 }
-        ) {
-            // --- Thread list ---
-            SlevoLazyColumnScrollbar(
-                modifier = Modifier.fillMaxSize(),
-                state = listState,
-                enabled = showScrollbar,
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState,
-                ) {
-                    // リスト全体の先頭に区切り線を追加
-                    if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
-                        item {
-                            HorizontalDivider()
-                        }
-                    }
-
-                    itemsIndexed(
-                        items = threads,
-                        key = { _, item -> item.key }
-                    ) { _, thread ->
-                        ThreadCard(
-                            threadInfo = thread,
-                            onClick = onClick,
-                            onLongClick = { onLongClick(thread) },
-                            searchQuery = searchQuery,
-                            momentumMean = momentumMean,
-                            momentumStd = momentumStd
-                        )
-                        // 各アイテムの下に区切り線を表示
+            // --- Thread list ---
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(contentPadding),
+                state = listState,
+                contentPadding = contentPadding,
+            ) {
+                // リスト全体の先頭に区切り線を追加
+                if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
+                    item {
                         HorizontalDivider()
                     }
                 }
+
+                itemsIndexed(
+                    items = threads,
+                    key = { _, item -> item.key }
+                ) { _, thread ->
+                    ThreadCard(
+                        threadInfo = thread,
+                        onClick = onClick,
+                        onLongClick = { onLongClick(thread) },
+                        searchQuery = searchQuery,
+                        momentumMean = momentumMean,
+                        momentumStd = momentumStd
+                    )
+                    // 各アイテムの下に区切り線を表示
+                    HorizontalDivider()
+                }
             }
+            SlevoLazyColumnScrollbar(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                    ),
+                state = listState,
+                enabled = showScrollbar,
+            ) {}
             if (gestureSettings.showActionHints) {
                 GestureHintOverlay(state = gestureHint)
             }

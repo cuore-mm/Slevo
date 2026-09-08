@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui.settings
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -63,8 +63,9 @@ fun SettingsThreadScreenContent(
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .consumeWindowInsets(innerPadding),
+            contentPadding = innerPadding,
         ) {
             item {
                 SettingsCardWithListItems(
