@@ -11,7 +11,7 @@
 
 ## 3. ルート Scaffold と共通 Padding 契約
 
-- [x] 3.1 `AppScaffold.kt` のルート `Scaffold` だけに `contentWindowInsets = WindowInsets(0)` を設定し、下部バーへ渡す `navigationBarsPadding()` と `height(56.dp)` を同時に削除する。`NavigationBottomBar.kt` と `SelectedBottomBar.kt` が Material 3 の既定 Insets と標準高で描画されることを PreviewまたはUIテストで確認する。
+- [x] 3.1 `AppScaffold.kt` のルート `Scaffold` だけに `contentWindowInsets = WindowInsets(0)` を設定し、下部バーへ渡す `navigationBarsPadding()` と `height(56.dp)` を同時に削除する。`NavigationBottomBar.kt` と `SelectedBottomBar.kt` が Material 3 の既定 Insets と標準高で描画されることを PreviewまたはUIテストで確認する。ルートSnackbarは下部バーなしrouteだけbottom safe drawing Insetsを適用し、下部バーありrouteで二重適用しない。
 - [x] 3.2 `AppScaffold.kt`、`AppNavGraph.kt`、`TabsScaffold.kt`、Bookmark／History／RegisteredBBS の route引数にある `parentPadding` を `appChromePadding` へ改名し、「ルート下部ナビゲーションの占有領域だけ」を表すことをKDocまたは非自明処理のコメントで明示する。全呼び出し元がコンパイルすることを確認する。
 - [x] 3.3 `ui/common` の既存命名を確認して `PaddingValues` 合成ユーティリティを追加し、top/start/endは画面Scaffold、bottomは `maxOf(screen, appChrome)` を返すよう実装する。LTR／RTLを `calculateStartPadding`／`calculateEndPadding` で扱う。
 - [x] 3.4 `app/src/test` に合成ユーティリティのJUnit 4テストを追加し、LTR、RTL、screen bottomのみ、app chrome bottomのみ、両方あり、両方0の各ケースで辺ごとの値を検証する。
@@ -19,8 +19,8 @@
 ## 4. Board／Thread と画面固有 BottomBar
 
 - [x] 4.1 `BbsRouteScaffold.kt` の Pagerへ付けた `Modifier.padding(innerPadding)` を除去し、Scaffoldの `PaddingValues` をBoard／Threadのcontent lambdaまで明示的に渡す。Pager背景がウィンドウ端まで描画されることを確認する。
-- [x] 4.2 Board側のroute/scaffoldと `BoardScreen.kt` を更新し、受け取ったpaddingを `LazyColumn.contentPadding` と `Modifier.consumeWindowInsets` に適用する。先頭と末尾の板項目がstatus barとBottomBarに隠れず、通常スクロールバーも上下の画面Insetsと重ならないままスクロール描画がバー背後まで続くことを確認する。
-- [x] 4.3 Thread側のroute/scaffoldと `ThreadScreen.kt` を更新し、受け取ったpaddingを `LazyColumn.contentPadding` と `Modifier.consumeWindowInsets` に適用する。先頭と末尾のレス、通常スクロールバー、ミニマップ、更新インジケータ、`ReplyPopup` がstatus bar、BottomBar、safeDrawing領域と重ならないことを確認する。`BbsRouteScaffold.kt` にはテーマ連動の半透明status bar保護背景を追加する。
+- [x] 4.2 Board側のroute/scaffoldと `BoardScreen.kt` を更新し、受け取ったpaddingを `LazyColumn.contentPadding` と `Modifier.consumeWindowInsets` に適用する。先頭と末尾の板項目がstatus barとBottomBarに隠れず、通常スクロールバーも上下左右の画面Insetsと重ならないままスクロール描画がバー背後まで続くことを確認する。
+- [x] 4.3 Thread側のroute/scaffoldと `ThreadScreen.kt` を更新し、受け取ったpaddingを `LazyColumn.contentPadding` と `Modifier.consumeWindowInsets` に適用する。先頭と末尾のレス、通常スクロールバー、ミニマップ、更新インジケータ、`ReplyPopup` がstatus bar、BottomBar、上下左右のsafeDrawing領域と重ならないことを確認する。`BbsRouteScaffold.kt` にはテーマ連動の半透明status bar保護背景を追加する。
 - [x] 4.4 `BbsRouteBottomBar.kt`、`TabToolBar.kt`、`SearchBottomBar.kt`、選択BottomBarから外側の navigation bar paddingと固定高を除去し、Material 3バーへ委譲する。Insets目的の3ボタン／ジェスチャー分岐を削除し、通常・選択・検索の全状態でバー背景が画面下端まで描画されることを確認する。
 - [ ] 4.5 Board／Threadの検索モードでIMEを開閉し、検索欄がIME表示中と非表示時の両方で操作可能かつ余分な下余白を残さないCompose UIテストを追加する。
 
@@ -41,7 +41,7 @@
 ## 7. 回帰テストとアクセシビリティ
 
 - [x] 7.1 `app/src/androidTest` にedge-to-edge用Composeテストを追加し、下部NavigationBarの全項目が表示・クリック可能で、標準Material 3高を56dpへ制約するModifierがないことを検証する。
-- [ ] 7.2 Board、Thread、Tabs、Bookmark、BBS一覧の代表ケースで、先頭・末尾項目、通常スクロールバー、ミニマップ、更新インジケータのboundsがTopAppBar、BottomBar、システム操作領域と重ならないテストを追加する。
+- [ ] 7.2 Board、Thread、Tabs、Bookmark、BBS一覧の代表ケースで、先頭・末尾項目、通常スクロールバー、ミニマップ、更新インジケータ、ルートSnackbarのboundsがTopAppBar、BottomBar、システム操作領域と重ならないテストを追加する。
 - [ ] 7.3 既存の文言、contentDescription、フォーカス順序が変わっていないことを関連Composeテストで確認し、最大フォントでも下部ナビゲーション項目と主要操作が切り取られないことを確認する。
 - [ ] 7.4 API 29、34、35または36の端末／エミュレータで、ジェスチャー／3ボタン、ライト／ダーク、縦／横、カットアウト、IME開閉の確認表を実施し、各組合せで背景連続性、スクロール補助UIと更新インジケータの非重なり、半透明status bar保護背景、重要UI、二重余白、system bar視認性を記録する。
 

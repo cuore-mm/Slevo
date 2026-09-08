@@ -3,6 +3,10 @@ package com.websarva.wings.android.slevo.ui
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -29,6 +33,7 @@ import com.websarva.wings.android.slevo.ui.navigation.AppNavGraph
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.settings.SettingsViewModel
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
+import com.websarva.wings.android.slevo.ui.util.isInRoute
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
@@ -50,6 +55,11 @@ fun AppScaffold(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val deepLinkUrl by deepLinkUrlFlow.collectAsState()
+    val hasRootBottomBar = navBackStackEntry?.destination.isInRoute(
+        AppRoute.RouteName.BOOKMARK_LIST,
+        AppRoute.RouteName.BBS_SERVICE_GROUP,
+        AppRoute.RouteName.TABS,
+    )
 
     /* ① 共有する TopAppBarState を用意 */
     val topBarState = rememberTopAppBarState()
@@ -82,7 +92,19 @@ fun AppScaffold(
     Scaffold(
         // ルートは下部アプリ chrome の占有領域だけを子画面へ渡す。
         contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(pendingRestoreSnackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = pendingRestoreSnackbarHostState,
+                modifier = if (hasRootBottomBar) {
+                    Modifier
+                } else {
+                    // ルート下部バーがない画面ではSnackbar自身がnavigation barを避ける。
+                    Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
+                    )
+                },
+            )
+        },
         bottomBar = {
             RenderBottomBar(
                 modifier = Modifier,

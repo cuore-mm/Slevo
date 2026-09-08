@@ -9,6 +9,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -176,6 +178,7 @@ fun ThreadScreen(
     val showScrollbar by remember(listState) {
         derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
     }
+    val layoutDirection = LocalLayoutDirection.current
 
     var gestureHint by remember { mutableStateOf<GestureHint>(GestureHint.Hidden) }
     ObserveGestureHintInvalidResetEffect(
@@ -270,6 +273,7 @@ fun ThreadScreen(
                         .padding(
                             top = contentPadding.calculateTopPadding(),
                             bottom = contentPadding.calculateBottomPadding(),
+                            end = contentPadding.calculateEndPadding(layoutDirection),
                         )
                         .width(24.dp)
                         .fillMaxHeight(),
@@ -297,6 +301,7 @@ fun ThreadScreen(
                     .padding(
                         top = contentPadding.calculateTopPadding(),
                         bottom = contentPadding.calculateBottomPadding(),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
                     ),
                 state = listState,
                 enabled = showScrollbar,
