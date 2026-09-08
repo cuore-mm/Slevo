@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.lazy.LazyColumn
@@ -256,11 +257,20 @@ fun ThreadScreen(
                     content = lazyColumnContent,
                 )
                 // 中央の区切り線
-                VerticalDivider()
+                VerticalDivider(
+                    modifier = Modifier.padding(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    )
+                )
 
                 // 右側: 固定の勢いバー
                 MomentumBar(
                     modifier = Modifier
+                        .padding(
+                            top = contentPadding.calculateTopPadding(),
+                            bottom = contentPadding.calculateBottomPadding(),
+                        )
                         .width(24.dp)
                         .fillMaxHeight(),
                     posts = displayPosts,
@@ -271,22 +281,26 @@ fun ThreadScreen(
                 )
             }
         } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(contentPadding)
+                    .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
+                    .onSizeChanged { size -> listSize = size },
+                state = listState,
+                contentPadding = contentPadding,
+                content = lazyColumnContent,
+            )
             SlevoLazyColumnScrollbar(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    ),
                 state = listState,
                 enabled = showScrollbar,
-            ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .consumeWindowInsets(contentPadding)
-                        .nestedScroll(bottomRefreshHandle.nestedScrollConnection)
-                        .onSizeChanged { size -> listSize = size },
-                    state = listState,
-                    contentPadding = contentPadding,
-                    content = lazyColumnContent,
-                )
-            }
+            ) {}
         }
 
         ThreadBottomRefreshIndicator(
@@ -294,6 +308,7 @@ fun ThreadScreen(
                 uiState.loadingSource == ThreadLoadingSource.BOTTOM_PULL,
             overscroll = bottomRefreshHandle.overscroll,
             refreshThresholdPx = bottomRefreshHandle.refreshThresholdPx,
+            bottomInset = contentPadding.calculateBottomPadding(),
         )
         if (gestureSettings.showActionHints) {
             GestureHintOverlay(state = gestureHint)

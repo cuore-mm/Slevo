@@ -139,44 +139,48 @@ fun BoardScreen(
                         onGestureAction(action)
                     }
                 }
-        ) {
-            // --- Thread list ---
-            SlevoLazyColumnScrollbar(
-                modifier = Modifier.fillMaxSize(),
-                state = listState,
-                enabled = showScrollbar,
             ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .consumeWindowInsets(contentPadding),
-                    state = listState,
-                    contentPadding = contentPadding,
-                ) {
-                    // リスト全体の先頭に区切り線を追加
-                    if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
-                        item {
-                            HorizontalDivider()
-                        }
-                    }
-
-                    itemsIndexed(
-                        items = threads,
-                        key = { _, item -> item.key }
-                    ) { _, thread ->
-                        ThreadCard(
-                            threadInfo = thread,
-                            onClick = onClick,
-                            onLongClick = { onLongClick(thread) },
-                            searchQuery = searchQuery,
-                            momentumMean = momentumMean,
-                            momentumStd = momentumStd
-                        )
-                        // 各アイテムの下に区切り線を表示
+            // --- Thread list ---
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeWindowInsets(contentPadding),
+                state = listState,
+                contentPadding = contentPadding,
+            ) {
+                // リスト全体の先頭に区切り線を追加
+                if (threads.isNotEmpty()) { // リストが空でない場合のみ線を表示
+                    item {
                         HorizontalDivider()
                     }
                 }
+
+                itemsIndexed(
+                    items = threads,
+                    key = { _, item -> item.key }
+                ) { _, thread ->
+                    ThreadCard(
+                        threadInfo = thread,
+                        onClick = onClick,
+                        onLongClick = { onLongClick(thread) },
+                        searchQuery = searchQuery,
+                        momentumMean = momentumMean,
+                        momentumStd = momentumStd
+                    )
+                    // 各アイテムの下に区切り線を表示
+                    HorizontalDivider()
+                }
             }
+            SlevoLazyColumnScrollbar(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    ),
+                state = listState,
+                enabled = showScrollbar,
+            ) {}
             if (gestureSettings.showActionHints) {
                 GestureHintOverlay(state = gestureHint)
             }

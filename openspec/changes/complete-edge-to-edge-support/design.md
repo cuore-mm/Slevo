@@ -68,6 +68,18 @@ Activity は `MainActivity` のみで、`targetSdk` は35、`compileSdk` は36�
 
 `TabScreenContent.kt` の上部操作群は、背景の haze レイヤーと操作コンテンツの安全余白を分離する。haze レイヤーはステータスバーを含む上部全域から `topSearchHeight` の下端まで描画し、検索・その他ボタンだけに `contentPadding.calculateTopPadding()` を適用する。タブ一覧の Lazy コンテナには、同じ top inset、上部操作群の高さ、`listTopSpacing` を加えた値を `contentPadding.top` として渡し、最上部の先頭項目が操作群と重ならないようにする。
 
+### 4.2 板・スレッドのスクロール補助UI
+
+`BoardScreen.kt` と `ThreadScreen.kt` の LazyColumn は従来どおり `fillMaxSize()` と `contentPadding` を使用し、背景とスクロール領域をedge-to-edgeのまま維持する。通常スクロールバーはLazyColumnのcontent slotへ入れず、LazyColumnと兄弟の空contentオーバーレイとして配置する。オーバーレイのModifierに画面Scaffoldの `contentPadding.calculateTopPadding()` と `calculateBottomPadding()` だけを適用し、スクロールバーのトラックとつまみをステータスバーおよび下部ツールバーの内側へ収める。
+
+スレッドの `MomentumBar` と隣接する `VerticalDivider` は、LazyColumnを縮めずに同じtop/bottom paddingを適用する。MomentumBarの描画、タップ、ドラッグ計算はpadding後の実測 `barHeight` を共通の座標系として使用し、一覧側のviewportを直接描画領域の高さとして扱わない。
+
+### 4.3 板・スレッドのシステムバー保護と更新表示
+
+`BbsRouteScaffold.kt` は画面全体の背景を端まで描画したまま、Scaffoldの上に操作を持たないステータスバー保護レイヤーを重ねる。レイヤーは `WindowInsets.statusBars` と同じ高さにし、テーマのsurface系色を半透明の縦グラデーションとして描画する。これによりステータスバーのアイコン視認性を保ちつつ、本文のedge-to-edge背景を切り詰めない。
+
+`ThreadBottomRefreshIndicator.kt` はウィンドウ下端からの固定16dpではなく、`ThreadScreen.kt` が受け取った `contentPadding.calculateBottomPadding()` を下端余白として使用する。これには画面固有の下部ツールバーとnavigation barの占有領域が含まれるため、同じ値を別のbottom paddingとして加算しない。BoardのPull-to-refresh表示は上端側のcontentPaddingを考慮し、ステータスバーと重ならない位置に配置する。
+
 ### 5. 非 Lazy コンテンツは種類別に処理する
 
 - `verticalScroll()` を使う Column は、スクロール Modifier の外側へ全体 padding を付けず、内容の先頭・末尾に安全領域相当の Spacer または内側コンテナ padding を置く。
@@ -101,7 +113,7 @@ Activity は `MainActivity` のみで、`targetSdk` は35、`compileSdk` は36�
 1. `AndroidManifest.xml` と `MainActivity.kt` の IME／system bar 設定を更新する。`enableEdgeToEdge()` は削除しない。
 2. `AppScaffold.kt` に局所的な `contentWindowInsets = WindowInsets(0)` を設定し、`navigationBarsPadding()` と `height(56.dp)` を同時に削除する。`AppNavGraph.kt` の `parentPadding` は `appChromePadding` へ改名し、意味を KDoc または非自明処理のコメントで明示する。
 3. Insets 合成ユーティリティとその unit test を追加する。bottom は加算ではなく最大値を選ぶ。
-4. Board／Thread を最初に移行し、Pager の padding を外して LazyColumn の `contentPadding` と `consumeWindowInsets` へ移す。
+4. Board／Thread を最初に移行し、Pager の padding を外して LazyColumn の `contentPadding` と `consumeWindowInsets` へ移す。スクロールバー／ミニマップは一覧と分離したオーバーレイとして上下の画面Insets内に配置し、更新インジケータは下部ツールバーの占有領域を避ける。BbsRouteScaffoldにはステータスバー保護レイヤーを追加する。
 5. Tabs、Bookmark、History、BBS 一覧を同じ契約へ移行する。ルート下部ナビゲーションの有無ごとに bottom 値を確認する。
 6. 設定、About、ライセンス、Dialog、BottomSheet、固定オーバーレイを棚卸しし、背景が Scaffold 全体で描画される画面の安全な既存 padding は不要に書き換えない。
 7. `BbsRouteBottomBar.kt` の navigation mode 判定を Insets のためだけに使用しない構造へ整理し、検索欄の IME 開閉を確認する。
