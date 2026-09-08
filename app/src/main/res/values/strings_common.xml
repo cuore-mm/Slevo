@@ -18,6 +18,7 @@
     <string name="share">共有</string>
     <string name="copy">コピー</string>
     <string name="open_tablist">タブ一覧を開く</string>
+    <string name="show_details">詳細を表示</string>
     <string name="open_in_external_browser">外部ブラウザで開く</string>
     <string name="no_browser_app_found">ブラウザが見つかりませんでした</string>
     <string name="selected_count_label">件選択</string>

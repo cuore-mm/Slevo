@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.common
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.CropSquare
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Card
@@ -254,7 +254,7 @@ private fun rememberTabTitleCardLayoutState(
  *
  * 上段はタイトル・ブックマーク・更新、下段はアクション群を並べる。
  * `actionsProgress` でアクション群の縮退率を制御する。
- * 縮退時はタイトルを小さくし、カード外にタブ/書き込みアイコンを表示する。
+ * 縮退時はタイトルを小さくし、カード外に書き込みアイコンを表示する。
  * 縮退時は56dp、展開時はタイトル行と下段アクションが収まる108dpで表示する。
  * タイトル領域は必須の`titleContent` slotから受け取り、画面種別アクションをタイトル外へ固定する。
  */
@@ -265,9 +265,7 @@ fun TabToolBar(
     destinationModifier: Modifier = Modifier,
     actionsRowModifier: Modifier = Modifier,
     actions: List<TabToolBarAction>,
-    onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
-    tabIconContentDescriptionRes: Int,
     postIconContentDescriptionRes: Int,
     destinationAction: TabDestinationAction,
     actionsProgress: Float = 1f,
@@ -292,9 +290,7 @@ fun TabToolBar(
             ) {
                 // --- Header ---
                 TabToolBarHeader(
-                    onTabListClick = onTabListClick,
                     onPostClick = onPostClick,
-                    tabIconContentDescriptionRes = tabIconContentDescriptionRes,
                     postIconContentDescriptionRes = postIconContentDescriptionRes,
                     destinationAction = destinationAction,
                     destinationModifier = destinationModifier,
@@ -317,15 +313,13 @@ fun TabToolBar(
 /**
  * TabToolBar の上段ヘッダーを組み立てる。
  *
- * 左右の縮退アイコン、画面種別切替ボタン、中央のタイトルカードをまとめて配置する。
+ * 右側の縮退アイコン、画面種別切替ボタン、中央のタイトルカードをまとめて配置する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TabToolBarHeader(
     modifier: Modifier = Modifier,
-    onTabListClick: () -> Unit,
     onPostClick: () -> Unit,
-    @StringRes tabIconContentDescriptionRes: Int,
     @StringRes postIconContentDescriptionRes: Int,
     destinationAction: TabDestinationAction,
     destinationModifier: Modifier,
@@ -340,20 +334,6 @@ private fun TabToolBarHeader(
             .height(TitleRowHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CollapsedSideAction(
-            slotWidth = layoutState.sideSlotWidth,
-            alpha = layoutState.collapsedAlpha,
-            translationY = layoutState.collapsedTranslationPx,
-            enabled = layoutState.collapsedIconEnabled,
-            tooltipText = stringResource(tabIconContentDescriptionRes),
-            onClick = onTabListClick,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.CropSquare,
-                contentDescription = stringResource(tabIconContentDescriptionRes),
-            )
-        }
-
         if (destinationAction.position == TabDestinationPosition.Start) {
             TabDestinationIconButton(
                 modifier = destinationModifier.fillMaxHeight(),
@@ -405,6 +385,7 @@ fun TabTitleCard(
     title: String,
     bookmarkState: BookmarkStatusState,
     onTitleClick: () -> Unit,
+    onTitleLongClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onRefreshClick: () -> Unit,
     titleStyle: TextStyle,
@@ -415,6 +396,7 @@ fun TabTitleCard(
     isLoading: Boolean = false,
     loadProgress: Float = 0f,
 ) {
+    val shape = MaterialTheme.shapes.largeIncreased
     // --- Layout state ---
     val layoutState = rememberTabTitleCardLayoutState(
         actionsProgress = actionsProgress,
@@ -425,14 +407,20 @@ fun TabTitleCard(
 
     // --- Card content ---
     Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.largeIncreased,
-        onClick = onTitleClick,
+        modifier = modifier
+            .clip(shape)
+            .combinedClickable(
+                onClickLabel = stringResource(R.string.open_tablist),
+                onLongClickLabel = stringResource(R.string.show_details),
+                onClick = onTitleClick,
+                onLongClick = onTitleLongClick,
+            ),
+        shape = shape,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(MaterialTheme.shapes.largeIncreased),
+                .clip(shape),
         ) {
             Row(
                 modifier = Modifier
@@ -699,11 +687,6 @@ private fun BottomActionsRow(
 
 private val TabToolBarPreviewActions = listOf(
     TabToolBarAction(
-        icon = Icons.Filled.CropSquare,
-        contentDescriptionRes = R.string.open_tablist,
-        onClick = {},
-    ),
-    TabToolBarAction(
         icon = Icons.Filled.Create,
         contentDescriptionRes = R.string.post,
         onClick = {},
@@ -725,6 +708,7 @@ private fun TabToolBarPreviewTitleContent(
         title = "共通Toolbarのタイトル",
         bookmarkState = BookmarkStatusState(),
         onTitleClick = {},
+        onTitleLongClick = {},
         onBookmarkClick = {},
         onRefreshClick = {},
         titleStyle = MaterialTheme.typography.titleSmall,
@@ -739,9 +723,7 @@ private fun TabToolBarPreviewTitleContent(
 fun TabToolBarExpandedPreview() {
     TabToolBar(
         actions = TabToolBarPreviewActions,
-        onTabListClick = {},
         onPostClick = {},
-        tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.post,
         destinationAction = TabDestinationAction(
             icon = Icons.Filled.CropSquare,
@@ -763,9 +745,7 @@ fun TabToolBarExpandedPreview() {
 fun TabToolBarCollapsedPreview() {
     TabToolBar(
         actions = TabToolBarPreviewActions,
-        onTabListClick = {},
         onPostClick = {},
-        tabIconContentDescriptionRes = R.string.open_tablist,
         postIconContentDescriptionRes = R.string.post,
         destinationAction = TabDestinationAction(
             icon = Icons.Filled.CropSquare,

@@ -20,6 +20,7 @@ data class BoardSessionState(
     val showThreadInfoSheet: Boolean = false,
     val threadInfoSheetTarget: ThreadInfo = ThreadInfo(),
     val showBoardInfoSheet: Boolean = false,
+    val showMoreSheet: Boolean = false,
     val postDialogState: PostDialogState = PostDialogState(),
     val resetScroll: Boolean = false,
     val pendingToastResId: Int? = null,

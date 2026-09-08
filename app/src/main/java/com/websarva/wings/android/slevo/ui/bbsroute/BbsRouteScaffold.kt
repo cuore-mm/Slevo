@@ -92,6 +92,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         actionProgress: Float,
         isSharedTransitionCandidate: Boolean,
         modifier: Modifier,
+        openTabListSheet: () -> Unit,
     ) -> Unit,
     bottomBar: @Composable (
         tabInfo: TabInfo,
@@ -275,6 +276,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             },
                             overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
                             titleCard = titleCard,
+                            openTabListSheet = { showTabListSheet = true },
                         )
                     }
                 },
@@ -502,7 +504,8 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
     getKey: (TabInfo) -> Key,
     getActionProgress: (TabInfo) -> Float,
     overscrollOffsetPx: () -> Float = { 0f },
-    titleCard: @Composable (TabInfo, UiState, Float, Boolean, Modifier) -> Unit,
+    titleCard: @Composable (TabInfo, UiState, Float, Boolean, Modifier, () -> Unit) -> Unit,
+    openTabListSheet: () -> Unit,
 ) {
     // --- Visible page window ---
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -530,6 +533,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
                     getActionProgress = getActionProgress,
                     overscrollOffsetPx = overscrollOffsetPx,
                     titleCard = titleCard,
+                    openTabListSheet = openTabListSheet,
                 )
             }
         }
@@ -551,7 +555,8 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
     getUiState: (TabInfo) -> StateFlow<UiState>,
     getActionProgress: (TabInfo) -> Float,
     overscrollOffsetPx: () -> Float,
-    titleCard: @Composable (TabInfo, UiState, Float, Boolean, Modifier) -> Unit,
+    titleCard: @Composable (TabInfo, UiState, Float, Boolean, Modifier, () -> Unit) -> Unit,
+    openTabListSheet: () -> Unit,
 ) {
     // --- Tab-specific state ---
     val uiState by getUiState(tab).collectAsState()
@@ -589,6 +594,7 @@ private fun <TabInfo : Any, UiState : BaseUiState<UiState>> PagerTitleCardPage(
             actionProgress,
             canUseSharedTransition,
             Modifier.fillMaxSize(),
+            openTabListSheet,
         )
     }
 }

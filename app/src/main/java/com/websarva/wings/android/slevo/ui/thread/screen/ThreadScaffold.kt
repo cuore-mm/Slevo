@@ -154,7 +154,7 @@ fun ThreadScaffold(
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
-        titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier ->
+        titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier, openTabListSheet ->
             ThreadTabTitleCard(
                 modifier = modifier.bbsControllerSharedBounds(
                     sharedTransitionScope = sharedTransitionScope,
@@ -165,7 +165,10 @@ fun ThreadScaffold(
                 tab = tab,
                 uiState = uiState,
                 actionProgress = actionProgress,
-                onTitleClick = { selectedTab ->
+                onTitleClick = {
+                    openTabListSheet()
+                },
+                onTitleLongClick = { selectedTab ->
                     routeViewModel.openThreadInfoSheet(selectedTab.id.value)
                 },
                 onBookmarkClick = { selectedTab ->
@@ -231,7 +234,6 @@ fun ThreadScaffold(
                         isTreeSort = uiState.sortType == ThreadSortType.TREE,
                         onSortClick = { routeViewModel.toggleSortType(tab.id.value) },
                         onPostClick = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
-                        onTabListClick = openTabListSheet,
                         onSearchClick = { routeViewModel.startSearch(tab.id.value) },
                         onMoreClick = { routeViewModel.openMoreSheet(tab.id.value) },
                         onAutoScrollClick = { routeViewModel.toggleAutoScroll(tab.id.value) },

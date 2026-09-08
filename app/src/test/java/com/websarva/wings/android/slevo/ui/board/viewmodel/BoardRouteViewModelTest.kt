@@ -146,6 +146,27 @@ class BoardRouteViewModelTest {
     }
 
     @Test
+    fun moreSheet_openAndClose_updatesOnlyTargetTab() {
+        val firstTab = boardTab("https://example.com/first/", "first")
+        val secondTab = boardTab("https://example.com/second/", "second")
+        val dependencies = mockDependencies(
+            tabs = listOf(firstTab, secondTab),
+            selectedTabKey = firstTab.boardUrl,
+        )
+        val viewModel = dependencies.createViewModel()
+
+        viewModel.openMoreSheet(firstTab.boardUrl)
+
+        assertTrue(dependencies.sessionStates.value[firstTab.boardUrl]?.showMoreSheet == true)
+        assertTrue(dependencies.sessionStates.value[secondTab.boardUrl]?.showMoreSheet == false)
+
+        viewModel.closeMoreSheet(firstTab.boardUrl)
+
+        assertEquals(false, dependencies.sessionStates.value[firstTab.boardUrl]?.showMoreSheet)
+        assertEquals(false, dependencies.sessionStates.value[secondTab.boardUrl]?.showMoreSheet)
+    }
+
+    @Test
     fun uiStateFor_placeholderBoardId_updatesResolvedBoardIdAndObservesResolvedSources() = runTest {
         val placeholderTab = boardTab("https://example.com/test/", "board", boardId = 0L)
         val dependencies = mockDependencies(
