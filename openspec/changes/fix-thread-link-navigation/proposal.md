@@ -29,7 +29,7 @@
 
 ## Impact
 
-- 対象: `ThreadScreen.kt`、`ThreadScaffold.kt`、`NavigationExtensions.kt`、`BbsRouteScaffold.kt`、`AppNavGraph.kt`、`TransitionSpecs.kt`、`TabSessionStore.kt`、`ThreadTabsCoordinator.kt`、`TabsRepository.kt`、Thread tab DAO。
+- 対象: `ThreadScreen.kt`、`ThreadScaffold.kt`、`ThreadInfoBottomSheet.kt`、`TabScreenContent.kt`、`NavigationExtensions.kt`、`BbsRouteScaffold.kt`、`AppNavGraph.kt`、`TransitionSpecs.kt`、`TabSessionStore.kt`、`ThreadTabsCoordinator.kt`、`TabsRepository.kt`、Thread tab DAO。
 - タブ登録APIは、挿入基準となる現在タブkeyとPager移動方式を扱えるよう変更する可能性がある。
 - Room上のスレッドタブ順序更新をtransaction内で行う必要がある。
 - Unit test、Navigation test、Compose instrumented testを追加する。外部依存関係の追加は予定しない。

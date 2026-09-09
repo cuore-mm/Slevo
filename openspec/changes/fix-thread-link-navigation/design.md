@@ -14,6 +14,7 @@
 - Pager内部が一時的に古いindexを要求しても例外を発生させない。
 - タブ登録失敗時は現在表示とNavigationを維持する。
 - Thread→Boardのpop/replace経路で、pop操作と同じ右退出・左復帰の画面アニメーションを適用する。
+- ThreadInfoBottomSheetの板ボタンも現在のdestination routeを共通遷移関数へ渡し、ThreadScaffoldの下部ボタンと同じpop/replace判断を使用する。
 
 **Non-Goals:**
 
@@ -78,6 +79,10 @@
 
 Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTransition()`を維持する。ImageViewerとの遷移でアニメーションを無効にする既存条件、その他destinationのdefault transition、back stackのpop/replace契約は変更しない。
 
+### 7. ThreadInfoBottomSheetの板遷移を共通化する
+
+`ThreadInfoBottomSheet`へ任意の`currentScreenRoute`を渡せるようにし、板ボタンでは登録・選択後に`showBoardScreenForTabSelection(currentScreenRoute, route)`を一度呼ぶ。Thread画面から表示された場合はThread routeを渡すため、直前がBoardならpopし、それ以外はThreadをBoardへreplaceする。Board画面、タブ一覧画面、Previewなど既存の呼出し元はそれぞれBoard routeまたはnullを渡し、既存の動作を維持する。
+
 ## Implementation Contract
 
 1. `ThreadScreen.kt`と`ThreadScaffold.kt`の本文・ReplyPopupのThreadリンクcallbackから、登録成功後の`navigateToThreadScreen(normalizedRoute)`だけを除去する。正規化、登録失敗判定、外部URL処理は維持する。
@@ -88,6 +93,7 @@ Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTrans
 6. Pagerの`pageCount`、`key`、content、settled page参照を共有snapshot holderへ統一し、すべてのindex参照前に範囲確認する。fallback keyはpageとrevisionに対して一意にする。
 7. 追加・変更するclass/interface/data class/sealed typeにはKDocを付け、非自明関数にもKDoc、30行超の関数には処理区分コメントを付ける。Preview関数にはKDocを追加しない。
 8. `TransitionSpecs.kt`のroute方向判定と`AppNavGraph.kt`のBoard/Thread transition選択を接続し、Thread→Boardではpop準拠、Board→Threadでは既存forward方向を使う。
+9. `ThreadInfoBottomSheet.kt`の板ボタンを`showBoardScreenForTabSelection()`へ接続し、ThreadScaffold、BoardScaffold、TabScreenContentから呼出し元の`currentScreenRoute`を伝播する。
 
 ## Error Cases / Compatibility
 
@@ -106,6 +112,7 @@ Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTrans
 - `TabSessionStoreTest`: 正規化済みroute、anchor key、ensure-and-select resultの委譲を確認する。
 - `NavigationExtensionsTest`およびThreadリンクcallbackのテスト: Thread→Threadでnavigateを呼ばず、Board→Threadではpushを維持し、BackがThread進入前へ戻ることを確認する。
 - `TransitionSpecsTest`: Board→ThreadとThread→Boardの方向判定、Thread→Boardのpop準拠transition選択対象、他destinationの除外を確認する。
+- `NavigationExtensionsTest`とThreadInfoBottomSheetの呼出し経路: Thread画面から板を選択した場合に共通関数のpop/replace契約を使い、直接navigateしないことを確認する。
 - `BbsRouteScaffoldSelectionTest`: 距離0/1/2以上の移動方式をpure decisionとして検証する。
 - `BbsRouteScaffoldTest`: 78件から79件への追加、選択タブ削除、連続追加・削除・reorderで例外がなく、対象contentへ収束することをCompose testで確認する。
 - 実装後に`./gradlew assembleDebug`と`./gradlew testDebugUnitTest`を実行する。関連instrumented testは利用可能なemulator/deviceで実行し、実行できない場合は未実行理由を明記する。

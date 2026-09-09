@@ -18,6 +18,6 @@ ThreadからBoardへの画面遷移は、popまたはreplaceの操作方式に�
 - **THEN** システムは対象スレッドタブを登録・選択し、現在のスレッド画面 route と履歴を維持する
 
 #### Scenario: スレッドから板へ戻る
-- **WHEN** ユーザーがスレッド画面から板を選択し、直前の板が存在するためpopする、または現在のスレッドを板へreplaceする
+- **WHEN** ユーザーがスレッド画面の下部ボタンまたはThreadInfoBottomSheetから板を選択し、直前の板が存在するためpopする、または現在のスレッドを板へreplaceする
 - **THEN** システムはスレッドを右方向へ退出させ、板を左方向から復帰させる
 - **AND** transitionはfadeを含めず、300msのslide-onlyで実行する
