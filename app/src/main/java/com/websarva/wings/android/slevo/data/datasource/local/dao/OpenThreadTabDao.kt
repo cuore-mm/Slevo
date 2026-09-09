@@ -141,4 +141,8 @@ interface OpenThreadTabDao {
     @Query("UPDATE open_thread_tabs SET sortOrder = :sortOrder WHERE threadId = :threadId")
     suspend fun updateSortOrder(threadId: ThreadId, sortOrder: Int): Int
 
+    /** 指定位置より後ろのスレッドタブを一つずつ後方へ移動する。 */
+    @Query("UPDATE open_thread_tabs SET sortOrder = sortOrder + 1 WHERE sortOrder > :sortOrder")
+    suspend fun shiftSortOrdersAfter(sortOrder: Int): Int
+
 }

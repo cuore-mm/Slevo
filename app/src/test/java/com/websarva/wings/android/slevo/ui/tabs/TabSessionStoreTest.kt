@@ -674,6 +674,24 @@ class TabSessionStoreTest {
         verify { threadCoordinator.selectThreadTab(any()) }
     }
 
+    /** 位置指定付きスレ route が anchor key とともに coordinator へ一度だけ委譲されることを確認する。 */
+    @Test
+    fun registerAndSelectThreadRoute_withAnchorDelegatesPositionedEnsure() = runTest {
+        val route = AppRoute.Thread(
+            threadKey = "456",
+            boardUrl = "https://example.com/test/",
+            boardName = "board",
+            threadTitle = "title",
+        )
+        val anchor = ThreadId.of("example.com", "test", "123")
+        coEvery { threadCoordinator.ensureThreadTab(route, anchor) } returns 1
+
+        assertEquals(1, createStore().registerAndSelectThreadRoute(route, anchor))
+
+        coVerify(exactly = 1) { threadCoordinator.ensureThreadTab(route, anchor) }
+        verify { threadCoordinator.selectThreadTab(any()) }
+    }
+
     /**
      * 正規化設定が有効な場合、板 route の boardUrl が 5ch.io に置き換わることを確認する。
      */

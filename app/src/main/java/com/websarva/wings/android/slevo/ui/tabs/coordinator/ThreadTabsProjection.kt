@@ -12,7 +12,10 @@ import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
  */
 internal sealed interface ThreadTabPendingOperation {
     /** タブの存在を保証し、投影用に最新の route メタデータを保持する。 */
-    data class Ensure(val tab: ThreadTabInfo) : ThreadTabPendingOperation
+    data class Ensure(
+        val tab: ThreadTabInfo,
+        val anchorThreadId: ThreadId? = null,
+    ) : ThreadTabPendingOperation
 
     /** Room が削除を確認するまでタブを非表示にする。 */
     data class Delete(val threadId: ThreadId) : ThreadTabPendingOperation
@@ -47,7 +50,10 @@ internal fun projectThreadTabs(
     canonicalTabs = canonicalTabs,
     operations = pendingOperations.map { operation ->
         when (operation) {
-            is ThreadTabPendingOperation.Ensure -> IndexedTabOperation(operation.tab.id) { current ->
+            is ThreadTabPendingOperation.Ensure -> IndexedTabOperation(
+                key = operation.tab.id,
+                insertAfterKey = operation.anchorThreadId,
+            ) { current ->
                 if (current == null) operation.tab else mergeThreadTabMetadata(current, operation.tab)
             }
             is ThreadTabPendingOperation.Delete -> IndexedTabOperation(operation.threadId, remove = true) { current -> current }

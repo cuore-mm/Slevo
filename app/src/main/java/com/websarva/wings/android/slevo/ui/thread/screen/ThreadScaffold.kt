@@ -47,7 +47,6 @@ import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGest
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadTabTitleCard
@@ -153,6 +152,7 @@ fun ThreadScaffold(
         },
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
+        animateAdjacentSelection = true,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
         titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier, openTabListSheet ->
             ThreadTabTitleCard(
@@ -394,8 +394,10 @@ fun ThreadScaffold(
                 onThreadUrlClick = { route ->
                     coroutineScope.launch {
                         val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
-                        val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
-                        if (index >= 0) navController.navigateToThreadScreen(normalizedRoute)
+                        tabSessionStore.registerAndSelectThreadRoute(
+                            route = normalizedRoute,
+                            anchorThreadId = tabSessionStore.selectedThreadTabKey.value?.let(::ThreadId),
+                        )
                     }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->

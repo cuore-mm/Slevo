@@ -67,6 +67,31 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(0 until 0, pagerTitlePageRange(currentPage = -1, pageCount = 2))
     }
 
+    /** 同一ページではPagerを移動させないことを確認する。 */
+    @Test
+    fun pagerMoveBehavior_samePage_returnsNone() {
+        assertEquals(PagerMoveBehavior.None, pagerMoveBehavior(1, 1, 3))
+    }
+
+    /** 隣接ページではアニメーション移動を選ぶことを確認する。 */
+    @Test
+    fun pagerMoveBehavior_adjacentPage_returnsAnimate() {
+        assertEquals(PagerMoveBehavior.Animate, pagerMoveBehavior(1, 2, 4))
+    }
+
+    /** 離れたページでは即時移動を選ぶことを確認する。 */
+    @Test
+    fun pagerMoveBehavior_distantPage_returnsImmediate() {
+        assertEquals(PagerMoveBehavior.Immediate, pagerMoveBehavior(0, 2, 4))
+    }
+
+    /** 範囲外のページ要求では移動方式を決めず、次の状態更新を待つことを確認する。 */
+    @Test
+    fun pagerMoveBehavior_outOfBounds_returnsNone() {
+        assertEquals(PagerMoveBehavior.None, pagerMoveBehavior(3, 1, 3))
+        assertEquals(PagerMoveBehavior.None, pagerMoveBehavior(1, 3, 3))
+    }
+
     /** タイトルviewportが狭くても本文と同じページ進行率になる距離へ変換することを確認する。 */
     @Test
     fun calculateTitlePageDistance_scalesBodyPagePitchToTitleViewport() {

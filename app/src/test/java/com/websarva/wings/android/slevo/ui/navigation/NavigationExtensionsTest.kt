@@ -71,6 +71,26 @@ class NavigationExtensionsTest {
         assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Board::class) == true)
     }
 
+    /** Thread画面上の同種タブ選択では現在のdestinationとback stack entryを維持する。 */
+    @Test
+    fun showThreadScreenForTabSelection_keepsCurrentThreadScreen() {
+        val controller = createController()
+        val current = AppRoute.Thread(
+            threadKey = "123",
+            boardUrl = "https://example.com/a/",
+            boardName = "board-a",
+            threadTitle = "thread-a",
+        )
+        val next = current.copy(threadKey = "456", threadTitle = "thread-b")
+
+        controller.navigateToThreadScreen(current)
+        val currentEntryId = controller.currentBackStackEntry?.id
+        controller.showThreadScreenForTabSelection(currentScreenRoute = current, route = next)
+
+        assertThreadRoute(current, controller)
+        assertEquals(currentEntryId, controller.currentBackStackEntry?.id)
+    }
+
     @Test
     fun showBoardScreenForTabSelection_replacesCurrentThreadScreen() {
         val controller = createController()

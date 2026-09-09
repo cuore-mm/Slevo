@@ -174,7 +174,7 @@ class ThreadTabsCoordinator @Inject constructor(
      * 指定のルート情報に対応するスレッドタブを作成または更新し、タブのインデックスを返す。
      * 失敗した場合は -1 を返す。
      */
-    suspend fun ensureThreadTab(route: AppRoute.Thread): Int {
+    suspend fun ensureThreadTab(route: AppRoute.Thread, anchorThreadId: ThreadId? = null): Int {
         val (host, board) = parseBoardUrl(route.boardUrl) ?: return -1
         val tabInfo = ThreadTabInfo(
             id = ThreadId.of(host, board, route.threadKey),
@@ -185,10 +185,10 @@ class ThreadTabsCoordinator @Inject constructor(
             resCount = route.resCount,
         )
         // テストではライフサイクルスコープを bind せずに coordinator を使用できる。本番では常に先に bind する。
-        if (scope == null) return ensureThreadTabWithoutPersistence(tabInfo)
-        val operation = ThreadTabPendingOperation.Ensure(tabInfo)
+        if (scope == null) return ensureThreadTabWithoutPersistence(tabInfo, anchorThreadId)
+        val operation = ThreadTabPendingOperation.Ensure(tabInfo, anchorThreadId)
         val completion = CompletableDeferred<Int>()
-        commandQueue.send(ThreadTabMutationIntent.Ensure(tabInfo, operation, completion))
+        commandQueue.send(ThreadTabMutationIntent.Ensure(tabInfo, operation, anchorThreadId, completion))
         return try {
             completion.await()
         } catch (cancellationException: CancellationException) {
@@ -541,6 +541,7 @@ class ThreadTabsCoordinator @Inject constructor(
         data class Ensure(
             val tab: ThreadTabInfo,
             val operation: ThreadTabPendingOperation.Ensure,
+            val anchorThreadId: ThreadId?,
             override val completion: CompletableDeferred<Int>,
         ) : ThreadTabMutationIntent
 
@@ -641,7 +642,12 @@ class ThreadTabsCoordinator @Inject constructor(
     private suspend fun processEnsure(intent: ThreadTabMutationIntent.Ensure) {
         val (entry, baselineVersion) = registerPending(intent.operation)
         try {
-            if (!tabsRepository.ensureOpenThreadTab(intent.tab)) {
+            val ensured = if (intent.anchorThreadId == null) {
+                tabsRepository.ensureOpenThreadTab(intent.tab)
+            } else {
+                tabsRepository.ensureOpenThreadTabAfter(intent.tab, intent.anchorThreadId)
+            }
+            if (!ensured) {
                 throw IllegalStateException("Thread tab ensure failed")
             }
             supersedeEarlierOperations(entry)
@@ -1053,7 +1059,10 @@ class ThreadTabsCoordinator @Inject constructor(
     }
 
     /** coordinator の純粋な状態処理を検証する単体テスト向けに、未 bind の小さな接続点を提供する。 */
-    private fun ensureThreadTabWithoutPersistence(tabInfo: ThreadTabInfo): Int {
+    private fun ensureThreadTabWithoutPersistence(
+        tabInfo: ThreadTabInfo,
+        anchorThreadId: ThreadId?,
+    ): Int {
         var targetIndex = -1
         _openThreadTabs.update { tabs ->
             val index = tabs.indexOfFirst { it.id == tabInfo.id }
@@ -1064,8 +1073,13 @@ class ThreadTabsCoordinator @Inject constructor(
                     this[index] = mergeThreadTabMetadata(existing, tabInfo)
                 }
             } else {
-                targetIndex = tabs.size
-                tabs + tabInfo
+                targetIndex = anchorThreadId
+                    ?.let { anchor -> tabs.indexOfFirst { it.id == anchor } }
+                    ?.takeIf { it >= 0 }
+                    ?.plus(1)
+                    ?.coerceAtMost(tabs.size)
+                    ?: tabs.size
+                tabs.toMutableList().apply { add(targetIndex, tabInfo) }
             }
         }
         setThreadTabState(ThreadTabsLoadState.Loaded(_openThreadTabs.value))

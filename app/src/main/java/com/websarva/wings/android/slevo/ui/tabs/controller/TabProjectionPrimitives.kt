@@ -13,6 +13,7 @@ data class IndexedTabOperation<Tab : Any, Key : Any>(
     val removeKeys: Set<Key> = emptySet(),
     val transformKeys: Set<Key> = emptySet(),
     val reorderKeys: List<Key>? = null,
+    val insertAfterKey: Key? = null,
     val transform: (Tab?) -> Tab?,
 )
 
@@ -71,8 +72,16 @@ fun <Tab : Any, Key : Any> foldEffectiveTabs(
         val current = index?.let(result::get)
         val transformed = operation.transform(current) ?: return@forEach
         if (index == null) {
-            keyIndex[operation.key] = result.size
-            result += transformed
+            val insertionIndex = operation.insertAfterKey
+                ?.let(keyIndex::get)
+                ?.plus(1)
+                ?.coerceAtMost(result.size)
+                ?: result.size
+            result.add(insertionIndex, transformed)
+            keyIndex.clear()
+            result.forEachIndexed { resultIndex, tab ->
+                keyIndex[keyOf(tab)] = resultIndex
+            }
         } else {
             result[index] = transformed
         }

@@ -632,6 +632,67 @@ class ThreadTabsCoordinatorTest {
         assertEquals(7, result.first().firstVisibleItemIndex)
     }
 
+    /** 新規Ensureのanchorがeffective tabsに存在する場合、対象を直後へ投影することを確認する。 */
+    @Test
+    fun projection_ensureWithAnchorInsertsImmediatelyAfterAnchor() {
+        val first = testTab("first", 0)
+        val second = testTab("second", 1)
+        val inserted = testTab("inserted", 2)
+
+        val result = projectThreadTabs(
+            canonicalTabs = listOf(first, second),
+            pendingOperations = listOf(
+                ThreadTabPendingOperation.Ensure(inserted, anchorThreadId = first.id),
+            ),
+        )
+
+        assertEquals(listOf(first.id, inserted.id, second.id), result.map { it.id })
+    }
+
+    /** 未bindの位置指定Ensureが新規タブを直後へ追加し、既存タブの順序を変えないことを確認する。 */
+    @Test
+    fun ensureThreadTabWithAnchor_insertsNewTabAfterAnchorAndReusesExistingTab() = runTest {
+        val coordinator = createCoordinator(mockk(relaxed = true))
+        coordinator.ensureThreadTab(testRoute("first"))
+        coordinator.ensureThreadTab(testRoute("second"))
+        val first = coordinator.openThreadTabs.value.first()
+        val second = coordinator.openThreadTabs.value.last()
+
+        coordinator.ensureThreadTab(testRoute("inserted"), anchorThreadId = first.id)
+        assertEquals(
+            listOf(first.id, ThreadId.of("host", "board", "inserted"), second.id),
+            coordinator.openThreadTabs.value.map { it.id },
+        )
+
+        coordinator.ensureThreadTab(testRoute("second"), anchorThreadId = first.id)
+        assertEquals(
+            listOf(first.id, ThreadId.of("host", "board", "inserted"), second.id),
+            coordinator.openThreadTabs.value.map { it.id },
+        )
+    }
+
+    /** pending reorder後もanchorをeffective orderから解決して直後へ追加することを確認する。 */
+    @Test
+    fun projection_pendingReorderResolvesAnchorFromEffectiveOrder() {
+        val first = testTab("first-after-reorder", 0)
+        val second = testTab("second-after-reorder", 1)
+        val third = testTab("third-after-reorder", 2)
+        val inserted = testTab("inserted-after-reorder", 3)
+
+        val result = projectThreadTabs(
+            canonicalTabs = listOf(first, second, third),
+            pendingOperations = listOf(
+                ThreadTabPendingOperation.Reorder(listOf(second.id, first.id, third.id)),
+                ThreadTabPendingOperation.Ensure(inserted, anchorThreadId = first.id),
+            ),
+        )
+
+        assertEquals(
+            listOf(second.id, first.id, inserted.id, third.id),
+            result.map { it.id },
+        )
+    }
+
     /** プレースホルダーメタデータを、保留中の投影と正規行で同じようにマージする。 */
     @Test
     fun projection_placeholderEnsurePreservesResolvedMetadataAndTabFields() {

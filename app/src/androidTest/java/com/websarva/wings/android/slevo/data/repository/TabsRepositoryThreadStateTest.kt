@@ -10,6 +10,7 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.OpenBoardTa
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -284,6 +285,81 @@ class TabsRepositoryThreadStateTest {
         val rows = db.openThreadTabDao().getAll().sortedBy { it.sortOrder }
         assertEquals(threadIds.asReversed(), rows.map { it.threadId })
         assertEquals((0 until 1_252).toList(), rows.map { it.sortOrder })
+    }
+
+    /** 新規スレッドタブをanchor直後へ追加し、再読込後も表示順と既存属性を維持する。 */
+    @Test
+    fun ensureOpenThreadTabAfter_insertsImmediatelyAfterAnchor() = runBlocking {
+        val first = ThreadTabInfo(
+            id = ThreadId.of("example.com", "test", "first"),
+            title = "First",
+            boardName = "Board",
+            boardUrl = "https://example.com/test/",
+            boardId = 1,
+            isPinned = true,
+            firstVisibleItemIndex = 7,
+            firstVisibleItemScrollOffset = 30,
+        )
+        val second = first.copy(
+            id = ThreadId.of("example.com", "test", "second"),
+            title = "Second",
+            isPinned = false,
+        )
+        val inserted = first.copy(
+            id = ThreadId.of("example.com", "test", "inserted"),
+            title = "Inserted",
+            isPinned = false,
+        )
+        val fallback = first.copy(
+            id = ThreadId.of("example.com", "test", "fallback"),
+            title = "Fallback",
+            isPinned = false,
+        )
+
+        repository.ensureOpenThreadTab(first)
+        repository.ensureOpenThreadTab(second)
+        repository.ensureOpenThreadTabAfter(inserted, first.id)
+        repository.ensureOpenThreadTabAfter(
+            fallback,
+            ThreadId.of("example.com", "test", "missing-anchor"),
+        )
+
+        val rows = db.openThreadTabDao().getAll().sortedBy { it.sortOrder }
+        assertEquals(listOf(first.id, inserted.id, second.id, fallback.id), rows.map { it.threadId })
+        assertEquals(listOf(0, 1, 2, 3), rows.map { it.sortOrder })
+        assertEquals(true, rows.first { it.threadId == first.id }.isPinned)
+        assertEquals(7, rows.first { it.threadId == first.id }.firstVisibleItemIndex)
+        assertEquals(30, rows.first { it.threadId == first.id }.firstVisibleItemScrollOffset)
+    }
+
+    /** 既存タブの位置指定ensureは重複作成せず、保存済み順序と属性を維持する。 */
+    @Test
+    fun ensureOpenThreadTabAfter_existingTargetPreservesOrderAndTabFields() = runBlocking {
+        val first = ThreadTabInfo(
+            id = ThreadId.of("example.com", "test", "first-existing"),
+            title = "First",
+            boardName = "Board",
+            boardUrl = "https://example.com/test/",
+            boardId = 1,
+            isPinned = true,
+            firstVisibleItemIndex = 7,
+            firstVisibleItemScrollOffset = 30,
+        )
+        val second = first.copy(
+            id = ThreadId.of("example.com", "test", "second-existing"),
+            title = "Second",
+            isPinned = false,
+        )
+
+        repository.ensureOpenThreadTab(first)
+        repository.ensureOpenThreadTab(second)
+        repository.ensureOpenThreadTabAfter(second.copy(title = "Updated"), first.id)
+
+        val rows = db.openThreadTabDao().getAll().sortedBy { it.sortOrder }
+        assertEquals(listOf(first.id, second.id), rows.map { it.threadId })
+        assertEquals(listOf(0, 1), rows.map { it.sortOrder })
+        assertEquals(false, rows.first { it.threadId == second.id }.isPinned)
+        assertEquals(0, rows.first { it.threadId == second.id }.firstVisibleItemIndex)
     }
 
     /**

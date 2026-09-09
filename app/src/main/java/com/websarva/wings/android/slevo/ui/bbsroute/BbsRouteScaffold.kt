@@ -119,6 +119,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     ) -> Unit,
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
+    animateAdjacentSelection: Boolean = false,
     optionalSheetContent: @Composable (tabInfo: TabInfo, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     val displayDecision = remember(presentationState) {
@@ -156,6 +157,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 initialPage = selectedPage.takeIf { it in tabs.indices } ?: 0,
                 pageCount = { tabs.size },
             )
+        val pagerSnapshotRevision = remember(tabs) { Any() }
         val actionProgressStates = remember { mutableMapOf<Key, MutableState<Float>>() }
 
         SideEffect {
@@ -164,12 +166,24 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         }
 
         // --- Selection synchronization ---
-        LaunchedEffect(displayDecision, tabs.size) {
+        LaunchedEffect(displayDecision, tabs, animateAdjacentSelection) {
             if (displayDecision is TabDisplayDecision.Selected &&
                 selectedPage in tabs.indices &&
                 pagerState.currentPage != selectedPage
             ) {
-                pagerState.scrollToPage(selectedPage)
+                val moveBehavior = pagerMoveBehavior(pagerState.currentPage, selectedPage, tabs.size)
+                    .let { behavior ->
+                        if (!animateAdjacentSelection && behavior == PagerMoveBehavior.Animate) {
+                            PagerMoveBehavior.Immediate
+                        } else {
+                            behavior
+                        }
+                    }
+                when (moveBehavior) {
+                    PagerMoveBehavior.Animate -> pagerState.animateScrollToPage(selectedPage)
+                    PagerMoveBehavior.Immediate -> pagerState.scrollToPage(selectedPage)
+                    PagerMoveBehavior.None -> Unit
+                }
             }
         }
 
@@ -295,11 +309,15 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             translationX = pagerOverscrollEffect.offsetPx
                         },
                     state = pagerState,
-                    key = { page -> getKey(tabs[page]) },
+                    key = { page ->
+                        tabs.getOrNull(page)?.let(getKey)
+                            ?: PagerFallbackKey(pagerSnapshotRevision, page)
+                    },
                     pageSpacing = 32.dp,
                     userScrollEnabled = false,
                 ) { page ->
-                    val tab = tabs[page]
+                    // Pager内部が古いindexを一時的に要求した場合は副作用なしで描画を省略する。
+                    val tab = tabs.getOrNull(page) ?: return@HorizontalPager
                     val uiState by getUiState(tab).collectAsState()
                     val tabKey = getKey(tab)
                     val listState = remember(tabKey) {
@@ -552,7 +570,7 @@ internal fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> PagerTit
 
         // --- Page-specific title cards ---
         for (page in visiblePages) {
-            val tab = tabs[page]
+            val tab = tabs.getOrNull(page) ?: continue
             val tabKey = getKey(tab)
             key(tabKey) {
                 PagerTitleCardPage(
@@ -688,5 +706,32 @@ internal fun pagerTitlePageRange(currentPage: Int, pageCount: Int): IntRange {
 
     return (currentPage - 1).coerceAtLeast(0)..(currentPage + 1).coerceAtMost(pageCount - 1)
 }
+
+/** Pagerの選択同期で使用する移動方式を表す。 */
+internal enum class PagerMoveBehavior {
+    /** 現在ページと対象ページが同一、または対象を解決できないため移動しない。 */
+    None,
+
+    /** 隣接ページへ遷移するためアニメーションする。 */
+    Animate,
+
+    /** 離れた有効ページへアニメーションなしで移動する。 */
+    Immediate,
+}
+
+/** 現在ページと選択先の距離からPagerの移動方式を決定する。 */
+internal fun pagerMoveBehavior(currentPage: Int, targetPage: Int, pageCount: Int): PagerMoveBehavior {
+    if (pageCount <= 0 || currentPage !in 0 until pageCount || targetPage !in 0 until pageCount) {
+        return PagerMoveBehavior.None
+    }
+    return when (abs(currentPage - targetPage)) {
+        0 -> PagerMoveBehavior.None
+        1 -> PagerMoveBehavior.Animate
+        else -> PagerMoveBehavior.Immediate
+    }
+}
+
+/** Pager内部の一時的な範囲外要求に対してstable keyを生成する。 */
+private data class PagerFallbackKey(val revision: Any, val page: Int)
 
 private val PAGER_RUBBER_BAND_RESISTANCE = 64.dp
