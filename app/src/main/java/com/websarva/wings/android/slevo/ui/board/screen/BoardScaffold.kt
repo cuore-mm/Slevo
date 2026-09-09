@@ -273,11 +273,12 @@ fun BoardScaffold(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
                 onDismissRequest = { routeViewModel.closeThreadInfoSheet(tab.boardUrl) },
                 threadInfo = uiState.threadInfoSheetTarget,
-                boardInfo = uiState.boardInfo,
-                navController = navController,
-                tabSessionStore = tabSessionStore,
-                showBoardAction = false,
-            )
+                 boardInfo = uiState.boardInfo,
+                 navController = navController,
+                 tabSessionStore = tabSessionStore,
+                 currentScreenRoute = boardRoute,
+                 showBoardAction = false,
+             )
             BoardInfoBottomSheet(
                 showBoardInfoSheet = uiState.showBoardInfoSheet,
                 onDismissRequest = { routeViewModel.closeBoardInfoSheet(tab.boardUrl) },

@@ -584,11 +584,12 @@ private fun TabDetailBottomSheets(
                 boardId = threadTab.boardId,
                 name = threadTab.boardName,
                 url = threadTab.boardUrl,
-            ),
-            navController = navController,
-            tabSessionStore = tabSessionStore,
-            showBoardAction = true,
-        )
+             ),
+             navController = navController,
+             tabSessionStore = tabSessionStore,
+             currentScreenRoute = currentScreenRoute,
+             showBoardAction = true,
+         )
     }
 }
 

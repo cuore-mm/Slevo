@@ -461,10 +461,11 @@ fun ThreadScaffold(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
                 onDismissRequest = { routeViewModel.closeThreadInfoSheet(tab.id.value) },
                 threadInfo = uiState.threadInfo,
-                boardInfo = uiState.boardInfo,
-                navController = navController,
-                tabSessionStore = tabSessionStore,
-            )
+                 boardInfo = uiState.boardInfo,
+                 navController = navController,
+                 tabSessionStore = tabSessionStore,
+                 currentScreenRoute = threadRoute,
+             )
 
             // --- Image menu state ---
             val loadingImageUrls = uiState.imageLoadingUrls

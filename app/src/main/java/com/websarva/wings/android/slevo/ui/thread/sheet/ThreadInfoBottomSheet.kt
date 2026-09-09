@@ -43,7 +43,7 @@ import com.websarva.wings.android.slevo.ui.common.InfoActionButton
 import com.websarva.wings.android.slevo.ui.common.InfoBottomSheetContent
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToBoardScreen
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
@@ -54,7 +54,8 @@ import java.text.DecimalFormat
 /**
  * スレッド情報を表示するボトムシートを制御する。
  *
- * showBoardAction が false の場合は板遷移ボタンを表示しない。
+ * showBoardAction が false の場合は板遷移ボタンを表示しない。板遷移時は
+ * currentScreenRoute に応じて共通のpop、replace、push判定を使用する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +66,7 @@ fun ThreadInfoBottomSheet(
     boardInfo: BoardInfo,
     navController: NavHostController,
     tabSessionStore: TabSessionStore? = null,
+    currentScreenRoute: AppRoute? = null,
     showBoardAction: Boolean = true,
 ) {
     // --- Sheet state ---
@@ -104,7 +106,10 @@ fun ThreadInfoBottomSheet(
                             boardUrl = boardInfo.url
                         )
                         tabSessionStore?.registerAndSelectBoardRoute(route)
-                        navController.navigateToBoardScreen(route)
+                        navController.showBoardScreenForTabSelection(
+                            currentScreenRoute = currentScreenRoute,
+                            route = route,
+                        )
                         onDismissRequest()
                     }
                 },
