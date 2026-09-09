@@ -38,7 +38,7 @@
 
 ## 6. Thread→Boardのpop準拠アニメーション
 
-- [ ] 6.1 `TransitionSpecs.kt`へBoard→ThreadとThread→Boardを分けるroute方向判定を追加し、Thread→Boardでは既存pop用slide-only spec（Thread右退出、Board左復帰、300ms）を選べる契約にする。
-- [ ] 6.2 `AppNavGraph.kt`のBoard/Threadのenter、exit、popEnter、popExit選択をroute方向へ接続し、popとreplaceの履歴操作を変更せず、Board→Threadと他destinationの既存transitionを維持する。
-- [ ] 6.3 `TransitionSpecsTest.kt`へ両方向の判定、類似routeの除外、Thread→Boardのtransition対象を追加し、Navigation経路の既存テストでpop/replace契約を維持することを確認する。
+- [x] 6.1 `TransitionSpecs.kt`へBoard→ThreadとThread→Boardを分けるroute方向判定を追加し、Thread→Boardでは既存pop用slide-only spec（Thread右退出、Board左復帰、300ms）を選べる契約にする。
+- [x] 6.2 `AppNavGraph.kt`のBoard/Threadのenter、exit、popEnter、popExit選択をroute方向へ接続し、popとreplaceの履歴操作を変更せず、Board→Threadと他destinationの既存transitionを維持する。
+- [x] 6.3 `TransitionSpecsTest.kt`へ両方向の判定、類似routeの除外、Thread→Boardのtransition対象を追加し、Navigation経路の既存テストでpop/replace契約を維持することを確認する。
 - [ ] 6.4 CIでUnit testとDebug buildを実行する。現行CI workflowにemulator/deviceを使うinstrumented test jobがない場合は、未実行理由を実装報告へ明記する。

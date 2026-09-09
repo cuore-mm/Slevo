@@ -127,18 +127,20 @@ fun AppNavGraph(
         //スレッド一覧
         composable<AppRoute.Board>(
             enterTransition = {
-                if (isBoardThreadTransition(
+                when {
+                    isThreadToBoardTransition(
                         initialState.destination.route,
                         targetState.destination.route,
-                    )
-                ) {
-                    boardThreadEnterTransition()
-                } else {
-                    defaultEnterTransition()
+                    ) -> boardThreadPopEnterTransition()
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> boardThreadEnterTransition()
+                    else -> defaultEnterTransition()
                 }
             },
             exitTransition = {
-                if (isBoardThreadTransition(
+                if (isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     )
@@ -149,7 +151,7 @@ fun AppNavGraph(
                 }
             },
             popEnterTransition = {
-                if (isBoardThreadTransition(
+                if (isThreadToBoardTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     )
@@ -160,7 +162,7 @@ fun AppNavGraph(
                 }
             },
             popExitTransition = {
-                if (isBoardThreadTransition(
+                if (isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     )
@@ -185,7 +187,7 @@ fun AppNavGraph(
             enterTransition = {
                 when {
                     initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
-                    isBoardThreadTransition(
+                    isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     ) -> boardThreadEnterTransition()
@@ -196,7 +198,11 @@ fun AppNavGraph(
                 // ImageViewer へ遷移するときは Nav アニメなし
                 when {
                     targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
-                    isBoardThreadTransition(
+                    isThreadToBoardTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> boardThreadPopExitTransition()
+                    isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     ) -> boardThreadExitTransition()
@@ -206,7 +212,7 @@ fun AppNavGraph(
             popEnterTransition = {
                 when {
                     initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
-                    isBoardThreadTransition(
+                    isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     ) -> boardThreadPopEnterTransition()
@@ -216,7 +222,7 @@ fun AppNavGraph(
             popExitTransition = {
                 when {
                     targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
-                    isBoardThreadTransition(
+                    isThreadToBoardTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     ) -> boardThreadPopExitTransition()
