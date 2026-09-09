@@ -47,4 +47,4 @@
 
 - [x] 7.1 `ThreadInfoBottomSheet.kt`の板ボタンから直接`navigateToBoardScreen()`を呼ばず、`currentScreenRoute`を使って`showBoardScreenForTabSelection()`を呼ぶ。ThreadScaffold、BoardScaffold、TabScreenContentから呼出し元routeを伝播する。
 - [x] 7.2 共通Navigation関数の既存pop/replace/pushテストを再利用して、ThreadInfoBottomSheetの呼出し契約がThread画面ではpop/replace、タブ一覧ではpushになることを確認する。
-- [ ] 7.3 CIでUnit testとCI APK buildを実行する。現行CI workflowにemulator/deviceを使うinstrumented test jobがない場合は、未実行理由を実装報告へ明記する。
+- [x] 7.3 CIでUnit testとCI APK buildの成功を確認した。現行CI workflowにemulator/deviceを使うinstrumented test jobがないため、関連instrumented testは未実行とし、その理由を実装報告へ明記する。
