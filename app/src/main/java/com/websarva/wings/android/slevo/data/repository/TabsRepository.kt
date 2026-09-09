@@ -327,7 +327,11 @@ class TabsRepository @Inject constructor(
 
         // --- Tab row persistence ---
         if (existing == null) {
-            val anchor = anchorThreadId?.let(threadDao::getByThreadId)
+            val anchor = if (anchorThreadId == null) {
+                null
+            } else {
+                threadDao.getByThreadId(anchorThreadId)
+            }
             val nextSortOrder = if (anchor == null) {
                 (threadDao.getMaxSortOrder() ?: -1) + 1
             } else {
