@@ -13,6 +13,7 @@
 - 選択先が隣ならanimate、遠方ならinstantという決定的なPager同期を行う。
 - Pager内部が一時的に古いindexを要求しても例外を発生させない。
 - タブ登録失敗時は現在表示とNavigationを維持する。
+- Thread→Boardのpop/replace経路で、pop操作と同じ右退出・左復帰の画面アニメーションを適用する。
 
 **Non-Goals:**
 
@@ -20,6 +21,7 @@
 - Android Backをタブ履歴として扱わない。
 - タブ一覧UI、リンク表示テキスト、content description、リンク判定規則を変更しない。新規UIやPreviewは追加しない。
 - Compose Foundationのバージョン変更や外部依存追加は行わない。
+- Navigationのpop/push/replace自体の履歴操作、Board→Threadの進入方向、Board/Thread以外の画面遷移は変更しない。
 
 ## Decisions
 
@@ -70,6 +72,12 @@
 
 単に`tabs[page]`をtry/catchで囲む案は、keyとcontentの不一致を隠し、安定キー重複を防げないため採用しない。
 
+### 6. Thread→Boardはroute方向でpop準拠の画面transitionを選択する
+
+`TransitionSpecs.kt`にBoard→ThreadとThread→Boardを分けて判定する純粋関数を追加する。Thread→Boardでは、NavControllerの操作が`popBackStack()`か`navigate + popUpTo(inclusive)`かに依存せず、Board側に`boardThreadPopEnterTransition()`、Thread側に`boardThreadPopExitTransition()`と同じslide-only specを適用する。これにより、Threadは右へ退出し、Boardは左から復帰する。
+
+Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTransition()`を維持する。ImageViewerとの遷移でアニメーションを無効にする既存条件、その他destinationのdefault transition、back stackのpop/replace契約は変更しない。
+
 ## Implementation Contract
 
 1. `ThreadScreen.kt`と`ThreadScaffold.kt`の本文・ReplyPopupのThreadリンクcallbackから、登録成功後の`navigateToThreadScreen(normalizedRoute)`だけを除去する。正規化、登録失敗判定、外部URL処理は維持する。
@@ -79,6 +87,7 @@
 5. `BbsRouteScaffold.kt`のselected page同期を距離0/1/2以上でno-op/animate/instantに分岐する。分岐は純粋関数へ抽出してunit test可能にする。
 6. Pagerの`pageCount`、`key`、content、settled page参照を共有snapshot holderへ統一し、すべてのindex参照前に範囲確認する。fallback keyはpageとrevisionに対して一意にする。
 7. 追加・変更するclass/interface/data class/sealed typeにはKDocを付け、非自明関数にもKDoc、30行超の関数には処理区分コメントを付ける。Preview関数にはKDocを追加しない。
+8. `TransitionSpecs.kt`のroute方向判定と`AppNavGraph.kt`のBoard/Thread transition選択を接続し、Thread→Boardではpop準拠、Board→Threadでは既存forward方向を使う。
 
 ## Error Cases / Compatibility
 
@@ -87,6 +96,7 @@
 - 同時ensureで対象が先に作成された場合は既存タブとしてmergeし、重複行と順序変更を防ぐ。
 - pending reorder中でもanchorをeffective orderから解決し、Room収束後に同じ相対順を維持する。
 - Boardタブの追加位置、Board→Threadの履歴、Thread→Boardのpop/replace、Deep Link初期遷移は互換動作を維持する。
+- Thread→Boardのpop/replaceは履歴操作を維持したまま、見た目だけ同じpop準拠のslide-only transitionへ揃える。
 - 可視テキストとアクセシビリティsemanticsは変更しない。移動アニメーションは既存Pager APIを使用し、システムのアニメーション無効化環境で操作結果を失わない。
 
 ## Testing Strategy
@@ -95,6 +105,7 @@
 - `TabsRepositoryTest`または既存repository test: transaction後の一意sortOrder、再読込順、既存ensure時の順序・pin・scroll・metadata保持、同時ensureの重複防止。
 - `TabSessionStoreTest`: 正規化済みroute、anchor key、ensure-and-select resultの委譲を確認する。
 - `NavigationExtensionsTest`およびThreadリンクcallbackのテスト: Thread→Threadでnavigateを呼ばず、Board→Threadではpushを維持し、BackがThread進入前へ戻ることを確認する。
+- `TransitionSpecsTest`: Board→ThreadとThread→Boardの方向判定、Thread→Boardのpop準拠transition選択対象、他destinationの除外を確認する。
 - `BbsRouteScaffoldSelectionTest`: 距離0/1/2以上の移動方式をpure decisionとして検証する。
 - `BbsRouteScaffoldTest`: 78件から79件への追加、選択タブ削除、連続追加・削除・reorderで例外がなく、対象contentへ収束することをCompose testで確認する。
 - 実装後に`./gradlew assembleDebug`と`./gradlew testDebugUnitTest`を実行する。関連instrumented testは利用可能なemulator/deviceで実行し、実行できない場合は未実行理由を明記する。

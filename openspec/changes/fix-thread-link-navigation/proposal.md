@@ -9,6 +9,7 @@
 - 対象タブを新規作成する場合は、現在選択中のスレッドタブの直後へ永続的に挿入して選択する。
 - 選択前後のタブが隣接する場合だけ Pager をアニメーション移動し、離れている場合は即時移動する。
 - Pager のページ数、安定キー、ページ内容が同一のタブスナップショットに基づくようにし、タブ追加中の一時的不整合でも範囲外参照しない。
+- Thread から Board へ遷移する場合は、操作が pop でも replace でも Thread が右へ退出し、Board が左から復帰する slide-only アニメーションを適用する。
 - Board、履歴、ブックマーク、Deep Link など Thread destination 外からスレッドを開く既存の Navigation と Back 動作は維持する。
 
 ## Capabilities
@@ -28,7 +29,7 @@
 
 ## Impact
 
-- 対象: `ThreadScreen.kt`、`ThreadScaffold.kt`、`NavigationExtensions.kt`、`BbsRouteScaffold.kt`、`TabSessionStore.kt`、`ThreadTabsCoordinator.kt`、`TabsRepository.kt`、Thread tab DAO。
+- 対象: `ThreadScreen.kt`、`ThreadScaffold.kt`、`NavigationExtensions.kt`、`BbsRouteScaffold.kt`、`AppNavGraph.kt`、`TransitionSpecs.kt`、`TabSessionStore.kt`、`ThreadTabsCoordinator.kt`、`TabsRepository.kt`、Thread tab DAO。
 - タブ登録APIは、挿入基準となる現在タブkeyとPager移動方式を扱えるよう変更する可能性がある。
 - Room上のスレッドタブ順序更新をtransaction内で行う必要がある。
 - Unit test、Navigation test、Compose instrumented testを追加する。外部依存関係の追加は予定しない。

@@ -35,3 +35,10 @@
 - [x] 5.2 `./gradlew testDebugUnitTest`相当のCI Unit testを実行し、成功を確認した。
 - [x] 5.3 `./gradlew assembleDebug`相当のCI buildを実行し、成功を確認した。
 - [x] 5.4 現行CI workflowにはemulator/deviceを使うinstrumented test jobがないため、関連instrumented testは未実行とした。この理由を実装報告へ明記する。
+
+## 6. Thread→Boardのpop準拠アニメーション
+
+- [ ] 6.1 `TransitionSpecs.kt`へBoard→ThreadとThread→Boardを分けるroute方向判定を追加し、Thread→Boardでは既存pop用slide-only spec（Thread右退出、Board左復帰、300ms）を選べる契約にする。
+- [ ] 6.2 `AppNavGraph.kt`のBoard/Threadのenter、exit、popEnter、popExit選択をroute方向へ接続し、popとreplaceの履歴操作を変更せず、Board→Threadと他destinationの既存transitionを維持する。
+- [ ] 6.3 `TransitionSpecsTest.kt`へ両方向の判定、類似routeの除外、Thread→Boardのtransition対象を追加し、Navigation経路の既存テストでpop/replace契約を維持することを確認する。
+- [ ] 6.4 CIでUnit testとDebug buildを実行する。現行CI workflowにemulator/deviceを使うinstrumented test jobがない場合は、未実行理由を実装報告へ明記する。
