@@ -31,7 +31,7 @@
 
 ## 5. 品質確認
 
-- [ ] 5.1 追加・変更した型と非自明関数へリポジトリ規約どおりKDocを付け、30行を超える関数へ処理区分コメントを付ける。Preview関数にはKDocを追加していないことを確認する。
-- [ ] 5.2 `./gradlew testDebugUnitTest`を実行し、全Unit testが成功するまで修正する。
-- [ ] 5.3 `./gradlew assembleDebug`を実行し、Debug buildが成功するまで修正する。
-- [ ] 5.4 利用可能なemulator/deviceで関連instrumented testを実行する。実行環境がない場合は、未実行のtest classと理由を実装報告へ明記する。
+- [x] 5.1 追加・変更した型と非自明関数へリポジトリ規約どおりKDocを付け、30行を超える関数へ処理区分コメントを付ける。Preview関数にはKDocを追加していないことを確認する。
+- [x] 5.2 `./gradlew testDebugUnitTest`相当のCI Unit testを実行し、成功を確認した。
+- [x] 5.3 `./gradlew assembleDebug`相当のCI buildを実行し、成功を確認した。
+- [x] 5.4 現行CI workflowにはemulator/deviceを使うinstrumented test jobがないため、関連instrumented testは未実行とした。この理由を実装報告へ明記する。
