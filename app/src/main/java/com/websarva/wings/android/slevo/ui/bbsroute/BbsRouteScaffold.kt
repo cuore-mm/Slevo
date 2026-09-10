@@ -148,7 +148,8 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     val tabs = renderState.tabs
     val selectedPage = (displayDecision as? TabDisplayDecision.Selected)?.index ?: -1
     val selectedKey = (presentationState.selection as? TabSelectionResolution.Selected)?.key
-    var lastSynchronizedSelectedKey by remember { mutableStateOf(selectedKey) }
+    // Composition再生成時はPagerの保存済みpageがselected keyへ同期されるまで未同期として扱う。
+    var lastSynchronizedSelectedKey by remember { mutableStateOf<Key?>(null) }
 
     if (tabs.isNotEmpty()) {
         // --- Pager state ---
@@ -200,7 +201,13 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         if (page == selectedPage) lastSynchronizedSelectedKey = selectedKey
                         return@collectLatest
                     }
-                    if (getKey(settledTab) != getKey(selectedTab)) {
+                    if (shouldReportSettledTabSelection(
+                            selectedKey = selectedKey,
+                            lastSynchronizedSelectedKey = lastSynchronizedSelectedKey,
+                            settledPage = page,
+                            selectedPage = selectedPage,
+                        ) && getKey(settledTab) != getKey(selectedTab)
+                    ) {
                         onTabSelected(settledTab)
                     }
                 }
@@ -721,6 +728,19 @@ internal fun pagerMoveBehavior(currentPage: Int, targetPage: Int, pageCount: Int
         else -> PagerMoveBehavior.Immediate
     }
 }
+
+/**
+ * settled pageをユーザー操作として選択状態へ反映できるかを判定する。
+ *
+ * selected keyとPagerの同期が完了している状態で対象ページと異なるpageへsettleした場合だけ、
+ * settled tabを選択状態へ反映する。再生成直後など未同期keyでは旧pageを通知しない。
+ */
+internal fun <Key : Any> shouldReportSettledTabSelection(
+    selectedKey: Key?,
+    lastSynchronizedSelectedKey: Key?,
+    settledPage: Int,
+    selectedPage: Int,
+): Boolean = selectedKey == lastSynchronizedSelectedKey && settledPage != selectedPage
 
 /** Pager内部の一時的な範囲外要求に対してstable keyを生成する。 */
 private data class PagerFallbackKey(val revision: Any, val page: Int)

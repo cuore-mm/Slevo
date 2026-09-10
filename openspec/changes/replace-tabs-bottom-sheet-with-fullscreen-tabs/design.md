@@ -116,6 +116,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - Board / Threadのタブ一覧コールバックが `AppRoute.Tabs` へ遷移し、BottomSheetを表示しないことをComposeまたはNavigation統合テストで検証する。
 - カード選択とURL入力について、登録失敗時はTabsに留まり、成功時はTabsがstackから消えることを検証する。
 - Bookmark相当の前段entryを含むstackで、同種・別種選択後も前段entryが残ることとAndroid Backの戻り先を検証する。
+- `BbsRouteScaffold` のPager同期ガードはComposition再生成時に未同期として開始し、Tabsから同種Threadを選択して元destinationへ復帰した際、保存された旧Pager位置のsettle通知がstable selected keyを旧タブへ戻さないことを検証する。
 - 実装後に `./gradlew build` と `./gradlew test` を実行する。手動でBoard→Tabs、Thread→Tabs、Bookmark→Board→Tabs、Bookmark→Thread→Tabs、非同期処理中のBack、画面再生成を確認する。
 
 ## Migration Plan
@@ -133,5 +134,6 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 
 - [Tabsをpopしてから既存Navigationへ委譲する二段階操作で中間状態が描画される可能性] → 同一メインスレッドイベント内で連続実行し、Board↔ThreadおよびTabs transitionを実機で確認する。視覚的な中間状態が発生する場合だけ、既存規則を共通の決定関数へ抽出して単一NavOptionsへ変換する。
 - [非同期正規化中にユーザーがBackまたは再入場すると古いcallbackが発火する] → Tabs entry IDと現在entryを照合して古いNavigationだけを抑止する。
+- [destination再生成時に保存済みPagerの旧settledPageがユーザー操作として通知される] → `lastSynchronizedSelectedKey`をComposition開始時にnullで初期化し、selected key変更に伴うprogrammatic scrollが対象keyへsettleするまでsettled callbackを抑止する。
 - [トップレベルTabsをBoard / Thread起点と誤判定する] → 直前entryがBoard / Threadの場合だけcontextual Tabsとし、それ以外はsourceなしとして扱うテストを追加する。
 - [BottomSheet削除で検索状態のライフサイクルが変わる] → contextual Tabsはentry popでViewModelを破棄し、トップレベルTabsは従来のdestination scopeを維持する。検索状態を`TabSessionStore`へ移さない。
