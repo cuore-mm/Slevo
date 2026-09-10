@@ -83,6 +83,10 @@ Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTrans
 
 `ThreadInfoBottomSheet`へ任意の`currentScreenRoute`を渡せるようにし、板ボタンでは登録・選択後に`showBoardScreenForTabSelection(currentScreenRoute, route)`を一度呼ぶ。Thread画面から表示された場合はThread routeを渡すため、直前がBoardならpopし、それ以外はThreadをBoardへreplaceする。Board画面、タブ一覧画面、Previewなど既存の呼出し元はそれぞれBoard routeまたはnullを渡し、既存の動作を維持する。
 
+### 8. Thread内リンク切替後の既読対象は表示中タブで解決する
+
+Thread destinationを維持したままリンク先タブへ切り替える場合、Navigationの`threadRoute`は最初に開いたThreadのrouteを保持する。そのため、既読位置やスクロールなど表示中Threadに紐づく更新は、route由来のThread IDではなく、`ThreadScaffold`のcontentへ渡された表示中`tab.id`を使用する。route由来のIDは初期route検証と初期タブ選択にのみ使用し、表示中タブの既読状態を更新する用途には使わない。
+
 ## Implementation Contract
 
 1. `ThreadScreen.kt`と`ThreadScaffold.kt`の本文・ReplyPopupのThreadリンクcallbackから、登録成功後の`navigateToThreadScreen(normalizedRoute)`だけを除去する。正規化、登録失敗判定、外部URL処理は維持する。
@@ -94,6 +98,7 @@ Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTrans
 7. 追加・変更するclass/interface/data class/sealed typeにはKDocを付け、非自明関数にもKDoc、30行超の関数には処理区分コメントを付ける。Preview関数にはKDocを追加しない。
 8. `TransitionSpecs.kt`のroute方向判定と`AppNavGraph.kt`のBoard/Thread transition選択を接続し、Thread→Boardではpop準拠、Board→Threadでは既存forward方向を使う。
 9. `ThreadInfoBottomSheet.kt`の板ボタンを`showBoardScreenForTabSelection()`へ接続し、ThreadScaffold、BoardScaffold、TabScreenContentから呼出し元の`currentScreenRoute`を伝播する。
+10. `ThreadScaffold.kt`の`onLastRead`はNavigation routeではなく表示中`tab.id`へ既読位置を渡し、Thread A→Bリンク切替後もBの既読状態を更新する。
 
 ## Error Cases / Compatibility
 
@@ -113,6 +118,7 @@ Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTrans
 - `NavigationExtensionsTest`およびThreadリンクcallbackのテスト: Thread→Threadでnavigateを呼ばず、Board→Threadではpushを維持し、BackがThread進入前へ戻ることを確認する。
 - `TransitionSpecsTest`: Board→ThreadとThread→Boardの方向判定、Thread→Boardのpop準拠transition選択対象、他destinationの除外を確認する。
 - `NavigationExtensionsTest`とThreadInfoBottomSheetの呼出し経路: Thread画面から板を選択した場合に共通関数のpop/replace契約を使い、直接navigateしないことを確認する。
+- Threadの既読状態テスト: Thread A→Bリンク切替後の表示中Bの既読位置更新がBのThread IDへ保存され、Aへ混入しないことを確認する。
 - `BbsRouteScaffoldSelectionTest`: 距離0/1/2以上の移動方式と、currentPage範囲外・targetPage有効時の即時移動をpure decisionとして検証する。
 - `BbsRouteScaffoldTest`: 78件から79件への追加、選択タブ削除、連続追加・削除・reorderで例外がなく、currentPageが一時的に範囲外でも対象contentへ収束することをCompose testで確認する。
 - 実装後に`./gradlew assembleDebug`と`./gradlew testDebugUnitTest`を実行する。関連instrumented testは利用可能なemulator/deviceで実行し、実行できない場合は未実行理由を明記する。

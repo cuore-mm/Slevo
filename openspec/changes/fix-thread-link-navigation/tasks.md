@@ -54,3 +54,9 @@
 - [x] 8.1 `BbsRouteScaffold.kt`の`pagerMoveBehavior()`で、currentPageが範囲外でもtargetPageが有効なら`Immediate`を返し、targetPageが無効な場合だけ`None`にする。
 - [x] 8.2 `BbsRouteScaffoldSelectionTest.kt`と`BbsRouteScaffoldTest.kt`で、タブ削除後にcurrentPageが一時的に範囲外となっても有効な選択先へ即時同期して収束することを検証する。
 - [x] 8.3 CIでUnit testとCI APK buildの成功を確認した。現行CI workflowにemulator/deviceを使うinstrumented test jobがないため、関連instrumented testは未実行とし、その理由を実装報告へ明記する。
+
+## 9. Threadリンク切替後の既読対象修正
+
+- [ ] 9.1 `ThreadScaffold.kt`の`onLastRead`で、保持されたNavigation route由来の`routeThreadId`ではなく表示中`tab.id`を`updateThreadLastRead()`へ渡す。初期route検証と初期選択に使う`routeThreadId`は維持する。
+- [ ] 9.2 Thread A→B切替後の既読位置がBへ保存され、Aへ混入しないことを既存のThread既読状態テストまたはThread画面テストで検証する。
+- [ ] 9.3 CIでUnit testとCI APK buildを実行する。現行CI workflowにemulator/deviceを使うinstrumented test jobがない場合は、未実行理由を実装報告へ明記する。
