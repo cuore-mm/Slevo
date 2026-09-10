@@ -44,5 +44,5 @@ fun TabsScaffold(
 internal fun deriveTabsInitialPage(sourceRoute: AppRoute?, lastPage: Int): Int = when (sourceRoute) {
     is AppRoute.Board -> TabPage.BOARD.index
     is AppRoute.Thread -> TabPage.THREAD.index
-    null -> lastPage
+    else -> lastPage
 }
