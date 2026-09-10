@@ -143,6 +143,157 @@ class NavigationExtensionsTest {
         assertEquals(previousBoardEntryId, controller.currentBackStackEntry?.id)
     }
 
+    @Test
+    fun showBoardScreenFromTabs_reusesBoardAndKeepsPreviousHistory() {
+        val controller = createController()
+        val board = boardRoute("board-a")
+        controller.navigate(AppRoute.BookmarkList)
+        controller.navigateToBoardScreen(board)
+        val boardEntryId = controller.currentBackStackEntry?.id
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = board,
+            tabsEntryId = tabsEntryId,
+            route = boardRoute("board-b"),
+        )
+
+        assertBoardRoute(board, controller)
+        assertEquals(boardEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
+    @Test
+    fun showThreadScreenFromTabs_pushesThreadAfterRemovingTabs() {
+        val controller = createController()
+        val board = boardRoute("board-a")
+        val thread = threadRoute("1")
+        controller.navigate(AppRoute.BookmarkList)
+        controller.navigateToBoardScreen(board)
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showThreadScreenFromTabs(
+            sourceRoute = board,
+            tabsEntryId = tabsEntryId,
+            route = thread,
+        )
+
+        assertThreadRoute(thread, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Board::class) == true)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == false)
+        controller.popBackStack()
+        assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.Board::class) == true)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
+    @Test
+    fun showThreadScreenFromTabs_reusesThreadAndKeepsPreviousHistory() {
+        val controller = createController()
+        val thread = threadRoute("1")
+        controller.navigate(AppRoute.BookmarkList)
+        controller.navigateToThreadScreen(thread)
+        val threadEntryId = controller.currentBackStackEntry?.id
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showThreadScreenFromTabs(
+            sourceRoute = thread,
+            tabsEntryId = tabsEntryId,
+            route = threadRoute("2"),
+        )
+
+        assertThreadRoute(thread, controller)
+        assertEquals(threadEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
+    @Test
+    fun showBoardScreenFromTabs_popsThreadToExistingBoard() {
+        val controller = createController()
+        val board = boardRoute("board-a")
+        val thread = threadRoute("1")
+        controller.navigateToBoardScreen(board)
+        val boardEntryId = controller.currentBackStackEntry?.id
+        controller.navigateToThreadScreen(thread)
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = thread,
+            tabsEntryId = tabsEntryId,
+            route = boardRoute("board-b"),
+        )
+
+        assertBoardRoute(board, controller)
+        assertEquals(boardEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+    }
+
+    @Test
+    fun showBoardScreenFromTabs_replacesThreadWithoutExistingBoard() {
+        val controller = createController()
+        val thread = threadRoute("1")
+        val board = boardRoute("board-b")
+        controller.navigate(AppRoute.BookmarkList)
+        controller.navigateToThreadScreen(thread)
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = thread,
+            tabsEntryId = tabsEntryId,
+            route = board,
+        )
+
+        assertBoardRoute(board, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+        controller.popBackStack()
+        assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
+    @Test
+    fun showBoardScreenFromTabs_keepsRootTabsForRootSelection() {
+        val controller = createController()
+        val tabsEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val board = boardRoute("board-a")
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = null,
+            tabsEntryId = tabsEntryId,
+            route = board,
+        )
+
+        assertBoardRoute(board, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+    }
+
+    @Test
+    fun showBoardScreenFromTabs_ignoresStaleTabsEntry() {
+        val controller = createController()
+        val tabsEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val board = boardRoute("board-a")
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = board,
+            tabsEntryId = "stale-$tabsEntryId",
+            route = boardRoute("board-b"),
+        )
+
+        assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+    }
+
+    @Test
+    fun showBoardScreenFromTabs_doesNotNavigateWhenTabsCannotPop() {
+        val controller = createController()
+        val tabsEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val board = boardRoute("board-a")
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = board,
+            tabsEntryId = tabsEntryId,
+            route = boardRoute("board-b"),
+        )
+
+        assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+    }
+
     private fun createController(): TestNavHostController {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         return TestNavHostController(context).apply {
@@ -150,6 +301,7 @@ class NavigationExtensionsTest {
             setGraph(
                 graph = createGraph(startDestination = AppRoute.Tabs) {
                     composable<AppRoute.Tabs> { }
+                    composable<AppRoute.BookmarkList> { }
                     composable<AppRoute.Board> { }
                     composable<AppRoute.Thread> { }
                 }
@@ -170,4 +322,21 @@ class NavigationExtensionsTest {
         assertEquals(expected.threadKey, route?.threadKey)
         assertEquals(expected.boardUrl, route?.boardUrl)
     }
+
+    private fun navigateToTabs(controller: TestNavHostController): String {
+        controller.navigate(AppRoute.Tabs)
+        return controller.currentBackStackEntry?.id.orEmpty()
+    }
+
+    private fun boardRoute(name: String): AppRoute.Board = AppRoute.Board(
+        boardName = name,
+        boardUrl = "https://example.com/$name/",
+    )
+
+    private fun threadRoute(key: String): AppRoute.Thread = AppRoute.Thread(
+        threadKey = key,
+        boardName = "board-a",
+        boardUrl = "https://example.com/board-a/",
+        threadTitle = "thread-$key",
+    )
 }

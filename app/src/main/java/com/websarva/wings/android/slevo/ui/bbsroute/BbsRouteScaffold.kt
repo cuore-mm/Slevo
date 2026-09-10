@@ -58,7 +58,6 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
-import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
@@ -221,13 +220,16 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
 
         // --- Shared overlays and controller state ---
         val bookmarkSheetState = rememberModalBottomSheetState()
-        val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
         var isUrlValidating by rememberSaveable { mutableStateOf(false) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
+        val openTabList: () -> Unit = {
+            navController.navigate(AppRoute.Tabs) {
+                launchSingleTop = true
+            }
+        }
 
         // PendingMissingではsettled pageを優先し、selection keyを直接表示に使わない。
         val settledPage = pagerState.settledPage
@@ -283,7 +285,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         settledTab,
                         settledUiState,
                         settledProgress.value,
-                        { showTabListSheet = true },
+                        openTabList,
                         controllerModifier,
                     ) { modifier ->
                         PagerTitleCards(
@@ -297,7 +299,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             },
                             overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
                             titleCard = titleCard,
-                            openTabListSheet = { showTabListSheet = true },
+                            openTabListSheet = openTabList,
                         )
                     }
                 },
@@ -368,7 +370,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             contentModifier,
                             innerPadding,
                             navController,
-                            { showTabListSheet = true },
+                            openTabList,
                             {
                                 urlError = null
                                 showUrlDialog = true
@@ -386,21 +388,6 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
             )
             // 現在settle済みタブのoverlayをScaffoldの後ろに描画し、固定barを覆う。
             optionalSheetContent(settledTab, settledUiState)
-
-            if (showTabListSheet) {
-                val initialPage = when (route) {
-                    is AppRoute.Thread -> 1
-                    else -> 0
-                }
-                TabsBottomSheet(
-                    sheetState = tabListSheetState,
-                    tabSessionStore = tabSessionStore,
-                    navController = navController,
-                    onDismissRequest = { showTabListSheet = false },
-                    initialPage = initialPage,
-                    currentScreenRoute = route,
-                )
-            }
 
             if (showUrlDialog) {
                 UrlOpenDialog(

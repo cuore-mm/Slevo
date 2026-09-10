@@ -55,7 +55,6 @@ fun TabsPagerContent(
     pagerState: PagerState,
     tabSessionStore: TabSessionStore,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
     isShowingSearchResults: Boolean,
     isSearchMode: Boolean,
@@ -99,7 +98,8 @@ fun TabsPagerContent(
     onThreadTabReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean,
     onClearNewResCount: (ThreadId) -> Unit,
     isInLongPressSelectionMode: Boolean = false,
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String = "",
 ) {
     HorizontalPager(
         state = pagerState,
@@ -119,7 +119,6 @@ fun TabsPagerContent(
                         onCloseClick = onCloseBoardTab,
                         onSwipeDelete = onSwipeDeleteBoardTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = boardNormalListState,
                         selectedBoardTab = selectedBoardTab,
@@ -138,7 +137,8 @@ fun TabsPagerContent(
                         onReorderFinished = onBoardTabReorderFinished,
                         onReorderCancelled = onBoardTabReorderCancelled,
                         onReorderAccessibilityMove = onBoardTabReorderAccessibilityMove,
-                        currentScreenRoute = currentScreenRoute,
+                        sourceRoute = sourceRoute,
+                        tabsEntryId = tabsEntryId,
                     )
                 },
                 searchResultContent = {
@@ -147,7 +147,6 @@ fun TabsPagerContent(
                         onCloseClick = onCloseBoardTab,
                         onSwipeDelete = onSwipeDeleteBoardTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = boardSearchListState,
                         selectedBoardTab = selectedBoardTab,
@@ -160,6 +159,8 @@ fun TabsPagerContent(
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                         isReorderEnabled = false,
+                        sourceRoute = sourceRoute,
+                        tabsEntryId = tabsEntryId,
                     )
                 },
                 searchEmptyContent = {
@@ -179,7 +180,6 @@ fun TabsPagerContent(
                         onCloseClick = onCloseThreadTab,
                         onSwipeDelete = onSwipeDeleteThreadTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = threadNormalListState,
                         newResCounts = newResCounts,
@@ -200,7 +200,8 @@ fun TabsPagerContent(
                         onReorderFinished = onThreadTabReorderFinished,
                         onReorderCancelled = onThreadTabReorderCancelled,
                         onReorderAccessibilityMove = onThreadTabReorderAccessibilityMove,
-                        currentScreenRoute = currentScreenRoute,
+                        sourceRoute = sourceRoute,
+                        tabsEntryId = tabsEntryId,
                     )
                 },
                 searchResultContent = {
@@ -209,7 +210,6 @@ fun TabsPagerContent(
                         onCloseClick = onCloseThreadTab,
                         onSwipeDelete = onSwipeDeleteThreadTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = threadSearchListState,
                         newResCounts = newResCounts,
@@ -224,6 +224,8 @@ fun TabsPagerContent(
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                         isReorderEnabled = false,
+                        sourceRoute = sourceRoute,
+                        tabsEntryId = tabsEntryId,
                     )
                 },
                 searchEmptyContent = {

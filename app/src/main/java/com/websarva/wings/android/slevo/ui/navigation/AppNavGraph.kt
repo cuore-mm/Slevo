@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -285,11 +287,14 @@ fun AppNavGraph(
                     defaultPopExitTransition()
                 }
             }
-        ) {
+        ) { backStackEntry ->
+            val sourceRoute = navController.previousBackStackEntry?.toBbsRouteOrNull()
             TabsScaffold(
                 appChromePadding = appChromePadding,
                 tabSessionStore = tabSessionStore,
-                navController = navController
+                navController = navController,
+                sourceRoute = sourceRoute,
+                tabsEntryId = backStackEntry.id,
             )
         }
         //設定画面
@@ -347,6 +352,18 @@ fun AppNavGraph(
             )
         }
     }
+}
+
+/**
+ * Tabsの直前にあるBoardまたはThread destinationを遷移元routeへ変換する。
+ *
+ * Board / Thread以外のdestinationは、BookmarkなどTabsより前の履歴を誤って遷移元として扱わない
+ * ようにnullを返す。
+ */
+private fun NavBackStackEntry.toBbsRouteOrNull(): AppRoute? = when {
+    destination.hasRoute<AppRoute.Board>() -> toRoute<AppRoute.Board>()
+    destination.hasRoute<AppRoute.Thread>() -> toRoute<AppRoute.Thread>()
+    else -> null
 }
 
 @Serializable

@@ -78,6 +78,55 @@ fun NavHostController.showThreadScreenForTabSelection(
 }
 
 /**
+ * Tabs上で選択した板を、Tabsを除去した後の既存画面種別へ反映する。
+ *
+ * contextual TabsではTabs entryを先にpopし、Board / Thread間の既存push・pop・replace規則へ
+ * 委譲する。ルートTabsではTabsを残して通常のpush規則を使う。
+ */
+fun NavHostController.showBoardScreenFromTabs(
+    sourceRoute: AppRoute?,
+    tabsEntryId: String,
+    route: AppRoute.Board,
+) {
+    if (!isCurrentTabsEntry(tabsEntryId)) return
+    if (sourceRoute == null) {
+        showBoardScreenForTabSelection(currentScreenRoute = null, route = route)
+        return
+    }
+
+    // Guard: 非同期の選択処理中にTabsを離れていた場合は、古いcallbackで履歴を変更しない。
+    if (!popBackStack()) return
+    showBoardScreenForTabSelection(currentScreenRoute = sourceRoute, route = route)
+}
+
+/**
+ * Tabs上で選択したスレッドを、Tabsを除去した後の既存画面種別へ反映する。
+ *
+ * contextual TabsではTabs entryを先にpopし、Board / Thread間の既存push・pop・replace規則へ
+ * 委譲する。ルートTabsではTabsを残して通常のpush規則を使う。
+ */
+fun NavHostController.showThreadScreenFromTabs(
+    sourceRoute: AppRoute?,
+    tabsEntryId: String,
+    route: AppRoute.Thread,
+) {
+    if (!isCurrentTabsEntry(tabsEntryId)) return
+    if (sourceRoute == null) {
+        showThreadScreenForTabSelection(currentScreenRoute = null, route = route)
+        return
+    }
+
+    // Guard: 非同期の選択処理中にTabsを離れていた場合は、古いcallbackで履歴を変更しない。
+    if (!popBackStack()) return
+    showThreadScreenForTabSelection(currentScreenRoute = sourceRoute, route = route)
+}
+
+/** 現在のentryが、指定されたTabs destinationのままかを検証する。 */
+private fun NavHostController.isCurrentTabsEntry(tabsEntryId: String): Boolean =
+    currentBackStackEntry?.id == tabsEntryId &&
+        currentBackStackEntry?.destination?.hasRoute<AppRoute.Tabs>() == true
+
+/**
  * 現在表示中の画面を別の画面で置換する。
  */
 private fun NavHostController.replaceCurrentScreen(

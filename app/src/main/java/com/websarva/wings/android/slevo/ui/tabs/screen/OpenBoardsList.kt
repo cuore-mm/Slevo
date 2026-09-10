@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenFromTabs
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -34,7 +34,6 @@ fun OpenBoardsList(
     onCloseClick: (BoardTabInfo) -> Unit = {},
     onSwipeDelete: (BoardTabInfo) -> Unit = onCloseClick,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     selectedBoardTab: BoardTabInfo? = null,
@@ -53,7 +52,8 @@ fun OpenBoardsList(
     onReorderFinished: (BoardTabInfo) -> Unit = {},
     onReorderCancelled: (BoardTabInfo) -> Unit = {},
     onReorderAccessibilityMove: (BoardTabInfo, Int) -> Boolean = { _, _ -> false },
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String = "",
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -85,7 +85,6 @@ fun OpenBoardsList(
                     onBoardTabSelectionToggle(tab.boardUrl)
                     return@OpenBoardCard
                 }
-                closeDrawer()
                 val route = AppRoute.Board(
                     boardId = tab.boardId,
                     boardName = tab.boardName,
@@ -94,11 +93,14 @@ fun OpenBoardsList(
                 coroutineScope.launch {
                     val normalizedRoute =
                         tabSessionStore?.normalizeBoardRouteForNavigation(route) ?: route
-                    tabSessionStore?.registerAndSelectBoardRoute(normalizedRoute)
-                    navController.showBoardScreenForTabSelection(
-                        currentScreenRoute = currentScreenRoute,
-                        route = normalizedRoute,
-                    )
+                    val index = tabSessionStore?.registerAndSelectBoardRoute(normalizedRoute) ?: -1
+                    if (index >= 0) {
+                        navController.showBoardScreenFromTabs(
+                            sourceRoute = sourceRoute,
+                            tabsEntryId = tabsEntryId,
+                            route = normalizedRoute,
+                        )
+                    }
                 }
             },
             onLongPress = { bounds ->
@@ -215,6 +217,5 @@ fun OpenBoardsListPreview() {
         openTabs = sampleBoards,
         onCloseClick = {},
         navController = rememberNavController(),
-        closeDrawer = {}
     )
 }

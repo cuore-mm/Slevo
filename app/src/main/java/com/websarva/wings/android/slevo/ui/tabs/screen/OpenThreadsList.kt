@@ -15,7 +15,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenFromTabs
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
@@ -35,7 +35,6 @@ fun OpenThreadsList(
     onCloseClick: (ThreadTabInfo) -> Unit = {},
     onSwipeDelete: (ThreadTabInfo) -> Unit = onCloseClick,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     newResCounts: Map<String, Int> = emptyMap(),
@@ -56,7 +55,8 @@ fun OpenThreadsList(
     onReorderFinished: (ThreadTabInfo) -> Unit = {},
     onReorderCancelled: (ThreadTabInfo) -> Unit = {},
     onReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean = { _, _ -> false },
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String = "",
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -89,7 +89,6 @@ fun OpenThreadsList(
                     onThreadTabSelectionToggle(tab.id)
                     return@OpenThreadCard
                 }
-                closeDrawer()
                 onClearNewResCount(tab.id)
                 val route = AppRoute.Thread(
                     threadKey = tab.threadKey,
@@ -104,8 +103,9 @@ fun OpenThreadsList(
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     val index = tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute) ?: -1
                     if (index >= 0) {
-                        navController.showThreadScreenForTabSelection(
-                            currentScreenRoute = currentScreenRoute,
+                        navController.showThreadScreenFromTabs(
+                            sourceRoute = sourceRoute,
+                            tabsEntryId = tabsEntryId,
                             route = normalizedRoute,
                         )
                     }
@@ -240,7 +240,6 @@ fun OpenThreadsListPreview() {
         openTabs = sampleTabs,
         onCloseClick = {},
         navController = rememberNavController(),
-        closeDrawer = {},
         contentPadding = PaddingValues(0.dp),
         newResCounts = emptyMap(),
     )

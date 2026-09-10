@@ -51,8 +51,8 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
-import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenFromTabs
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenFromTabs
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
@@ -93,10 +93,10 @@ fun TabScreenContent(
     tabSessionStore: TabSessionStore,
     tabListViewModel: TabListViewModel,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     initialPage: Int = TabPage.BOARD.index,
     onPageChanged: (Int) -> Unit = {},
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
@@ -287,8 +287,7 @@ fun TabScreenContent(
                         modifier = Modifier,
                         pagerState = pagerState,
                         navController = navController,
-                         closeDrawer = closeDrawer,
-                         listContentPadding = listPadding,
+                          listContentPadding = listPadding,
                          isShowingSearchResults = isShowingSearchResults,
                          isSearchMode = isSearchMode,
                          boardNormalListState = boardNormalListState,
@@ -364,7 +363,8 @@ fun TabScreenContent(
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,
                         tabSessionStore = tabSessionStore,
                          isInLongPressSelectionMode = listUiState.isTabGestureLocked || isSelectionMode,
-                        currentScreenRoute = currentScreenRoute,
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
                     )
                 }
             }
@@ -483,7 +483,8 @@ fun TabScreenContent(
                  onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
                  navController = navController,
                  tabSessionStore = tabSessionStore,
-                 currentScreenRoute = currentScreenRoute,
+                  sourceRoute = sourceRoute,
+                  tabsEntryId = tabsEntryId,
              )
 
             // --- URL dialog ---
@@ -505,22 +506,26 @@ fun TabScreenContent(
                             val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
                                 is UrlOpenResult.NavigateBoard -> {
-                                    tabSessionStore.registerAndSelectBoardRoute(result.route)
-                                    navController.showBoardScreenForTabSelection(
-                                        currentScreenRoute = currentScreenRoute,
-                                        route = result.route,
-                                    )
-                                    closeDrawer()
+                                    val index = tabSessionStore.registerAndSelectBoardRoute(result.route)
+                                    if (index >= 0) {
+                                        navController.showBoardScreenFromTabs(
+                                            sourceRoute = sourceRoute,
+                                            tabsEntryId = tabsEntryId,
+                                            route = result.route,
+                                        )
+                                    }
+                                    tabListViewModel.setUrlDialogVisible(false)
                                 }
 
                                 is UrlOpenResult.NavigateThread -> {
                                     val index = tabSessionStore.registerAndSelectThreadRoute(result.route)
                                     if (index >= 0) {
-                                        navController.showThreadScreenForTabSelection(
-                                            currentScreenRoute = currentScreenRoute,
+                                        navController.showThreadScreenFromTabs(
+                                            sourceRoute = sourceRoute,
+                                            tabsEntryId = tabsEntryId,
                                             route = result.route,
                                         )
-                                        closeDrawer()
+                                        tabListViewModel.setUrlDialogVisible(false)
                                     }
                                 }
 
@@ -549,7 +554,8 @@ private fun TabDetailBottomSheets(
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
     tabSessionStore: TabSessionStore,
-    currentScreenRoute: AppRoute?,
+    sourceRoute: AppRoute?,
+    tabsEntryId: String,
 ) {
     val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
@@ -589,7 +595,8 @@ private fun TabDetailBottomSheets(
              ),
              navController = navController,
              tabSessionStore = tabSessionStore,
-             currentScreenRoute = currentScreenRoute,
+              currentScreenRoute = sourceRoute,
+              tabsEntryId = tabsEntryId,
              showBoardAction = true,
          )
     }
