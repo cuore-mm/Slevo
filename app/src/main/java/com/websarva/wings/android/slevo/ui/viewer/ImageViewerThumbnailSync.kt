@@ -1,15 +1,12 @@
 package com.websarva.wings.android.slevo.ui.viewer
 
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.runtime.snapshotFlow
+import com.websarva.wings.android.slevo.ui.common.scroll.centerLazyListItemAtIndex
+import com.websarva.wings.android.slevo.ui.common.scroll.findLazyListItemCenterDeltaPx
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
 
@@ -41,16 +38,7 @@ internal fun findCenteredThumbnailIndex(
 internal fun findThumbnailCenterDeltaPx(
     layoutInfo: LazyListLayoutInfo,
     index: Int,
-): Int? {
-    val targetItem = layoutInfo.visibleItemsInfo.firstOrNull { item -> item.index == index }
-        ?: run {
-            // Guard: 可視領域外のアイテムは距離計算できない。
-            return null
-        }
-    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-    val itemCenter = targetItem.offset + targetItem.size / 2
-    return itemCenter - viewportCenter
-}
+): Int? = findLazyListItemCenterDeltaPx(layoutInfo, index)
 
 /**
  * サムネイル停止時に中央へ最も近いサムネイルを選択し、必要に応じて中央へ寄せる。
@@ -104,50 +92,4 @@ internal suspend fun centerThumbnailAtIndex(
     listState: LazyListState,
     index: Int,
     animate: Boolean = true,
-): Boolean {
-    return try {
-        var didAutoScroll = false
-        val initialDelta = findThumbnailCenterDeltaPx(
-            layoutInfo = listState.layoutInfo,
-            index = index,
-        )
-        if (initialDelta == null) {
-            // Guard: まずは対象を可視化してから中心寄せを行う。
-            if (animate) {
-                listState.animateScrollToItem(index)
-            } else {
-                listState.scrollToItem(index)
-            }
-            didAutoScroll = true
-        } else if (abs(initialDelta) <= 1) {
-            // Guard: すでに中心に近い場合は処理しない。
-            return false
-        }
-        val updatedDelta = findThumbnailCenterDeltaPx(
-            layoutInfo = listState.layoutInfo,
-            index = index,
-        ) ?: snapshotFlow {
-            findThumbnailCenterDeltaPx(
-                layoutInfo = listState.layoutInfo,
-                index = index,
-            )
-        }
-            .filterNotNull()
-            .first()
-        if (abs(updatedDelta) <= 1) {
-            // Guard: 既に中心に近い場合は処理しない。
-            return didAutoScroll
-        }
-        if (animate) {
-            listState.animateScrollBy(updatedDelta.toFloat())
-        } else {
-            listState.scrollBy(updatedDelta.toFloat())
-        }
-        true
-    } catch (cancellationException: CancellationException) {
-        if (!currentCoroutineContext().isActive) {
-            throw cancellationException
-        }
-        false
-    }
-}
+): Boolean = centerLazyListItemAtIndex(listState, index, animate)

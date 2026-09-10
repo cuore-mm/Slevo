@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -71,6 +72,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
+import com.websarva.wings.android.slevo.ui.common.scroll.centerLazyListItemAtIndex
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -100,6 +102,8 @@ fun TabScreenContent(
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
+    val selectedBoardTabKey by tabSessionStore.selectedBoardTabKey.collectAsStateWithLifecycle()
+    val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsStateWithLifecycle()
     val boardLoaded by tabSessionStore.boardLoaded.collectAsStateWithLifecycle()
     val threadLoaded by tabSessionStore.threadLoaded.collectAsStateWithLifecycle()
     val isRefreshing by tabSessionStore.isRefreshing.collectAsStateWithLifecycle()
@@ -121,6 +125,8 @@ fun TabScreenContent(
     val boardSearchListState = rememberLazyListState()
     val threadNormalListState = rememberLazyListState()
     val threadSearchListState = rememberLazyListState()
+    var boardInitialScrollApplied by rememberSaveable { mutableStateOf(false) }
+    var threadInitialScrollApplied by rememberSaveable { mutableStateOf(false) }
 
     // --- Search state delegation ---
     val isSearchMode = listUiState.isSearchMode
@@ -221,6 +227,76 @@ fun TabScreenContent(
         }
 
         tabListViewModel.consumePendingScrollToTopRequest()
+    }
+
+    LaunchedEffect(
+        isLoading,
+        isShowingSearchResults,
+        pagerState.currentPage,
+        displayedBoardTabs,
+        selectedBoardTabKey,
+    ) {
+        if (
+            isLoading ||
+            isShowingSearchResults ||
+            pagerState.currentPage != TabPage.BOARD.index ||
+            boardInitialScrollApplied
+        ) {
+            return@LaunchedEffect
+        }
+
+        val targetIndex = resolveInitialTabListIndex(
+            items = displayedBoardTabs,
+            selectedKey = selectedBoardTabKey,
+            keyOf = BoardTabInfo::boardUrl,
+        )
+        if (targetIndex == null) {
+            // 空一覧にはスクロール対象がないため、待機せず初期化完了として扱う。
+            boardInitialScrollApplied = true
+            return@LaunchedEffect
+        }
+
+        centerLazyListItemAtIndex(
+            listState = boardNormalListState,
+            index = targetIndex,
+            animate = false,
+        )
+        boardInitialScrollApplied = true
+    }
+
+    LaunchedEffect(
+        isLoading,
+        isShowingSearchResults,
+        pagerState.currentPage,
+        displayedThreadTabs,
+        selectedThreadTabKey,
+    ) {
+        if (
+            isLoading ||
+            isShowingSearchResults ||
+            pagerState.currentPage != TabPage.THREAD.index ||
+            threadInitialScrollApplied
+        ) {
+            return@LaunchedEffect
+        }
+
+        val targetIndex = resolveInitialTabListIndex(
+            items = displayedThreadTabs,
+            selectedKey = selectedThreadTabKey,
+            keyOf = { tab -> tab.id.value },
+        )
+        if (targetIndex == null) {
+            // 空一覧にはスクロール対象がないため、待機せず初期化完了として扱う。
+            threadInitialScrollApplied = true
+            return@LaunchedEffect
+        }
+
+        centerLazyListItemAtIndex(
+            listState = threadNormalListState,
+            index = targetIndex,
+            animate = false,
+        )
+        threadInitialScrollApplied = true
     }
 
     LaunchedEffect(pagerState) {

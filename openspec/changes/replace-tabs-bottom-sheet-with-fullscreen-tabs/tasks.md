@@ -35,3 +35,9 @@
 - [x] 5.4 リポジトリ規約に従い、追加・変更したclass/interfaceと非自明関数のKDoc、長い関数のセクションコメント、guard/fallbackコメントを確認する。Compose Preview関数にはdoc commentを追加しない。
 - [x] 5.5 CI Run `34468900513` でbuildおよびunit testを実行し、全テスト成功を確認した。
 - [x] 5.6 `BbsRouteScaffold` のPager同期判定を、Composition再生成後に旧settledPageが先に通知されるケースで検証し、Tabsから別Threadを選択したstable keyが旧Threadへ戻らないことをunit testで固定する。
+
+## 6. 初期スクロール位置
+
+- [x] 6.1 `TabScreenContent.kt` の板・スレッド通常一覧について、遷移元によらず `TabSessionStore` のselected stable keyを表示順反映後の一覧から解決し、存在する場合は対象カードをviewport中央付近へ、存在しない場合は一覧末尾へ初期スクロールする。検索一覧の既存先頭スクロール処理と、初期化後のユーザー操作位置を維持する。
+- [x] 6.2 LazyListのレイアウト確定後にカード中心とviewport中心を補正する共通処理を追加または再利用し、先頭・末尾でスクロール可能範囲を越えないようにする。必要なKDoc、guard/fallbackコメントを追加する。
+- [x] 6.3 初期位置導出、selected key不在時の末尾フォールバック、先頭・末尾の境界処理をunit testで固定し、板・スレッドの選択カード中央表示と遷移元非依存をCompose UI testまたは手動確認で検証する。

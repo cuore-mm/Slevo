@@ -6,6 +6,7 @@ Board / Thread 画面のタブ一覧は BottomSheet と全画面 destination の
 
 - `TabsBottomSheet` を廃止し、Board / Thread のタブ一覧操作を `AppRoute.Tabs` への全画面遷移へ置き換える。
 - Board / Thread から開いた Tabs は、遷移元と同じ種別の一覧ページを初期表示する。
+- 板・スレッド一覧は遷移元に関係なく、選択中タブが表示一覧に存在する場合はそのカードを初期表示時に中央へ配置し、存在しない場合は一覧末尾を初期表示する。
 - Tabs の直前の Board / Thread destination を選択元として扱い、選択完了時に Tabs を back stack から除去して既存のタブ選択 Navigation 規則へ委譲する。
 - 同種タブの選択では `TabSessionStore` の選択タブを更新して元の destination へ戻り、同種 destination を追加しない。
 - Thread から Board タブを選んだ場合は、直前に Board destination があればそこまで戻り、なければ Thread destination を Board destination に置き換える。

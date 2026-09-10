@@ -16,6 +16,7 @@
 - Tabs直前のback stack entryから遷移元を復元し、別のorigin stateを永続化しない。
 - Tabsを除去した後、既存のBoard / Thread選択Navigationへ委譲する。
 - Board起点では板一覧、Thread起点ではスレッド一覧を必ず初期表示する。
+- 板・スレッド一覧の初期スクロールは遷移元によらず、表示中の選択タブを中央へ配置し、選択対象がない場合は末尾へ移動する。
 - カード選択とURL入力で、正規化・登録・選択・Navigationの順序を統一する。
 
 **Non-Goals:**
@@ -88,6 +89,14 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 
 `TabScreenContent.kt`、`TabsPagerContent.kt`、`OpenBoardsList.kt`、`OpenThreadsList.kt` に伝播している `closeDrawer` は削除し、Tabs選択完了関数に必要な `sourceRoute` とTabs entry IDを渡す。詳細BottomSheetやURL入力ダイアログのdismiss APIは維持する。
 
+### 7. 初期スクロールは選択keyを優先し、見つからなければ末尾へ移動する
+
+`TabScreenContent.kt` は `sourceRoute` を初期スクロール位置の判定に使用しない。板一覧は `TabSessionStore.selectedBoardTabKey`、スレッド一覧は `TabSessionStore.selectedThreadTabKey` を正本とし、表示順反映後の通常一覧からstable keyに一致するindexを解決する。
+
+対象keyが存在する場合は対象カードを一度可視化した後、`LazyListLayoutInfo` の実測値からカード中心とviewport中心の差分を計算し、`LazyListState`を補正して中央付近へ配置する。先頭・末尾ではスクロール可能範囲に自然にクランプし、content paddingによる追加の空白を作らない。対象keyがnull、一覧に存在しない、または一覧が空の場合は、最後のindexを初期位置にする。
+
+この初期化はデータロードとレイアウト確定後に各通常一覧で一度だけ実行する。初期化完了後の再Composition、画面回転からのstate復元、検索結果の変更では初期位置へ戻さない。検索入力時に既存の検索一覧を先頭へ戻す処理は維持する。
+
 ## Implementation Contract
 
 - `AppRoute.Tabs` の型とトップレベルNavigation項目を変更しない。
@@ -96,6 +105,8 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - `NavigationExtensions.kt` の既存 `showBoardScreenForTabSelection`、`showThreadScreenForTabSelection`、`replaceCurrentScreen` の責務と既存呼び出し元を壊さず、Tabs専用の薄いラッパーを追加する。
 - Tabs専用ラッパーは期待するTabs entry IDと現在entryの一致を確認し、コンテキスト付きTabsをpopしてから既存関数へ委譲する。直接`popUpTo`で同じ分岐を再実装しない。
 - `TabSessionStore`への登録・選択が成功する前にTabsをpopしない。
+- 初期スクロールは `sourceRoute` ではなく `TabSessionStore`のselected keyと表示順反映後の一覧を使い、keyが解決できない場合は末尾へフォールバックする。
+- 初期スクロールの中央補正はレイアウト確定後に行い、対象カード・viewport・スクロール可能範囲を実測して境界内に収める。初期化済みの一覧を再Compositionで再移動しない。
 - `TabsBottomSheet.kt` と、その表示だけに必要だったstate・imports・parametersを残さない。
 - 新しいclassまたはinterfaceを追加する場合はKDocを付け、非自明関数には既存リポジトリ規約に従うKDocと制御フローコメントを付ける。Compose Preview関数にはコメントを追加しない。
 - ユーザー向け文言、カードのcontent description、フォーカス順は変更しない。全画面化後もシステムBackで遷移元へ戻れるため、専用の閉じるボタンや新規文字列は追加しない。
@@ -117,6 +128,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - カード選択とURL入力について、登録失敗時はTabsに留まり、成功時はTabsがstackから消えることを検証する。
 - Bookmark相当の前段entryを含むstackで、同種・別種選択後も前段entryが残ることとAndroid Backの戻り先を検証する。
 - `BbsRouteScaffold` のPager同期ガードはComposition再生成時に未同期として開始し、Tabsから同種Threadを選択して元destinationへ復帰した際、保存された旧Pager位置のsettle通知がstable selected keyを旧タブへ戻さないことを検証する。
+- 板・スレッド一覧の初期スクロールはselected keyが表示順反映後の一覧に存在すれば中央付近、存在しなければ末尾となることをunit testとCompose UI testで検証する。遷移元routeの有無は初期位置に影響させない。
 - 実装後に `./gradlew build` と `./gradlew test` を実行する。手動でBoard→Tabs、Thread→Tabs、Bookmark→Board→Tabs、Bookmark→Thread→Tabs、非同期処理中のBack、画面再生成を確認する。
 
 ## Migration Plan
@@ -135,5 +147,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - [Tabsをpopしてから既存Navigationへ委譲する二段階操作で中間状態が描画される可能性] → 同一メインスレッドイベント内で連続実行し、Board↔ThreadおよびTabs transitionを実機で確認する。視覚的な中間状態が発生する場合だけ、既存規則を共通の決定関数へ抽出して単一NavOptionsへ変換する。
 - [非同期正規化中にユーザーがBackまたは再入場すると古いcallbackが発火する] → Tabs entry IDと現在entryを照合して古いNavigationだけを抑止する。
 - [destination再生成時に保存済みPagerの旧settledPageがユーザー操作として通知される] → `lastSynchronizedSelectedKey`をComposition開始時にnullで初期化し、selected key変更に伴うprogrammatic scrollが対象keyへsettleするまでsettled callbackを抑止する。
+- [一覧ロード前・並び替え反映前に初期スクロールして位置がずれる] → 表示一覧が確定してから一度だけkeyをindexへ解決し、レイアウト情報を待って中央補正する。keyが解決できない場合は末尾へ移動する。
+- [画面再生成や検索変更で初期位置がユーザー位置を上書きする] → 初期化済みフラグを一覧stateのライフサイクルに紐づけ、初期処理と既存の検索先頭処理を別のeffectとして維持する。
 - [トップレベルTabsをBoard / Thread起点と誤判定する] → 直前entryがBoard / Threadの場合だけcontextual Tabsとし、それ以外はsourceなしとして扱うテストを追加する。
 - [BottomSheet削除で検索状態のライフサイクルが変わる] → contextual Tabsはentry popでViewModelを破棄し、トップレベルTabsは従来のdestination scopeを維持する。検索状態を`TabSessionStore`へ移さない。
