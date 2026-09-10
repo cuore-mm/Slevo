@@ -283,7 +283,7 @@ fun ThreadScaffold(
                 onAutoScrollBottom = { routeViewModel.onAutoScrollReachedBottom(tab.id.value) },
                 onBottomRefresh = { routeViewModel.reloadThreadFromBottomPull(tab.id.value) },
                 onLastRead = { resNum ->
-                    routeThreadId?.let { routeViewModel.updateThreadLastRead(it, resNum) }
+                    routeViewModel.updateThreadLastRead(tab.id, resNum)
                 },
                 gestureSettings = uiState.gestureSettings,
                 onPopupVisibilityChange = { isPopupVisible = it },

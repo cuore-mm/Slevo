@@ -95,6 +95,43 @@ class ThreadTabCoordinatorTest {
         }
     }
 
+    /** Threadリンク切替後は表示中タブの既読位置だけを更新することを確認する。 */
+    @Test
+    fun updateThreadLastRead_targetsDisplayedThreadAfterLinkSelection() = runTest {
+        val routeThreadId = ThreadId.of("host", "board", "route-thread")
+        val displayedThreadId = ThreadId.of("host", "board", "displayed-thread")
+        val initialTab = ThreadTabInfo(
+            id = displayedThreadId,
+            title = "Displayed title",
+            boardName = "Board",
+            boardUrl = "https://example.com",
+            boardId = 1L,
+            prevResCount = 8,
+            lastReadResNo = 8,
+            firstNewResNo = 9,
+        )
+        val tabsRepository = mockTabsRepository(initialTab)
+        val readStateRepository = mockReadStateRepository()
+        val coordinator = ThreadTabCoordinator(this, tabsRepository, readStateRepository)
+
+        coordinator.updateThreadLastRead(displayedThreadId, lastReadResNo = 10)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            readStateRepository.saveReadState(
+                displayedThreadId,
+                ThreadReadState(
+                    prevResCount = initialTab.prevResCount,
+                    lastReadResNo = 10,
+                    firstNewResNo = initialTab.firstNewResNo,
+                )
+            )
+        }
+        coVerify(exactly = 0) {
+            readStateRepository.saveReadState(routeThreadId, any())
+        }
+    }
+
     @Test
     fun updateThreadLastRead_ignoresWhenNotAdvanced() = runTest {
         val threadId = ThreadId.of("host", "board", "thread")
