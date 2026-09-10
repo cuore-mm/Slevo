@@ -69,7 +69,7 @@
 
 `BbsRouteScaffold.kt`でPager向けタブ一覧を一つのstate holderとして保持し、`pageCount`、`key`、content、settled tab解決の各callbackは呼出時に同じholderからimmutable listを一度だけ取得する。`key`とcontentは`getOrNull(page)`で境界検証し、範囲外要求ではタブデータを読まない。
 
-範囲外keyに既存タブのkeyや固定文字列を流用するとkey重複を起こすため、要求pageとpresentation revisionから一意になる内部fallback keyを使用する。contentの範囲外要求は副作用を行わず空のpage containerだけを返し、有効selectionの次回同期で解消する。これはユーザー向けempty stateではなくPager内部更新中だけの防御である。
+範囲外keyに既存タブのkeyや固定文字列を流用するとkey重複を起こすため、要求pageとpresentation revisionから一意になる内部fallback keyを使用する。contentの範囲外要求は副作用を行わず空のpage containerだけを返す。有効な選択先が解決済みでcurrent pageだけが範囲外の場合は、距離判定を待たず即時移動して同期を完了し、選択先も範囲外の場合だけ次のstate更新を待つ。これはユーザー向けempty stateではなくPager内部更新中だけの防御である。
 
 単に`tabs[page]`をtry/catchで囲む案は、keyとcontentの不一致を隠し、安定キー重複を防げないため採用しない。
 
@@ -113,15 +113,15 @@ Board→Threadは既存の`boardThreadEnterTransition()` / `boardThreadExitTrans
 - `NavigationExtensionsTest`およびThreadリンクcallbackのテスト: Thread→Threadでnavigateを呼ばず、Board→Threadではpushを維持し、BackがThread進入前へ戻ることを確認する。
 - `TransitionSpecsTest`: Board→ThreadとThread→Boardの方向判定、Thread→Boardのpop準拠transition選択対象、他destinationの除外を確認する。
 - `NavigationExtensionsTest`とThreadInfoBottomSheetの呼出し経路: Thread画面から板を選択した場合に共通関数のpop/replace契約を使い、直接navigateしないことを確認する。
-- `BbsRouteScaffoldSelectionTest`: 距離0/1/2以上の移動方式をpure decisionとして検証する。
-- `BbsRouteScaffoldTest`: 78件から79件への追加、選択タブ削除、連続追加・削除・reorderで例外がなく、対象contentへ収束することをCompose testで確認する。
+- `BbsRouteScaffoldSelectionTest`: 距離0/1/2以上の移動方式と、currentPage範囲外・targetPage有効時の即時移動をpure decisionとして検証する。
+- `BbsRouteScaffoldTest`: 78件から79件への追加、選択タブ削除、連続追加・削除・reorderで例外がなく、currentPageが一時的に範囲外でも対象contentへ収束することをCompose testで確認する。
 - 実装後に`./gradlew assembleDebug`と`./gradlew testDebugUnitTest`を実行する。関連instrumented testは利用可能なemulator/deviceで実行し、実行できない場合は未実行理由を明記する。
 
 ## Risks / Trade-offs
 
 - [位置指定追加で複数行のsortOrder更新が必要になり、通常末尾追加よりDB writeが増える] → スレッドリンク由来の新規追加だけに限定し、単一transactionと対象範囲更新を使う。
 - [Pager fallback pageが一瞬空になる可能性] → 範囲外要求時だけ副作用なしcontainerを返し、selected key同期を継続するCompose testで可視状態への収束を確認する。
-- [隣接判定中にtabs順序が変わる] → currentPageとselected keyを同一snapshotへ解決し、範囲外なら移動せず次のstate更新を待つ。
+- [隣接判定中にtabs順序が変わる] → currentPageとselected keyを同一snapshotへ解決し、currentPageだけが範囲外なら有効なselected keyへ即時移動し、selected keyも未解決なら次のstate更新を待つ。
 - [既存の下部コントローラーアニメーションとselected同期が競合する] → 既存の同期抑止条件を維持し、リンク経路から別のanimation flowを発行しない。
 
 ## Migration Plan

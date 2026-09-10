@@ -48,3 +48,9 @@
 - [x] 7.1 `ThreadInfoBottomSheet.kt`の板ボタンから直接`navigateToBoardScreen()`を呼ばず、`currentScreenRoute`を使って`showBoardScreenForTabSelection()`を呼ぶ。ThreadScaffold、BoardScaffold、TabScreenContentから呼出し元routeを伝播する。
 - [x] 7.2 共通Navigation関数の既存pop/replace/pushテストを再利用して、ThreadInfoBottomSheetの呼出し契約がThread画面ではpop/replace、タブ一覧ではpushになることを確認する。
 - [x] 7.3 CIでUnit testとCI APK buildの成功を確認した。現行CI workflowにemulator/deviceを使うinstrumented test jobがないため、関連instrumented testは未実行とし、その理由を実装報告へ明記する。
+
+## 8. Pagerの範囲外currentPageからの収束
+
+- [ ] 8.1 `BbsRouteScaffold.kt`の`pagerMoveBehavior()`で、currentPageが範囲外でもtargetPageが有効なら`Immediate`を返し、targetPageが無効な場合だけ`None`にする。
+- [ ] 8.2 `BbsRouteScaffoldSelectionTest.kt`と`BbsRouteScaffoldTest.kt`で、タブ削除後にcurrentPageが一時的に範囲外となっても有効な選択先へ即時同期して収束することを検証する。
+- [ ] 8.3 CIでUnit testとCI APK buildを実行する。現行CI workflowにemulator/deviceを使うinstrumented test jobがない場合は、未実行理由を実装報告へ明記する。
