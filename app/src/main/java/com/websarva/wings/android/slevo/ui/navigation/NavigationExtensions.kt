@@ -94,6 +94,8 @@ fun NavHostController.showBoardScreenFromTabs(
         return
     }
 
+    // Guard: contextual Tabsには必ず遷移元entryが存在するため、start destinationをpopしない。
+    if (previousBackStackEntry == null) return
     // Guard: 非同期の選択処理中にTabsを離れていた場合は、古いcallbackで履歴を変更しない。
     if (!popBackStack()) return
     showBoardScreenForTabSelection(currentScreenRoute = sourceRoute, route = route)
@@ -116,6 +118,8 @@ fun NavHostController.showThreadScreenFromTabs(
         return
     }
 
+    // Guard: contextual Tabsには必ず遷移元entryが存在するため、start destinationをpopしない。
+    if (previousBackStackEntry == null) return
     // Guard: 非同期の選択処理中にTabsを離れていた場合は、古いcallbackで履歴を変更しない。
     if (!popBackStack()) return
     showThreadScreenForTabSelection(currentScreenRoute = sourceRoute, route = route)
