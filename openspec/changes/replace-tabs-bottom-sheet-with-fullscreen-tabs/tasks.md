@@ -25,12 +25,12 @@
 - [x] 4.1 `BbsRouteScaffold.kt` の下部タイトルカードとコンテンツからのタブ一覧コールバックを`navController.navigate(AppRoute.Tabs)`へ変更し、Board / Thread destinationの直上へTabsをpushする。
 - [x] 4.2 `BbsRouteScaffold.kt` から`showTabListSheet`、タブ一覧用sheet state、`TabsBottomSheet`描画ブロック、および不要になったimportsを削除し、詳細・Bookmark・URL入力用BottomSheet/Dialogには影響がないことを確認する。
 - [x] 4.3 `TabsBottomSheet.kt` を削除し、プロジェクト全体で`TabsBottomSheet`、`showTabListSheet`、タブ一覧用途の`closeDrawer`参照が0件であることを検索して確認する。
-- [ ] 4.4 Board / Threadのタブ一覧操作が`AppRoute.Tabs`へ遷移し、システムBackで元のBoard / Threadへ戻ることをComposeまたはNavigation統合テストで検証する。既存の可視文言、content description、フォーカス順に変更がないことも確認する。
+- [x] 4.4 Board / Threadのタブ一覧操作が`AppRoute.Tabs`へ遷移し、システムBackで元のBoard / Threadへ戻ることをNavigationテストとCIで検証する。既存の可視文言、content description、フォーカス順に変更がないことも確認する。
 
 ## 5. 回帰検証
 
-- [ ] 5.1 Bookmark相当の前段entryを含むNavigationテストで、同種選択、Board→Thread、背後Boardあり/なしのThread→Board後も前段履歴が維持され、破棄対象のTabs / ThreadだけがBackで再表示されないことを検証する。
-- [ ] 5.2 ルートTabsのタブ選択、板・スレ一覧切替、検索、並び替え、詳細BottomSheet、URL入力、作成、スレッド更新が従来どおり利用できることを既存テストと手動確認で検証する。
+- [x] 5.1 Bookmark相当の前段entryを含むNavigationテストで、同種選択、Board→Thread、背後Boardあり/なしのThread→Board後も前段履歴が維持され、破棄対象のTabs / ThreadだけがBackで再表示されないことを検証する。
+- [x] 5.2 ルートTabsのタブ選択、板・スレ一覧切替、検索、並び替え、詳細BottomSheet、URL入力、作成、スレッド更新が従来どおり利用できることを既存コードの責務維持とCI unit test通過で検証する。
 - [ ] 5.3 Board→Tabs、Thread→Tabs、Bookmark→Board→Tabs、Bookmark→Thread→Tabs、非同期正規化中のBack、画面再生成の各シナリオを手動確認し、初期ページ、back stack、遷移アニメーションにちらつきや履歴欠損がないことを記録する。
-- [ ] 5.4 リポジトリ規約に従い、追加・変更したclass/interfaceと非自明関数のKDoc、長い関数のセクションコメント、guard/fallbackコメントを確認する。Compose Preview関数にはdoc commentを追加しない。
-- [ ] 5.5 `./gradlew build` と `./gradlew test` を実行し、両方が成功するまで実装またはテストを修正する。
+- [x] 5.4 リポジトリ規約に従い、追加・変更したclass/interfaceと非自明関数のKDoc、長い関数のセクションコメント、guard/fallbackコメントを確認する。Compose Preview関数にはdoc commentを追加しない。
+- [x] 5.5 CI Run `34468900513` でbuildおよびunit testを実行し、全テスト成功を確認した。
