@@ -274,6 +274,7 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardResolvedInfo(boardUrl, boardId, boardName)
     }
 
+    /** スレッドタブを保証し、anchor指定時は位置指定経路へ委譲する。 */
     suspend fun ensureThreadTab(route: AppRoute.Thread, anchorThreadId: ThreadId? = null): Int {
         return if (anchorThreadId == null) {
             threadTabsCoordinator.ensureThreadTab(route)

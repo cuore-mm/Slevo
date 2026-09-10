@@ -279,6 +279,7 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabSessionStore = tabSessionStore,
+                currentThreadId = tab.id,
                 onAutoScrollBottom = { routeViewModel.onAutoScrollReachedBottom(tab.id.value) },
                 onBottomRefresh = { routeViewModel.reloadThreadFromBottomPull(tab.id.value) },
                 onLastRead = { resNum ->
@@ -392,11 +393,12 @@ fun ThreadScaffold(
                 searchQuery = uiState.searchQuery,
                 onUrlClick = { url -> uriHandler.openUri(url) },
                 onThreadUrlClick = { route ->
+                    val anchorThreadId = tab.id
                     coroutineScope.launch {
                         val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
                         tabSessionStore.registerAndSelectThreadRoute(
                             route = normalizedRoute,
-                            anchorThreadId = tabSessionStore.selectedThreadTabKey.value?.let(::ThreadId),
+                            anchorThreadId = anchorThreadId,
                         )
                     }
                 },

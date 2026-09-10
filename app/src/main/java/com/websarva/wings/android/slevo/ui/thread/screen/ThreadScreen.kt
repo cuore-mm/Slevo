@@ -83,6 +83,7 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     tabSessionStore: TabSessionStore? = null,
+    currentThreadId: ThreadId? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -129,11 +130,12 @@ fun ThreadScreen(
     // --- ナビゲーション ---
     val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
     val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
+        val anchorThreadId = currentThreadId
         coroutineScope.launch {
             val normalizedRoute = tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
             tabSessionStore?.registerAndSelectThreadRoute(
                 route = normalizedRoute,
-                anchorThreadId = tabSessionStore.selectedThreadTabKey.value?.let(::ThreadId),
+                anchorThreadId = anchorThreadId,
             )
         }
     }
