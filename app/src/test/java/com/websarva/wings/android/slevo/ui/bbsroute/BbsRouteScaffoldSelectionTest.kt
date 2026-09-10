@@ -85,10 +85,10 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(PagerMoveBehavior.Immediate, pagerMoveBehavior(0, 2, 4))
     }
 
-    /** 範囲外のページ要求では移動方式を決めず、次の状態更新を待つことを確認する。 */
+    /** 選択先が範囲外なら待機し、現在pageだけが範囲外なら即時同期することを確認する。 */
     @Test
-    fun pagerMoveBehavior_outOfBounds_returnsNone() {
-        assertEquals(PagerMoveBehavior.None, pagerMoveBehavior(3, 1, 3))
+    fun pagerMoveBehavior_outOfBounds_usesTargetValidity() {
+        assertEquals(PagerMoveBehavior.Immediate, pagerMoveBehavior(3, 1, 3))
         assertEquals(PagerMoveBehavior.None, pagerMoveBehavior(1, 3, 3))
     }
 

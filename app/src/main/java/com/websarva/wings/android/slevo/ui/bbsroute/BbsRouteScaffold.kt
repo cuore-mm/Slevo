@@ -722,9 +722,12 @@ internal enum class PagerMoveBehavior {
 
 /** 現在ページと選択先の距離からPagerの移動方式を決定する。 */
 internal fun pagerMoveBehavior(currentPage: Int, targetPage: Int, pageCount: Int): PagerMoveBehavior {
-    if (pageCount <= 0 || currentPage !in 0 until pageCount || targetPage !in 0 until pageCount) {
+    if (pageCount <= 0 || targetPage !in 0 until pageCount) {
         return PagerMoveBehavior.None
     }
+    // Pagerが古いpage indexを返しても、有効な選択先への同期は即時に完了させる。
+    if (currentPage !in 0 until pageCount) return PagerMoveBehavior.Immediate
+
     return when (abs(currentPage - targetPage)) {
         0 -> PagerMoveBehavior.None
         1 -> PagerMoveBehavior.Animate

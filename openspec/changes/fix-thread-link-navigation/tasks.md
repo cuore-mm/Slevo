@@ -51,6 +51,6 @@
 
 ## 8. Pagerの範囲外currentPageからの収束
 
-- [ ] 8.1 `BbsRouteScaffold.kt`の`pagerMoveBehavior()`で、currentPageが範囲外でもtargetPageが有効なら`Immediate`を返し、targetPageが無効な場合だけ`None`にする。
-- [ ] 8.2 `BbsRouteScaffoldSelectionTest.kt`と`BbsRouteScaffoldTest.kt`で、タブ削除後にcurrentPageが一時的に範囲外となっても有効な選択先へ即時同期して収束することを検証する。
+- [x] 8.1 `BbsRouteScaffold.kt`の`pagerMoveBehavior()`で、currentPageが範囲外でもtargetPageが有効なら`Immediate`を返し、targetPageが無効な場合だけ`None`にする。
+- [x] 8.2 `BbsRouteScaffoldSelectionTest.kt`と`BbsRouteScaffoldTest.kt`で、タブ削除後にcurrentPageが一時的に範囲外となっても有効な選択先へ即時同期して収束することを検証する。
 - [ ] 8.3 CIでUnit testとCI APK buildを実行する。現行CI workflowにemulator/deviceを使うinstrumented test jobがない場合は、未実行理由を実装報告へ明記する。
