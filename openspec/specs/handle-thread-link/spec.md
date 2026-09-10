@@ -2,9 +2,11 @@
 
 ## Purpose
 TBD - created by archiving change unify-url-routing. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: スレ内リンクの判定を共通化する
-システムはスレ内リンクをタップした際、共通URLリゾルバで判定しスレに該当する場合のみアプリ内遷移することを SHALL 要求する。スレに該当する場合、システムは永続化済みの `5ch.net` を `5ch.io` として開く設定値を取得し、その値に基づいてrouteを正規化してからスレッドタブ保証、スレッドタブ選択、スレッド画面遷移を行うことを SHALL 要求する。板画面からスレッドリンクを開く場合、システムはスレッド画面 route を履歴に積み、戻る操作で直前の板画面へ戻れるようにすることを SHALL 要求する。
+システムはスレ内リンクをタップした際、共通URLリゾルバで判定しスレに該当する場合のみアプリ内遷移することを SHALL 要求する。スレに該当する場合、システムは永続化済みの `5ch.net` を `5ch.io` として開く設定値を取得し、その値に基づいてrouteを正規化してからスレッドタブ保証とスレッドタブ選択を行うことを SHALL 要求する。板画面からスレッドリンクを開く場合、システムはスレッド画面 route を履歴に積み、戻る操作で直前の板画面へ戻れるようにすることを SHALL 要求する。スレッド画面からスレッドリンクを開く場合、システムは現在のThread destinationを維持し、同種のrouteを履歴へ追加してはならないMUST NOT。
 
 #### Scenario: スレURLのリンクをタップする
 - **WHEN** `https://{host}/test/read.cgi/{board}/{thread}/` のリンクをタップする
@@ -22,6 +24,20 @@ TBD - created by archiving change unify-url-routing. Update Purpose after archiv
 - **WHEN** ユーザーが板画面でスレッドリンクを開き、表示されたスレッド画面で戻る操作を行う
 - **THEN** システムはスレッドを開く前の板画面へ戻る
 
+#### Scenario: スレッド画面から別スレッドのリンクを開く
+- **WHEN** ユーザーがスレッドAの画面でスレッドBへのリンクを選択する
+- **THEN** システムはスレッドBのタブを保証して選択し、現在のThread destinationとNavigation back stackを維持する
+- **AND** Androidの戻る操作ではスレッドAではなく、現在のThread destinationへ入る前の画面へ戻る
+
+#### Scenario: スレッド画面から既存タブのリンクを開く
+- **WHEN** ユーザーがスレッドAの画面で、既にタブとして存在するスレッドBへのリンクを選択する
+- **THEN** システムはスレッドBのタブを重複作成せず、既存タブを選択する
+
+#### Scenario: リンク切替後の既読位置を表示中スレッドへ保存する
+- **WHEN** ユーザーがスレッドAからスレッドBへのリンクを選択し、同一Thread destination内で表示中タブがBへ切り替わった後にBを閲覧する
+- **THEN** システムはBの既読位置をBのThread IDへ保存する
+- **AND** Aの既読位置をBの閲覧結果で更新してはならないMUST NOT
+
 ### Requirement: スレ内リンクの対象外処理
 システムはスレ判定に一致しないリンクを外部ブラウザに委譲することを SHALL 要求する。
 
@@ -32,4 +48,3 @@ TBD - created by archiving change unify-url-routing. Update Purpose after archiv
 #### Scenario: dat形式のリンクをタップする
 - **WHEN** `https://{host}/{board}/dat/{thread}.dat` のリンクをタップする
 - **THEN** システムは外部ブラウザを開く
-
