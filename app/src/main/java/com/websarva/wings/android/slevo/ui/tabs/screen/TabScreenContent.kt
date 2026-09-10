@@ -480,10 +480,11 @@ fun TabScreenContent(
             TabDetailBottomSheets(
                 uiState = listUiState,
                 onDismissBoardSheet = { tabListViewModel.dismissBoardInfoBottomSheet() },
-                onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
-                navController = navController,
-                tabSessionStore = tabSessionStore,
-            )
+                 onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
+                 navController = navController,
+                 tabSessionStore = tabSessionStore,
+                 currentScreenRoute = currentScreenRoute,
+             )
 
             // --- URL dialog ---
             if (listUiState.showUrlDialog) {
@@ -548,6 +549,7 @@ private fun TabDetailBottomSheets(
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
     tabSessionStore: TabSessionStore,
+    currentScreenRoute: AppRoute?,
 ) {
     val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
@@ -584,11 +586,12 @@ private fun TabDetailBottomSheets(
                 boardId = threadTab.boardId,
                 name = threadTab.boardName,
                 url = threadTab.boardUrl,
-            ),
-            navController = navController,
-            tabSessionStore = tabSessionStore,
-            showBoardAction = true,
-        )
+             ),
+             navController = navController,
+             tabSessionStore = tabSessionStore,
+             currentScreenRoute = currentScreenRoute,
+             showBoardAction = true,
+         )
     }
 }
 

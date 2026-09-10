@@ -47,7 +47,6 @@ import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGest
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.ThreadTabTitleCard
@@ -153,6 +152,7 @@ fun ThreadScaffold(
         },
         onTabSelected = { tabSessionStore.selectThreadTab(it.id) },
         animateToPageFlow = tabSessionStore.threadPageAnimation,
+        animateAdjacentSelection = true,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
         titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier, openTabListSheet ->
             ThreadTabTitleCard(
@@ -279,10 +279,11 @@ fun ThreadScaffold(
                 listState = listState,
                 navController = navController,
                 tabSessionStore = tabSessionStore,
+                currentThreadId = tab.id,
                 onAutoScrollBottom = { routeViewModel.onAutoScrollReachedBottom(tab.id.value) },
                 onBottomRefresh = { routeViewModel.reloadThreadFromBottomPull(tab.id.value) },
                 onLastRead = { resNum ->
-                    routeThreadId?.let { routeViewModel.updateThreadLastRead(it, resNum) }
+                    routeViewModel.updateThreadLastRead(tab.id, resNum)
                 },
                 gestureSettings = uiState.gestureSettings,
                 onPopupVisibilityChange = { isPopupVisible = it },
@@ -392,10 +393,13 @@ fun ThreadScaffold(
                 searchQuery = uiState.searchQuery,
                 onUrlClick = { url -> uriHandler.openUri(url) },
                 onThreadUrlClick = { route ->
+                    val anchorThreadId = tab.id
                     coroutineScope.launch {
                         val normalizedRoute = tabSessionStore.normalizeThreadRouteForNavigation(route)
-                        val index = tabSessionStore.registerAndSelectThreadRoute(normalizedRoute)
-                        if (index >= 0) navController.navigateToThreadScreen(normalizedRoute)
+                        tabSessionStore.registerAndSelectThreadRoute(
+                            route = normalizedRoute,
+                            anchorThreadId = anchorThreadId,
+                        )
                     }
                 },
                 onImageClick = { _, imageUrls, tappedIndex, transitionNamespace ->
@@ -459,10 +463,11 @@ fun ThreadScaffold(
                 showThreadInfoSheet = uiState.showThreadInfoSheet,
                 onDismissRequest = { routeViewModel.closeThreadInfoSheet(tab.id.value) },
                 threadInfo = uiState.threadInfo,
-                boardInfo = uiState.boardInfo,
-                navController = navController,
-                tabSessionStore = tabSessionStore,
-            )
+                 boardInfo = uiState.boardInfo,
+                 navController = navController,
+                 tabSessionStore = tabSessionStore,
+                 currentScreenRoute = threadRoute,
+             )
 
             // --- Image menu state ---
             val loadingImageUrls = uiState.imageLoadingUrls

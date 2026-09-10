@@ -281,40 +281,74 @@ class TabsRepository @Inject constructor(
      */
     suspend fun ensureOpenThreadTab(tabInfo: ThreadTabInfo): Boolean = gate.withWritePermit {
         db.withTransaction {
-            val existing = threadDao.getByThreadId(tabInfo.id)
-            val canonicalState = threadStateRepository.getThreadState(tabInfo.id)
-            val stateToSave = canonicalState?.let { state ->
-                mergeThreadTabMetadata(
-                    current = ThreadTabInfo(
-                        id = tabInfo.id,
-                        title = state.title,
-                        boardName = state.boardName,
-                        boardUrl = state.boardUrl,
-                        boardId = state.boardId,
-                        resCount = state.latestResCount,
-                        isPinned = existing?.isPinned ?: false,
-                        firstVisibleItemIndex = existing?.firstVisibleItemIndex ?: 0,
-                        firstVisibleItemScrollOffset = existing?.firstVisibleItemScrollOffset ?: 0,
-                    ),
-                    incoming = tabInfo,
-                )
-            } ?: tabInfo
-            // このトランザクションで読み出した行とマージしてから、その ThreadState だけを更新する。
-            threadStateRepository.saveThreadStateUngated(stateToSave.toThreadStateUpdate())
-            if (existing == null) {
-                val nextSortOrder = (threadDao.getMaxSortOrder() ?: -1) + 1
-                threadDao.upsert(
-                    OpenThreadTabEntity(
-                        threadId = tabInfo.id,
-                        sortOrder = nextSortOrder,
-                        isPinned = tabInfo.isPinned,
-                        firstVisibleItemIndex = tabInfo.firstVisibleItemIndex,
-                        firstVisibleItemScrollOffset = tabInfo.firstVisibleItemScrollOffset,
-                    )
-                )
-            }
-            true
+            ensureOpenThreadTabUngated(tabInfo, anchorThreadId = null)
         }
+    }
+
+    /**
+     * スレッドタブを指定anchorの直後へ追加し、登録と順序更新を一つのtransactionで完了する。
+     * 対象タブが既に存在する場合は既存の順序を維持し、anchorがなければ末尾へ追加する。
+     */
+    suspend fun ensureOpenThreadTabAfter(
+        tabInfo: ThreadTabInfo,
+        anchorThreadId: ThreadId,
+    ): Boolean = gate.withWritePermit {
+        db.withTransaction {
+            ensureOpenThreadTabUngated(tabInfo, anchorThreadId)
+        }
+    }
+
+    /** Thread tabのmetadata mergeとtab固有行の挿入を呼び出し側transaction内で実行する。 */
+    private suspend fun ensureOpenThreadTabUngated(
+        tabInfo: ThreadTabInfo,
+        anchorThreadId: ThreadId?,
+    ): Boolean {
+        // --- Existing state and metadata merge ---
+        val existing = threadDao.getByThreadId(tabInfo.id)
+        val canonicalState = threadStateRepository.getThreadState(tabInfo.id)
+        val stateToSave = canonicalState?.let { state ->
+            mergeThreadTabMetadata(
+                current = ThreadTabInfo(
+                    id = tabInfo.id,
+                    title = state.title,
+                    boardName = state.boardName,
+                    boardUrl = state.boardUrl,
+                    boardId = state.boardId,
+                    resCount = state.latestResCount,
+                    isPinned = existing?.isPinned ?: false,
+                    firstVisibleItemIndex = existing?.firstVisibleItemIndex ?: 0,
+                    firstVisibleItemScrollOffset = existing?.firstVisibleItemScrollOffset ?: 0,
+                ),
+                incoming = tabInfo,
+            )
+        } ?: tabInfo
+        // このtransactionで読み出した行とマージしてから、そのThreadStateだけを更新する。
+        threadStateRepository.saveThreadStateUngated(stateToSave.toThreadStateUpdate())
+
+        // --- Tab row persistence ---
+        if (existing == null) {
+            val anchor = if (anchorThreadId == null) {
+                null
+            } else {
+                threadDao.getByThreadId(anchorThreadId)
+            }
+            val nextSortOrder = if (anchor == null) {
+                (threadDao.getMaxSortOrder() ?: -1) + 1
+            } else {
+                threadDao.shiftSortOrdersAfter(anchor.sortOrder)
+                anchor.sortOrder + 1
+            }
+            threadDao.upsert(
+                OpenThreadTabEntity(
+                    threadId = tabInfo.id,
+                    sortOrder = nextSortOrder,
+                    isPinned = tabInfo.isPinned,
+                    firstVisibleItemIndex = tabInfo.firstVisibleItemIndex,
+                    firstVisibleItemScrollOffset = tabInfo.firstVisibleItemScrollOffset,
+                )
+            )
+        }
+        return true
     }
 
     /**

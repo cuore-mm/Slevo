@@ -46,13 +46,13 @@ import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.data.model.GestureAction
 import com.websarva.wings.android.slevo.data.model.GestureSettings
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.common.GestureHintOverlay
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.interaction.ObserveGestureHintInvalidResetEffect
 import com.websarva.wings.android.slevo.ui.common.interaction.executeGestureScrollAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
-import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.components.MomentumBar
 import com.websarva.wings.android.slevo.ui.thread.res.PostDialogTarget
@@ -83,6 +83,7 @@ fun ThreadScreen(
     listState: LazyListState = rememberLazyListState(),
     navController: NavHostController,
     tabSessionStore: TabSessionStore? = null,
+    currentThreadId: ThreadId? = null,
     onAutoScrollBottom: () -> Unit = {},
     onBottomRefresh: () -> Unit = {},
     onLastRead: (Int) -> Unit = {},
@@ -129,10 +130,13 @@ fun ThreadScreen(
     // --- ナビゲーション ---
     val onUrlClick: (String) -> Unit = { url -> uriHandler.openUri(url) }
     val onThreadUrlClick: (AppRoute.Thread) -> Unit = { route ->
+        val anchorThreadId = currentThreadId
         coroutineScope.launch {
             val normalizedRoute = tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
-            val index = tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute) ?: -1
-            if (index >= 0) navController.navigateToThreadScreen(normalizedRoute)
+            tabSessionStore?.registerAndSelectThreadRoute(
+                route = normalizedRoute,
+                anchorThreadId = anchorThreadId,
+            )
         }
     }
     val onImageClick: (String, List<String>, Int, String) -> Unit =

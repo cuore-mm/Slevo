@@ -274,8 +274,13 @@ class TabSessionStore @Inject constructor(
         boardTabsCoordinator.updateBoardResolvedInfo(boardUrl, boardId, boardName)
     }
 
-    suspend fun ensureThreadTab(route: AppRoute.Thread): Int {
-        return threadTabsCoordinator.ensureThreadTab(route)
+    /** スレッドタブを保証し、anchor指定時は位置指定経路へ委譲する。 */
+    suspend fun ensureThreadTab(route: AppRoute.Thread, anchorThreadId: ThreadId? = null): Int {
+        return if (anchorThreadId == null) {
+            threadTabsCoordinator.ensureThreadTab(route)
+        } else {
+            threadTabsCoordinator.ensureThreadTab(route, anchorThreadId)
+        }
     }
 
     /** 初回 Room スナップショットが正規状態になるまで待機する。 */
@@ -285,8 +290,11 @@ class TabSessionStore @Inject constructor(
     /**
      * スレッドタブを保証したうえで、対象タブを選択状態へ更新する。
      */
-    suspend fun ensureAndSelectThreadTab(route: AppRoute.Thread): Int {
-        val index = ensureThreadTab(route)
+    suspend fun ensureAndSelectThreadTab(
+        route: AppRoute.Thread,
+        anchorThreadId: ThreadId? = null,
+    ): Int {
+        val index = ensureThreadTab(route, anchorThreadId)
         if (index < 0) return -1
         val threadId = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(route.boardUrl)
             ?.let { (host, board) -> ThreadId.of(host, board, route.threadKey) }
@@ -298,7 +306,10 @@ class TabSessionStore @Inject constructor(
     /**
      * 正規化済みスレッド route からスレッドタブを登録し、選択状態へ更新する。
      */
-    suspend fun registerAndSelectThreadRoute(route: AppRoute.Thread): Int = ensureAndSelectThreadTab(route)
+    suspend fun registerAndSelectThreadRoute(
+        route: AppRoute.Thread,
+        anchorThreadId: ThreadId? = null,
+    ): Int = ensureAndSelectThreadTab(route, anchorThreadId)
 
     /** 正規化済みスレッド route を正規状態で確認できるまで登録し、選択は行わない。 */
     suspend fun registerThreadRoute(route: AppRoute.Thread): Int = ensureThreadTab(route)

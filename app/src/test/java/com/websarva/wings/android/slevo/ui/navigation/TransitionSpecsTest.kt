@@ -26,6 +26,40 @@ class TransitionSpecsTest {
         )
     }
 
+    /** BoardからThreadへ進む方向だけを判定する。 */
+    @Test
+    fun isBoardToThreadTransition_matchesOnlyForwardDirection() {
+        assertTrue(
+            isBoardToThreadTransition(
+                initialRoute = "com.example.AppRoute.Board/{boardUrl}",
+                targetRoute = "com.example.AppRoute.Thread/{threadKey}",
+            ),
+        )
+        assertFalse(
+            isBoardToThreadTransition(
+                initialRoute = "com.example.AppRoute.Thread/{threadKey}",
+                targetRoute = "com.example.AppRoute.Board/{boardUrl}",
+            ),
+        )
+    }
+
+    /** ThreadからBoardへ戻る方向だけを判定する。 */
+    @Test
+    fun isThreadToBoardTransition_matchesOnlyReturnDirection() {
+        assertTrue(
+            isThreadToBoardTransition(
+                initialRoute = "com.example.AppRoute.Thread/{threadKey}",
+                targetRoute = "com.example.AppRoute.Board/{boardUrl}",
+            ),
+        )
+        assertFalse(
+            isThreadToBoardTransition(
+                initialRoute = "com.example.AppRoute.Board/{boardUrl}",
+                targetRoute = "com.example.AppRoute.Thread/{threadKey}",
+            ),
+        )
+    }
+
     /** 類似名のdestination、null、ImageViewerは専用transition対象にならない。 */
     @Test
     fun isBoardThreadTransition_rejectsOtherDestinations() {
@@ -39,6 +73,12 @@ class TransitionSpecsTest {
             isBoardThreadTransition(
                 initialRoute = "com.example.AppRoute.Thread/{threadKey}",
                 targetRoute = "com.example.AppRoute.ImageViewer/{imageUrls}",
+            ),
+        )
+        assertFalse(
+            isThreadToBoardTransition(
+                initialRoute = "com.example.AppRoute.BoardCategoryList/{serviceId}",
+                targetRoute = "com.example.AppRoute.Board/{boardUrl}",
             ),
         )
         assertFalse(isBoardThreadTransition(initialRoute = null, targetRoute = null))

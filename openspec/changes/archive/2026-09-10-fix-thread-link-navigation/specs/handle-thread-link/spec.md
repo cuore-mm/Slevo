@@ -1,9 +1,4 @@
-# handle-thread-link Specification
-
-## Purpose
-TBD - created by archiving change unify-url-routing. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: スレ内リンクの判定を共通化する
 システムはスレ内リンクをタップした際、共通URLリゾルバで判定しスレに該当する場合のみアプリ内遷移することを SHALL 要求する。スレに該当する場合、システムは永続化済みの `5ch.net` を `5ch.io` として開く設定値を取得し、その値に基づいてrouteを正規化してからスレッドタブ保証とスレッドタブ選択を行うことを SHALL 要求する。板画面からスレッドリンクを開く場合、システムはスレッド画面 route を履歴に積み、戻る操作で直前の板画面へ戻れるようにすることを SHALL 要求する。スレッド画面からスレッドリンクを開く場合、システムは現在のThread destinationを維持し、同種のrouteを履歴へ追加してはならないMUST NOT。
@@ -37,14 +32,3 @@ TBD - created by archiving change unify-url-routing. Update Purpose after archiv
 - **WHEN** ユーザーがスレッドAからスレッドBへのリンクを選択し、同一Thread destination内で表示中タブがBへ切り替わった後にBを閲覧する
 - **THEN** システムはBの既読位置をBのThread IDへ保存する
 - **AND** Aの既読位置をBの閲覧結果で更新してはならないMUST NOT
-
-### Requirement: スレ内リンクの対象外処理
-システムはスレ判定に一致しないリンクを外部ブラウザに委譲することを SHALL 要求する。
-
-#### Scenario: スレ判定に一致しないリンクをタップする
-- **WHEN** スレ判定に一致しないURLをタップする
-- **THEN** システムは外部ブラウザを開く
-
-#### Scenario: dat形式のリンクをタップする
-- **WHEN** `https://{host}/{board}/dat/{thread}.dat` のリンクをタップする
-- **THEN** システムは外部ブラウザを開く

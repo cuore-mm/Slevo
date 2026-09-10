@@ -175,6 +175,66 @@ class BbsRouteScaffoldTest {
         composeRule.onNodeWithTag("current-zero").assertDoesNotExist()
     }
 
+    /** 選択中tabの削除後に有効な選択先があれば、古いcurrent pageから同期することを確認する。 */
+    @Test
+    fun removingSelectedTab_convergesToValidSelectedPage() {
+        lateinit var update: (TabPresentationState<String, String>) -> Unit
+        composeRule.setContent {
+            var state by remember {
+                mutableStateOf(
+                    TabPresentationState(
+                        listOf("zero", "current", "removed"),
+                        TabSelectionResolution.Selected("removed"),
+                    )
+                )
+            }
+            update = { state = it }
+            PresentationHarness(state, onTabSelected = {})
+        }
+        composeRule.waitForIdle()
+
+        update(
+            TabPresentationState(
+                listOf("zero", "current"),
+                TabSelectionResolution.Selected("current"),
+            )
+        )
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("current-current").assertExists()
+        composeRule.onNodeWithTag("current-zero").assertDoesNotExist()
+    }
+
+    /** 78件から79件への追加更新でPagerのkey/contentが範囲外参照を起こさないことを確認する。 */
+    @Test
+    fun addingTabDuringPagerUpdate_doesNotThrowOrFallbackToFirstPage() {
+        lateinit var update: (TabPresentationState<String, String>) -> Unit
+        composeRule.setContent {
+            var state by remember {
+                mutableStateOf(
+                    TabPresentationState(
+                        tabs = (0 until 78).map { "tab-$it" },
+                        selection = TabSelectionResolution.Selected("tab-77"),
+                    )
+                )
+            }
+            update = { state = it }
+            PresentationHarness(state, onTabSelected = {})
+        }
+        composeRule.waitForIdle()
+
+        update(
+            TabPresentationState(
+                tabs = (0 until 79).map { "tab-$it" },
+                selection = TabSelectionResolution.Selected("tab-78"),
+            )
+        )
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("current-tab-78").assertExists()
+        composeRule.onNodeWithTag("current-tab-0").assertDoesNotExist()
+    }
+
     /** tabを並べ替えた後も選択keyに対応するページを維持することを確認する。 */
     @Test
     fun reorderingTabs_preservesSelectedKey() {
@@ -336,7 +396,11 @@ class BbsRouteScaffoldTest {
         )
         LaunchedEffect(decision, tabs.size) {
             if (decision is TabDisplayDecision.Selected && pagerState.currentPage != selectedPage) {
-                pagerState.scrollToPage(selectedPage)
+                when (pagerMoveBehavior(pagerState.currentPage, selectedPage, tabs.size)) {
+                    PagerMoveBehavior.Animate,
+                    PagerMoveBehavior.Immediate -> pagerState.scrollToPage(selectedPage)
+                    PagerMoveBehavior.None -> Unit
+                }
             }
         }
         LaunchedEffect(pagerState, decision, selectedPage, selectedKey) {

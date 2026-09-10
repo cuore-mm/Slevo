@@ -63,21 +63,38 @@ fun boardThreadPopExitTransition(): ExitTransition =
         animationSpec = tween(DefaultAnimDuration)
     )
 
+/** route文字列が指定されたdestination名を表すかを判定する。 */
+private fun String?.isRouteNamed(routeName: String): Boolean {
+    val routeNamePart = this
+        ?.substringAfterLast('.')
+        ?.substringBefore('/')
+        ?.substringBefore('?')
+    return routeNamePart == routeName
+}
+
+/** BoardからThreadへ進むrouteの組み合わせかを判定する。 */
+fun isBoardToThreadTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    return initialRoute.isRouteNamed(AppRoute.RouteName.BOARD) &&
+            targetRoute.isRouteNamed(AppRoute.RouteName.THREAD)
+}
+
+/** ThreadからBoardへ戻るrouteの組み合わせかを判定する。 */
+fun isThreadToBoardTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    return initialRoute.isRouteNamed(AppRoute.RouteName.THREAD) &&
+            targetRoute.isRouteNamed(AppRoute.RouteName.BOARD)
+}
+
 /** 2つのNav routeがBoardとThreadの組み合わせかを判定する。 */
 fun isBoardThreadTransition(
     initialRoute: String?,
     targetRoute: String?,
 ): Boolean {
-    fun String?.isRouteNamed(routeName: String): Boolean {
-        val routeNamePart = this
-            ?.substringAfterLast('.')
-            ?.substringBefore('/')
-            ?.substringBefore('?')
-        return routeNamePart == routeName
-    }
-
-    return (initialRoute.isRouteNamed(AppRoute.RouteName.BOARD) &&
-            targetRoute.isRouteNamed(AppRoute.RouteName.THREAD)) ||
-            (initialRoute.isRouteNamed(AppRoute.RouteName.THREAD) &&
-                    targetRoute.isRouteNamed(AppRoute.RouteName.BOARD))
+    return isBoardToThreadTransition(initialRoute, targetRoute) ||
+            isThreadToBoardTransition(initialRoute, targetRoute)
 }
