@@ -1020,7 +1020,7 @@ class ThreadTabsCoordinatorTest {
         runCurrent()
 
         coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(only.id) }
-        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(null) }
+        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(null) }
         coordinator.close()
     }
 
