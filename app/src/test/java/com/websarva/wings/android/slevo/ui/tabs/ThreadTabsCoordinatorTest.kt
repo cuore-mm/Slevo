@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.isThreadTabOperationConfirmed
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
@@ -16,7 +17,9 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import io.mockk.coEvery
+import io.mockk.coAnswers
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CancellationException
@@ -68,6 +71,121 @@ class ThreadTabsCoordinatorTest {
             coordinator.openThreadTabs.value.first().title
         )
          coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
+    }
+
+    /** 初回canonical読込前に保存されたThreadId keyを復元することを確認する。 */
+    @Test
+    fun boundThreadTabs_restoresPersistedSelectionBeforeLoadedPresentation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("restore-first", 0)
+        val selected = testTab("restore-selected", 1)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(selected.id.value)
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, selected))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        assertEquals(selected.id.value, coordinator.selectedThreadTabKey.value)
+        assertEquals(
+            TabSelectionResolution.Selected(selected.id.value),
+            coordinator.threadPresentationState.value.selection,
+        )
+        coordinator.close()
+    }
+
+    /** 不正な保存keyは初回loaded presentationで末尾へ補正し、補正値を保存することを確認する。 */
+    @Test
+    fun boundThreadTabs_invalidPersistedSelection_repairsToLastAndPersists() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("invalid-first", 0)
+        val last = testTab("invalid-last", 1)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf("missing-thread")
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+
+        assertEquals(last.id.value, coordinator.selectedThreadTabKey.value)
+        assertEquals(
+            TabSelectionResolution.Selected(last.id.value),
+            coordinator.threadPresentationState.value.selection,
+        )
+        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(last.id.value) }
+        coordinator.close()
+    }
+
+    /** DataStore keyの読込が遅い間はThreadのloaded presentationを公開しないことを確認する。 */
+    @Test
+    fun boundThreadTabs_waitsForPersistedSelectionBeforeLoaded() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val persistedSelection = MutableSharedFlow<String?>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("delayed-first", 0)
+        val last = testTab("delayed-last", 1)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedThreadTabKey() } returns persistedSelection
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        assertFalse(coordinator.threadLoaded.value)
+        assertEquals(ThreadTabsLoadState.Loading, coordinator.threadTabState.value)
+
+        persistedSelection.emit(null)
+        runCurrent()
+
+        assertTrue(coordinator.threadLoaded.value)
+        assertEquals(last.id.value, coordinator.selectedThreadTabKey.value)
+        coordinator.close()
+    }
+
+    /** selected keyの保存失敗でもruntime選択を維持し、後続選択で保存を再試行することを確認する。 */
+    @Test
+    fun threadSelectionWriteFailure_preservesRuntimeSelectionAndRetries() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val first = testTab("write-first", 0)
+        val second = testTab("write-second", 1)
+        var failNextWrite = true
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(first.id.value)
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setSelectedThreadTabKey(any()) } coAnswers {
+            if (failNextWrite) {
+                failNextWrite = false
+                throw IllegalStateException("write failure")
+            }
+            Unit
+        }
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        coordinator.selectThreadTab(second.id)
+        runCurrent()
+
+        assertEquals(second.id.value, coordinator.selectedThreadTabKey.value)
+        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
+        coVerifyOrder {
+            tabsRepository.setSelectedThreadTabKey(first.id.value)
+            tabsRepository.setSelectedThreadTabKey(second.id.value)
+        }
+        coordinator.close()
     }
 
     /**
@@ -874,6 +992,35 @@ class ThreadTabsCoordinatorTest {
         assertFalse(coordinator.threadRuntimeStates.value.containsKey(tab.id.value))
     }
 
+    /** bound Threadの最後のtab削除確定時にselected keyをnullとして保存することを確認する。 */
+    @Test
+    fun boundClose_soleTab_clearsSelectionAndPersistsNull() = runTest {
+        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+        val only = testTab("sole-delete", 0)
+        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        coEvery { tabsRepository.deleteOpenThreadTab(only.id) } returns true
+        databaseFlow.emit(listOf(only))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(backgroundScope)
+        runCurrent()
+        coordinator.selectThreadTab(only.id)
+        coordinator.closeThreadTab(only)
+        runCurrent()
+
+        assertTrue(coordinator.openThreadTabs.value.isEmpty())
+        assertNull(coordinator.selectedThreadTabKey.value)
+        databaseFlow.emit(emptyList())
+        runCurrent()
+
+        coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(only.id) }
+        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(null) }
+        coordinator.close()
+    }
+
     /** bound Thread bulk close が対象を即時非表示にし、canonical確認後にRepositoryを一度だけ呼ぶことを確認する。 */
     @Test
     fun boundBulkClose_excludesTargetsImmediatelyAndCallsRepositoryOnce() = runTest {
@@ -918,6 +1065,7 @@ class ThreadTabsCoordinatorTest {
         val first = testTab("bulk-failure-first", 0)
         val second = testTab("bulk-failure-second", 1)
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(second.id.value)
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns false
         databaseFlow.emit(listOf(first, second))
@@ -932,6 +1080,7 @@ class ThreadTabsCoordinatorTest {
 
         bulkJob.await()
         assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
+        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
         coordinator.close()
     }
 

@@ -10,6 +10,8 @@ import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.BoardTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.BoardSessionState
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
+import io.mockk.coAnswers
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -129,7 +131,7 @@ class BoardTabsCoordinatorTest {
         )
     }
 
-    /** 非空一覧を初めて公開したとき null 選択を先頭へ補正することを確認する。 */
+    /** unbound状態で保存選択がない一覧を末尾タブへ補正することを確認する。 */
     @Test
     fun firstLoadedBoardTabs_repairsNullSelectionAtomically() {
         val coordinator = createCoordinator(mockk(relaxed = true))
@@ -139,12 +141,127 @@ class BoardTabsCoordinatorTest {
         coordinator.openBoardTab(first)
         coordinator.openBoardTab(second)
 
-        assertEquals(first.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(second.boardUrl, coordinator.selectedBoardTabKey.value)
         assertEquals(listOf(first, second), coordinator.boardPresentationState.value.tabs)
         assertEquals(
-            TabSelectionResolution.Selected(first.boardUrl),
+            TabSelectionResolution.Selected(second.boardUrl),
             coordinator.boardPresentationState.value.selection,
         )
+    }
+
+    /** 初回canonical読込前に保存された板keyを復元し、同じloaded presentationで公開することを確認する。 */
+    @Test
+    fun boundBoardTabs_restoresPersistedSelectionBeforeLoadedPresentation() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("restore-first")
+        val selected = testBoardTab("restore-selected")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedBoardTabKey() } returns flowOf(selected.boardUrl)
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, selected))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        assertEquals(selected.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(
+            TabSelectionResolution.Selected(selected.boardUrl),
+            coordinator.boardPresentationState.value.selection,
+        )
+        coordinator.close()
+    }
+
+    /** 不正な保存keyは初回loaded presentationで末尾へ補正し、補正値を保存することを確認する。 */
+    @Test
+    fun boundBoardTabs_invalidPersistedSelection_repairsToLastAndPersists() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("invalid-first")
+        val last = testBoardTab("invalid-last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedBoardTabKey() } returns flowOf("missing-board")
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+
+        assertEquals(last.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(
+            TabSelectionResolution.Selected(last.boardUrl),
+            coordinator.boardPresentationState.value.selection,
+        )
+        coVerify(atLeast = 1) { tabsRepository.setSelectedBoardTabKey(last.boardUrl) }
+        coordinator.close()
+    }
+
+    /** DataStore keyの読込が遅い間はBoardのloaded presentationを公開しないことを確認する。 */
+    @Test
+    fun boundBoardTabs_waitsForPersistedSelectionBeforeLoaded() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val persistedSelection = MutableSharedFlow<String?>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("delayed-first")
+        val last = testBoardTab("delayed-last")
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedBoardTabKey() } returns persistedSelection
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        databaseFlow.emit(listOf(first, last))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        assertFalse(coordinator.boardLoaded.value)
+        assertEquals(TabSelectionResolution.Loading, coordinator.boardPresentationState.value.selection)
+
+        persistedSelection.emit(null)
+        runCurrent()
+
+        assertTrue(coordinator.boardLoaded.value)
+        assertEquals(last.boardUrl, coordinator.selectedBoardTabKey.value)
+        coordinator.close()
+    }
+
+    /** selected keyの保存失敗でもruntime選択を維持し、後続選択で保存を再試行することを確認する。 */
+    @Test
+    fun boardSelectionWriteFailure_preservesRuntimeSelectionAndRetries() = runTest {
+        val databaseFlow = MutableSharedFlow<List<BoardTabInfo>>(replay = 1)
+        val tabsRepository = mockk<TabsRepository>(relaxed = true)
+        val bookmarkRepository = mockk<BookmarkBoardRepository>(relaxed = true)
+        val first = testBoardTab("write-first")
+        val second = testBoardTab("write-second")
+        var failNextWrite = true
+        every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedBoardTabKey() } returns flowOf(first.boardUrl)
+        every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
+        coEvery { tabsRepository.setSelectedBoardTabKey(any()) } coAnswers {
+            if (failNextWrite) {
+                failNextWrite = false
+                throw IllegalStateException("write failure")
+            }
+            Unit
+        }
+        databaseFlow.emit(listOf(first, second))
+
+        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+        coordinator.bind(CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        coordinator.selectBoardTab(second.boardUrl)
+        runCurrent()
+
+        assertEquals(second.boardUrl, coordinator.selectedBoardTabKey.value)
+        coVerify(atLeast = 1) { tabsRepository.setSelectedBoardTabKey(second.boardUrl) }
+        coVerifyOrder {
+            tabsRepository.setSelectedBoardTabKey(first.boardUrl)
+            tabsRepository.setSelectedBoardTabKey(second.boardUrl)
+        }
+        coordinator.close()
     }
 
     /** Board bulk close が固定タブを残し、逐次closeと同じ最終選択へ収束することを確認する。 */
@@ -860,6 +977,7 @@ class BoardTabsCoordinatorTest {
         databaseFlow.emit(emptyList())
         runCurrent()
         coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTab(only.boardUrl) }
+        coVerify(exactly = 1) { tabsRepository.setSelectedBoardTabKey(null) }
         coordinator.close()
     }
 
@@ -903,6 +1021,7 @@ class BoardTabsCoordinatorTest {
         val first = testBoardTab("bulk-failure-first")
         val second = testBoardTab("bulk-failure-second")
         every { tabsRepository.observeOpenBoardTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedBoardTabKey() } returns flowOf(second.boardUrl)
         every { bookmarkRepository.observeGroupsWithBoards() } returns flowOf(emptyList())
         coEvery { tabsRepository.deleteOpenBoardTabs(any()) } throws IllegalStateException("bulk failure")
         databaseFlow.emit(listOf(first, second))
@@ -915,6 +1034,7 @@ class BoardTabsCoordinatorTest {
 
         assertEquals(listOf(first, second), coordinator.openBoardTabs.value)
         coVerify(exactly = 1) { tabsRepository.deleteOpenBoardTabs(listOf(first.boardUrl, second.boardUrl)) }
+        coVerify(exactly = 1) { tabsRepository.setSelectedBoardTabKey(second.boardUrl) }
         coordinator.close()
     }
 
