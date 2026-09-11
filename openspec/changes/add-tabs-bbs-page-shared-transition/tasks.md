@@ -51,4 +51,4 @@
 - [ ] 6.5 実機のProfile GPU RenderingまたはMacrobenchmarkで全画面`scaleToBounds`のjankを確認し、許容できない場合は`RemeasureToBounds`へ変更せず計画更新のblockerとして報告する。
 - [x] 6.6 追加・変更したclass/interfaceと非自明関数のKDoc、guard、fallback、長い関数のsection headerを確認し、Preview関数にdoc commentを追加していないことを確認する。
 - [x] 6.7 `openspec validate add-tabs-bbs-page-shared-transition --strict`を実行し、proposal、delta specs、design、tasksの整合を確認する。
-- [ ] 6.8 CIで`./gradlew build`と`./gradlew test`を実行し、追加instrumented Compose testを含む全ジョブを成功させる。
+- [x] 6.8 CIで`./gradlew build`と`./gradlew test`を実行し、追加instrumented Compose testを含む全ジョブを成功させる。
