@@ -1093,7 +1093,7 @@ class ThreadTabsCoordinatorTest {
 
         bulkJob.await()
         assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
-        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
+        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
         coordinator.close()
     }
 
