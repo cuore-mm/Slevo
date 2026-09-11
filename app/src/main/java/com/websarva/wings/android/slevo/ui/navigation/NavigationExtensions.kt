@@ -3,7 +3,6 @@ package com.websarva.wings.android.slevo.ui.navigation
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
-import androidx.navigation.popBackStack
 
 /**
  * 板画面 route への画面遷移だけを行う拡張関数。
