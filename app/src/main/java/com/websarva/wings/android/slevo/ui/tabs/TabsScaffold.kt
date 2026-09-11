@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -13,6 +16,7 @@ import com.websarva.wings.android.slevo.ui.tabs.screen.TabScreenContent
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 
 /** タブ一覧画面へルート下部 chrome の占有領域を渡す Scaffold ラッパー。 */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun TabsScaffold(
     appChromePadding: PaddingValues,
@@ -20,6 +24,8 @@ fun TabsScaffold(
     navController: NavHostController,
     sourceRoute: AppRoute? = null,
     tabsEntryId: String,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val lastPage by tabSessionStore.lastSelectedTabsPage.collectAsState(initial = TabPage.BOARD.index)
     val tabListViewModel: TabListViewModel = hiltViewModel()
@@ -33,6 +39,8 @@ fun TabsScaffold(
         onPageChanged = { tabSessionStore.setLastSelectedTabsPage(it) },
         sourceRoute = sourceRoute,
         tabsEntryId = tabsEntryId,
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope,
     )
 }
 

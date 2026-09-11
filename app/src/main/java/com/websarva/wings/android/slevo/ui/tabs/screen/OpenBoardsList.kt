@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
@@ -15,6 +18,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenFromTabs
+import com.websarva.wings.android.slevo.ui.common.transition.BbsPageSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.bbsPageSharedBounds
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -27,6 +32,7 @@ import kotlinx.coroutines.launch
 /**
  * 開いている板タブの一覧をカード表示し、選択されたタブへ遷移する。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun OpenBoardsList(
     modifier: Modifier = Modifier,
@@ -54,6 +60,8 @@ fun OpenBoardsList(
     onReorderAccessibilityMove: (BoardTabInfo, Int) -> Boolean = { _, _ -> false },
     sourceRoute: AppRoute? = null,
     tabsEntryId: String = "",
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -74,10 +82,11 @@ fun OpenBoardsList(
         onReorderCancelled = onReorderCancelled,
     ) { tab, isRemoving, requestRemove, isDragging, reorderHandle, reorderFinished, reorderCancelled ->
         OpenBoardCard(
-            tab = tab,
-            isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
-            isSelectionMode = isSelectionMode,
-            isSelectedForSelectionMode = tab.boardUrl in selectedBoardTabKeys,
+             tab = tab,
+             isSelected = selectedBoardTab?.boardUrl == tab.boardUrl,
+             isSelectionMode = isSelectionMode,
+             isInLongPressSelectionMode = isInLongPressSelectionMode,
+             isSelectedForSelectionMode = tab.boardUrl in selectedBoardTabKeys,
             onSelectionToggle = { onBoardTabSelectionToggle(tab.boardUrl) },
             onClick = {
                 if (isRemoving) return@OpenBoardCard
@@ -118,8 +127,10 @@ fun OpenBoardsList(
             onMoveDown = if (isReorderEnabled) {
                 { onReorderAccessibilityMove(tab, 1) }
             } else null,
-            isDragging = isDragging,
-            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
+             isDragging = isDragging,
+             sharedTransitionScope = sharedTransitionScope,
+             animatedVisibilityScope = animatedVisibilityScope,
+             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenBoardCard
                 onSwipeDelete(tab)
@@ -136,11 +147,13 @@ fun OpenBoardsList(
 /**
  * 板タブをカード表示する。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun OpenBoardCard(
     tab: BoardTabInfo,
     isSelected: Boolean,
     isSelectionMode: Boolean = false,
+    isInLongPressSelectionMode: Boolean = false,
     isSelectedForSelectionMode: Boolean = false,
     onSelectionToggle: () -> Unit = {},
     onClick: () -> Unit,
@@ -152,6 +165,8 @@ private fun OpenBoardCard(
     isSwipeDeleteEnabled: Boolean = true,
     isRemoving: Boolean = false,
     isDragging: Boolean = false,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
     reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
     onReorderFinished: () -> Unit = {},
     onReorderCancelled: () -> Unit = {},
@@ -162,8 +177,20 @@ private fun OpenBoardCard(
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
     val serviceName = tab.serviceName.ifBlank { parseServiceName(tab.boardUrl) }
 
+    val pageModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        Modifier.bbsPageSharedBounds(
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+            key = BbsPageSharedBoundsKey.Board(tab.boardUrl),
+            enabled = !isRemoving && !isDragging && !isSelectionMode &&
+                !isInLongPressSelectionMode,
+        )
+    } else {
+        Modifier
+    }
+
     TabListCard(
-        modifier = Modifier.padding(horizontal = 12.dp),
+        modifier = pageModifier.padding(horizontal = 12.dp),
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,

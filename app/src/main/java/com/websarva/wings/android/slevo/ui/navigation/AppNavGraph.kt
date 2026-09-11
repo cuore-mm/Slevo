@@ -134,6 +134,10 @@ fun AppNavGraph(
                         initialState.destination.route,
                         targetState.destination.route,
                     ) -> boardThreadPopEnterTransition()
+                    isTabsToBbsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> bbsPageEnterTransition()
                     isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
@@ -142,7 +146,13 @@ fun AppNavGraph(
                 }
             },
             exitTransition = {
-                if (isBoardToThreadTransition(
+                if (isBbsToTabsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageExitTransition()
+                } else if (isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     )
@@ -153,18 +163,30 @@ fun AppNavGraph(
                 }
             },
             popEnterTransition = {
-                if (isThreadToBoardTransition(
+                    if (isThreadToBoardTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     )
                 ) {
                     boardThreadPopEnterTransition()
+                } else if (isTabsToBbsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageEnterTransition()
                 } else {
                     defaultPopEnterTransition()
                 }
             },
             popExitTransition = {
-                if (isBoardToThreadTransition(
+                if (isBbsToTabsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageExitTransition()
+                } else if (isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
                     )
@@ -189,6 +211,10 @@ fun AppNavGraph(
             enterTransition = {
                 when {
                     initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isTabsToBbsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> bbsPageEnterTransition()
                     isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
@@ -200,6 +226,10 @@ fun AppNavGraph(
                 // ImageViewer へ遷移するときは Nav アニメなし
                 when {
                     targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isBbsToTabsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> bbsPageExitTransition()
                     isThreadToBoardTransition(
                         initialState.destination.route,
                         targetState.destination.route,
@@ -214,6 +244,10 @@ fun AppNavGraph(
             popEnterTransition = {
                 when {
                     initialState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isTabsToBbsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> bbsPageEnterTransition()
                     isBoardToThreadTransition(
                         initialState.destination.route,
                         targetState.destination.route,
@@ -224,6 +258,10 @@ fun AppNavGraph(
             popExitTransition = {
                 when {
                     targetState.destination.isInRoute(AppRoute.RouteName.IMAGE_VIEWER) -> null
+                    isBbsToTabsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    ) -> bbsPageExitTransition()
                     isThreadToBoardTransition(
                         initialState.destination.route,
                         targetState.destination.route,
@@ -242,9 +280,15 @@ fun AppNavGraph(
             )
         }
         //タブ画面
-        composable<AppRoute.Tabs>(
+            composable<AppRoute.Tabs>(
             enterTransition = {
-                if (initialState.destination.isInRoute(
+                if (isBbsToTabsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageEnterTransition()
+                } else if (initialState.destination.isInRoute(
                         AppRoute.RouteName.BOOKMARK_LIST,
                         AppRoute.RouteName.BBS_SERVICE_GROUP
                     )
@@ -255,7 +299,13 @@ fun AppNavGraph(
                 }
             },
             exitTransition = {
-                if (targetState.destination.isInRoute(
+                if (isTabsToBbsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageExitTransition()
+                } else if (targetState.destination.isInRoute(
                         AppRoute.RouteName.BOOKMARK_LIST,
                         AppRoute.RouteName.BBS_SERVICE_GROUP
                     )
@@ -266,7 +316,13 @@ fun AppNavGraph(
                 }
             },
             popEnterTransition = {
-                if (initialState.destination.isInRoute(
+                if (isBbsToTabsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageEnterTransition()
+                } else if (initialState.destination.isInRoute(
                         AppRoute.RouteName.BOOKMARK_LIST,
                         AppRoute.RouteName.BBS_SERVICE_GROUP
                     )
@@ -277,7 +333,13 @@ fun AppNavGraph(
                 }
             },
             popExitTransition = {
-                if (targetState.destination.isInRoute(
+                if (isTabsToBbsTransition(
+                        initialState.destination.route,
+                        targetState.destination.route,
+                    )
+                ) {
+                    bbsPageExitTransition()
+                } else if (targetState.destination.isInRoute(
                         AppRoute.RouteName.BOOKMARK_LIST,
                         AppRoute.RouteName.BBS_SERVICE_GROUP
                     )
@@ -295,6 +357,8 @@ fun AppNavGraph(
                 navController = navController,
                 sourceRoute = sourceRoute,
                 tabsEntryId = backStackEntry.id,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = this@composable,
             )
         }
         //設定画面

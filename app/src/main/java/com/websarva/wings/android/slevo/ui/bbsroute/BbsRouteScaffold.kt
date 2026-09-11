@@ -120,6 +120,11 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
     animateAdjacentSelection: Boolean = false,
+    pageModifier: @Composable (
+        tabInfo: TabInfo,
+        isSharedTransitionCandidate: Boolean,
+        modifier: Modifier,
+    ) -> Modifier = { _, _, modifier -> modifier },
     optionalSheetContent: @Composable (tabInfo: TabInfo, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     val displayDecision = remember(presentationState) {
@@ -251,6 +256,11 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val settledProgress =
             actionProgressStates.getOrPut(settledTabKey) { mutableFloatStateOf(1f) }
         val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+        val canUsePageSharedTransition = isSharedTransitionCandidate(
+            page = settledPage,
+            settledPage = pagerState.settledPage,
+            isScrollInProgress = pagerState.isScrollInProgress,
+        )
         val rubberBandResistancePx = with(LocalDensity.current) {
             PAGER_RUBBER_BAND_RESISTANCE.toPx()
         }
@@ -285,7 +295,13 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
             )
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = pageModifier(
+                settledTab,
+                canUsePageSharedTransition,
+                Modifier.fillMaxSize(),
+            ),
+        ) {
             Scaffold(
                 bottomBar = {
                     bottomBar(
@@ -387,16 +403,17 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 }
             }
             BbsRouteStatusBarProtection()
+        }
 
-            BookmarkSheetHost(
+        BookmarkSheetHost(
                 sheetState = bookmarkSheetState,
                 holder = getBookmarkSheetHolder(settledTab),
                 uiState = settledUiState.bookmarkSheetState,
-            )
-            // 現在settle済みタブのoverlayをScaffoldの後ろに描画し、固定barを覆う。
-            optionalSheetContent(settledTab, settledUiState)
+        )
+        // 現在settle済みタブのoverlayをページ共有コンテナの外側へ描画し、拡縮対象から除外する。
+        optionalSheetContent(settledTab, settledUiState)
 
-            if (showUrlDialog) {
+        if (showUrlDialog) {
                 UrlOpenDialog(
                     onDismissRequest = {
                         showUrlDialog = false
@@ -495,7 +512,6 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         isUrlValidating = false
                     },
                 )
-            }
         }
     } else if (displayDecision is TabDisplayDecision.Loading) {
         // 初回 canonical snapshot 前だけローディング表示を出す。

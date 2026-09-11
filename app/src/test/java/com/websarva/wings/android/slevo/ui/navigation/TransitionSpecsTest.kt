@@ -60,6 +60,41 @@ class TransitionSpecsTest {
         )
     }
 
+    /** TabsとBoard / Threadの組み合わせだけをpage transition対象にする。 */
+    @Test
+    fun bbsPageTransition_matchesTabsAndBbsDirections() {
+        assertTrue(
+            isTabsToBbsTransition(
+                initialRoute = "com.example.AppRoute.Tabs",
+                targetRoute = "com.example.AppRoute.Board/{boardUrl}",
+            ),
+        )
+        assertTrue(
+            isTabsToBbsTransition(
+                initialRoute = "com.example.AppRoute.Tabs",
+                targetRoute = "com.example.AppRoute.Thread/{threadKey}",
+            ),
+        )
+        assertTrue(
+            isBbsToTabsTransition(
+                initialRoute = "com.example.AppRoute.Thread/{threadKey}",
+                targetRoute = "com.example.AppRoute.Tabs",
+            ),
+        )
+        assertFalse(
+            isTabsToBbsTransition(
+                initialRoute = "com.example.AppRoute.Tabs",
+                targetRoute = "com.example.AppRoute.BookmarkList",
+            ),
+        )
+        assertFalse(
+            isBbsToTabsTransition(
+                initialRoute = "com.example.AppRoute.Board/{boardUrl}",
+                targetRoute = "com.example.AppRoute.Thread/{threadKey}",
+            ),
+        )
+    }
+
     /** 類似名のdestination、null、ImageViewerは専用transition対象にならない。 */
     @Test
     fun isBoardThreadTransition_rejectsOtherDestinations() {

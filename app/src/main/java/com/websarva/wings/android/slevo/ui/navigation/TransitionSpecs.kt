@@ -10,6 +10,14 @@ import androidx.compose.animation.slideOutHorizontally
 
 internal const val DefaultAnimDuration = 300
 
+/** TabsとBoard / ThreadページのShared Boundsを邪魔しないfade-only enterを返す。 */
+fun bbsPageEnterTransition(): EnterTransition =
+    fadeIn(animationSpec = tween(DefaultAnimDuration))
+
+/** TabsとBoard / ThreadページのShared Boundsを邪魔しないfade-only exitを返す。 */
+fun bbsPageExitTransition(): ExitTransition =
+    fadeOut(animationSpec = tween(DefaultAnimDuration))
+
 // --- 通常画面用トランジション ---
 fun defaultEnterTransition(): EnterTransition =
     slideInHorizontally(
@@ -88,6 +96,26 @@ fun isThreadToBoardTransition(
 ): Boolean {
     return initialRoute.isRouteNamed(AppRoute.RouteName.THREAD) &&
             targetRoute.isRouteNamed(AppRoute.RouteName.BOARD)
+}
+
+/** TabsからBoardまたはThreadへ進むrouteの組み合わせかを判定する。 */
+fun isTabsToBbsTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    return initialRoute.isRouteNamed(AppRoute.RouteName.TABS) &&
+        (targetRoute.isRouteNamed(AppRoute.RouteName.BOARD) ||
+            targetRoute.isRouteNamed(AppRoute.RouteName.THREAD))
+}
+
+/** BoardまたはThreadからTabsへ戻るrouteの組み合わせかを判定する。 */
+fun isBbsToTabsTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    return (initialRoute.isRouteNamed(AppRoute.RouteName.BOARD) ||
+        initialRoute.isRouteNamed(AppRoute.RouteName.THREAD)) &&
+        targetRoute.isRouteNamed(AppRoute.RouteName.TABS)
 }
 
 /** 2つのNav routeがBoardとThreadの組み合わせかを判定する。 */

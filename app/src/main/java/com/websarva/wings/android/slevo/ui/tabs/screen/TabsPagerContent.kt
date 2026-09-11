@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -49,6 +52,7 @@ private enum class TabListDisplayState {
 /**
  * タブ一覧のページャーを提供し、板/スレ一覧を切り替えて表示する。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun TabsPagerContent(
     modifier: Modifier = Modifier,
@@ -100,6 +104,8 @@ fun TabsPagerContent(
     isInLongPressSelectionMode: Boolean = false,
     sourceRoute: AppRoute? = null,
     tabsEntryId: String = "",
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     HorizontalPager(
         state = pagerState,
@@ -137,9 +143,11 @@ fun TabsPagerContent(
                         onReorderFinished = onBoardTabReorderFinished,
                         onReorderCancelled = onBoardTabReorderCancelled,
                         onReorderAccessibilityMove = onBoardTabReorderAccessibilityMove,
-                        sourceRoute = sourceRoute,
-                        tabsEntryId = tabsEntryId,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                         sharedTransitionScope = sharedTransitionScope,
+                         animatedVisibilityScope = animatedVisibilityScope,
+                     )
                 },
                 searchResultContent = {
                     OpenBoardsList(
@@ -159,9 +167,11 @@ fun TabsPagerContent(
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                         isReorderEnabled = false,
-                        sourceRoute = sourceRoute,
-                        tabsEntryId = tabsEntryId,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                         sharedTransitionScope = sharedTransitionScope,
+                         animatedVisibilityScope = animatedVisibilityScope,
+                     )
                 },
                 searchEmptyContent = {
                     SearchResultEmptyState(contentPadding = listContentPadding)
@@ -200,9 +210,11 @@ fun TabsPagerContent(
                         onReorderFinished = onThreadTabReorderFinished,
                         onReorderCancelled = onThreadTabReorderCancelled,
                         onReorderAccessibilityMove = onThreadTabReorderAccessibilityMove,
-                        sourceRoute = sourceRoute,
-                        tabsEntryId = tabsEntryId,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                         sharedTransitionScope = sharedTransitionScope,
+                         animatedVisibilityScope = animatedVisibilityScope,
+                     )
                 },
                 searchResultContent = {
                     OpenThreadsList(
@@ -224,9 +236,11 @@ fun TabsPagerContent(
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                         isReorderEnabled = false,
-                        sourceRoute = sourceRoute,
-                        tabsEntryId = tabsEntryId,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                         sharedTransitionScope = sharedTransitionScope,
+                         animatedVisibilityScope = animatedVisibilityScope,
+                     )
                 },
                 searchEmptyContent = {
                     SearchResultEmptyState(contentPadding = listContentPadding)

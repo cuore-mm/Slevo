@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -87,7 +90,7 @@ import kotlin.math.roundToInt
  *
  * URL入力は検証に失敗した場合、ダイアログ内にエラーを表示する。
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
@@ -99,6 +102,8 @@ fun TabScreenContent(
     onPageChanged: (Int) -> Unit = {},
     sourceRoute: AppRoute? = null,
     tabsEntryId: String,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
@@ -464,8 +469,10 @@ fun TabScreenContent(
                         tabSessionStore = tabSessionStore,
                          isInLongPressSelectionMode = listUiState.isTabGestureLocked || isSelectionMode,
                          sourceRoute = sourceRoute,
-                         tabsEntryId = tabsEntryId,
-                    )
+                          tabsEntryId = tabsEntryId,
+                          sharedTransitionScope = sharedTransitionScope,
+                          animatedVisibilityScope = animatedVisibilityScope,
+                     )
                 }
             }
 

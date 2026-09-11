@@ -39,8 +39,10 @@ import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.transition.BbsControllerSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.BbsPageSharedBoundsKey
 import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerActionsSharedBounds
 import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerSharedBounds
+import com.websarva.wings.android.slevo.ui.common.transition.bbsPageSharedBounds
 import com.websarva.wings.android.slevo.ui.common.imagesave.ImageSaveUiEvent
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
@@ -336,6 +338,14 @@ fun ThreadScaffold(
                         ),
                     )
                 }
+            )
+        },
+        pageModifier = { tab, isSharedTransitionCandidate, modifier ->
+            modifier.bbsPageSharedBounds(
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                key = BbsPageSharedBoundsKey.Thread(tab.id.value),
+                enabled = isSharedTransitionCandidate,
             )
         },
         optionalSheetContent = { tab, uiState ->

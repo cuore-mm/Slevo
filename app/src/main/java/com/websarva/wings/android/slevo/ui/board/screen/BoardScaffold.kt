@@ -27,8 +27,10 @@ import com.websarva.wings.android.slevo.ui.common.PostDialogMode
 import com.websarva.wings.android.slevo.ui.common.PostingDialog
 import com.websarva.wings.android.slevo.ui.common.SearchBottomBar
 import com.websarva.wings.android.slevo.ui.common.transition.BbsControllerSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.BbsPageSharedBoundsKey
 import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerActionsSharedBounds
 import com.websarva.wings.android.slevo.ui.common.transition.bbsControllerSharedBounds
+import com.websarva.wings.android.slevo.ui.common.transition.bbsPageSharedBounds
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -284,7 +286,15 @@ fun BoardScaffold(
                 onDismissRequest = { routeViewModel.closeBoardInfoSheet(tab.boardUrl) },
                 boardName = uiState.boardInfo.name,
                 serviceName = uiState.serviceName,
-                boardUrl = uiState.boardInfo.url,
+                 boardUrl = uiState.boardInfo.url,
+             )
+        },
+        pageModifier = { tab, isSharedTransitionCandidate, modifier ->
+            modifier.bbsPageSharedBounds(
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                key = BbsPageSharedBoundsKey.Board(tab.boardUrl),
+                enabled = isSharedTransitionCandidate,
             )
         },
         optionalSheetContent = { tab, uiState ->
