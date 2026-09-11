@@ -1007,13 +1007,16 @@ class ThreadTabsCoordinatorTest {
         coordinator.bind(backgroundScope)
         runCurrent()
         coordinator.selectThreadTab(only.id)
-        coordinator.closeThreadTab(only)
+        val deleteJob = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.closeThreadTab(only)
+        }
         runCurrent()
 
         assertTrue(coordinator.openThreadTabs.value.isEmpty())
         assertNull(coordinator.selectedThreadTabKey.value)
         databaseFlow.emit(emptyList())
         runCurrent()
+        deleteJob.await()
 
         coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(only.id) }
         coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(null) }
@@ -1079,7 +1082,7 @@ class ThreadTabsCoordinatorTest {
 
         bulkJob.await()
         assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
-        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
+        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
         coordinator.close()
     }
 

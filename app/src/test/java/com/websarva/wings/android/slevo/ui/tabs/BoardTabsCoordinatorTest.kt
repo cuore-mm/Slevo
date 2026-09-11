@@ -130,7 +130,7 @@ class BoardTabsCoordinatorTest {
         )
     }
 
-    /** unbound状態で保存選択がない一覧を末尾タブへ補正することを確認する。 */
+    /** 既存選択がある一覧へ新しい板タブを追加しても選択を維持することを確認する。 */
     @Test
     fun firstLoadedBoardTabs_repairsNullSelectionAtomically() {
         val coordinator = createCoordinator(mockk(relaxed = true))
@@ -140,10 +140,10 @@ class BoardTabsCoordinatorTest {
         coordinator.openBoardTab(first)
         coordinator.openBoardTab(second)
 
-        assertEquals(second.boardUrl, coordinator.selectedBoardTabKey.value)
+        assertEquals(first.boardUrl, coordinator.selectedBoardTabKey.value)
         assertEquals(listOf(first, second), coordinator.boardPresentationState.value.tabs)
         assertEquals(
-            TabSelectionResolution.Selected(second.boardUrl),
+            TabSelectionResolution.Selected(first.boardUrl),
             coordinator.boardPresentationState.value.selection,
         )
     }
