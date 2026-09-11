@@ -17,7 +17,6 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
 import io.mockk.coEvery
-import io.mockk.coAnswers
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
