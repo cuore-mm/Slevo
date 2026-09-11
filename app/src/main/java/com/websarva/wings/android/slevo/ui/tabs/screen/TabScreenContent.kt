@@ -121,10 +121,6 @@ fun TabScreenContent(
 
     // --- Pager state ---
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { TabPage.count })
-    val boardNormalListState = rememberLazyListState()
-    val boardSearchListState = rememberLazyListState()
-    val threadNormalListState = rememberLazyListState()
-    val threadSearchListState = rememberLazyListState()
     var boardInitialScrollApplied by rememberSaveable { mutableStateOf(false) }
     var threadInitialScrollApplied by rememberSaveable { mutableStateOf(false) }
 
@@ -136,6 +132,28 @@ fun TabScreenContent(
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
     val displayedBoardTabs = applyReorderDraft(openBoardTabs, listUiState.boardReorderDraft, BoardTabInfo::boardUrl)
     val displayedThreadTabs = applyReorderDraft(openThreadTabs, listUiState.threadReorderDraft) { it.id.value }
+    val boardInitialScrollIndex = resolveInitialTabListIndex(
+        items = displayedBoardTabs,
+        selectedKey = selectedBoardTabKey,
+        keyOf = BoardTabInfo::boardUrl,
+    )
+    val threadInitialScrollIndex = resolveInitialTabListIndex(
+        items = displayedThreadTabs,
+        selectedKey = selectedThreadTabKey,
+        keyOf = { tab -> tab.id.value },
+    )
+    val boardNormalListState = if (isLoading) {
+        null
+    } else {
+        rememberLazyListState(initialFirstVisibleItemIndex = boardInitialScrollIndex ?: 0)
+    }
+    val boardSearchListState = if (isLoading) null else rememberLazyListState()
+    val threadNormalListState = if (isLoading) {
+        null
+    } else {
+        rememberLazyListState(initialFirstVisibleItemIndex = threadInitialScrollIndex ?: 0)
+    }
+    val threadSearchListState = if (isLoading) null else rememberLazyListState()
     val isSelectionMode = listUiState.isInSelectionMode
     val selectionPage = listUiState.selectionModePage
     val allSelectedPinned = when (selectionPage) {
@@ -213,13 +231,13 @@ fun TabScreenContent(
         when (TabPage.fromIndex(request.page)) {
             TabPage.BOARD -> {
                 if (filteredBoardTabs.isNotEmpty()) {
-                    boardSearchListState.requestScrollToItem(0)
+                    boardSearchListState?.requestScrollToItem(0)
                 }
             }
 
             TabPage.THREAD -> {
                 if (filteredThreadTabs.isNotEmpty()) {
-                    threadSearchListState.requestScrollToItem(0)
+                    threadSearchListState?.requestScrollToItem(0)
                 }
             }
 
@@ -256,8 +274,9 @@ fun TabScreenContent(
             return@LaunchedEffect
         }
 
+        val listState = boardNormalListState ?: return@LaunchedEffect
         centerLazyListItemAtIndex(
-            listState = boardNormalListState,
+            listState = listState,
             index = targetIndex,
             animate = false,
         )
@@ -291,8 +310,9 @@ fun TabScreenContent(
             return@LaunchedEffect
         }
 
+        val listState = threadNormalListState ?: return@LaunchedEffect
         centerLazyListItemAtIndex(
-            listState = threadNormalListState,
+            listState = listState,
             index = targetIndex,
             animate = false,
         )
@@ -359,17 +379,21 @@ fun TabScreenContent(
                         CircularWavyProgressIndicator()
                     }
                     } else {
-                    TabsPagerContent(
+                        val readyBoardNormalListState = requireNotNull(boardNormalListState)
+                        val readyBoardSearchListState = requireNotNull(boardSearchListState)
+                        val readyThreadNormalListState = requireNotNull(threadNormalListState)
+                        val readyThreadSearchListState = requireNotNull(threadSearchListState)
+                        TabsPagerContent(
                         modifier = Modifier,
                         pagerState = pagerState,
                         navController = navController,
                           listContentPadding = listPadding,
                          isShowingSearchResults = isShowingSearchResults,
                          isSearchMode = isSearchMode,
-                         boardNormalListState = boardNormalListState,
-                        boardSearchListState = boardSearchListState,
-                        threadNormalListState = threadNormalListState,
-                        threadSearchListState = threadSearchListState,
+                          boardNormalListState = readyBoardNormalListState,
+                         boardSearchListState = readyBoardSearchListState,
+                         threadNormalListState = readyThreadNormalListState,
+                         threadSearchListState = readyThreadSearchListState,
                          openBoardTabs = displayedBoardTabs,
                         filteredBoardTabs = filteredBoardTabs,
                          openThreadTabs = displayedThreadTabs,

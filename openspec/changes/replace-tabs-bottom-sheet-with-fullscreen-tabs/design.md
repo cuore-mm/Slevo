@@ -93,7 +93,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 
 `TabScreenContent.kt` は `sourceRoute` を初期スクロール位置の判定に使用しない。板一覧は `TabSessionStore.selectedBoardTabKey`、スレッド一覧は `TabSessionStore.selectedThreadTabKey` を正本とし、表示順反映後の通常一覧からstable keyに一致するindexを解決する。
 
-対象keyが存在する場合は対象カードを一度可視化した後、`LazyListLayoutInfo` の実測値からカード中心とviewport中心の差分を計算し、`LazyListState`を補正して中央付近へ配置する。先頭・末尾ではスクロール可能範囲に自然にクランプし、content paddingによる追加の空白を作らない。対象keyがnull、一覧に存在しない、または一覧が空の場合は、最後のindexを初期位置にする。
+対象keyが存在する場合は対象カードのindexを初期`LazyListState`の`initialFirstVisibleItemIndex`へ渡して初回レイアウトを対象付近から開始し、その後`LazyListLayoutInfo`の実測値からカード中心とviewport中心の差分を計算して中央付近へ補正する。先頭・末尾ではスクロール可能範囲に自然にクランプし、content paddingによる追加の空白を作らない。対象keyがnull、一覧に存在しない、または一覧が空の場合は、最後のindexを初期位置にする。
 
 この初期化はデータロードとレイアウト確定後に各通常一覧で一度だけ実行する。初期化完了後の再Composition、画面回転からのstate復元、検索結果の変更では初期位置へ戻さない。検索入力時に既存の検索一覧を先頭へ戻す処理は維持する。
 
@@ -106,7 +106,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - Tabs専用ラッパーは期待するTabs entry IDと現在entryの一致を確認し、コンテキスト付きTabsをpopしてから既存関数へ委譲する。直接`popUpTo`で同じ分岐を再実装しない。
 - `TabSessionStore`への登録・選択が成功する前にTabsをpopしない。
 - 初期スクロールは `sourceRoute` ではなく `TabSessionStore`のselected keyと表示順反映後の一覧を使い、keyが解決できない場合は末尾へフォールバックする。
-- 初期スクロールの中央補正はレイアウト確定後に行い、対象カード・viewport・スクロール可能範囲を実測して境界内に収める。初期化済みの一覧を再Compositionで再移動しない。
+- 初期スクロール対象indexは通常用`LazyListState`の生成時に`initialFirstVisibleItemIndex`へ渡し、中央補正はレイアウト確定後に対象カード・viewport・スクロール可能範囲を実測して境界内に収める。初期化済みの一覧を再Compositionで再移動しない。
 - `TabsBottomSheet.kt` と、その表示だけに必要だったstate・imports・parametersを残さない。
 - 新しいclassまたはinterfaceを追加する場合はKDocを付け、非自明関数には既存リポジトリ規約に従うKDocと制御フローコメントを付ける。Compose Preview関数にはコメントを追加しない。
 - ユーザー向け文言、カードのcontent description、フォーカス順は変更しない。全画面化後もシステムBackで遷移元へ戻れるため、専用の閉じるボタンや新規文字列は追加しない。
@@ -147,7 +147,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - [Tabsをpopしてから既存Navigationへ委譲する二段階操作で中間状態が描画される可能性] → 同一メインスレッドイベント内で連続実行し、Board↔ThreadおよびTabs transitionを実機で確認する。視覚的な中間状態が発生する場合だけ、既存規則を共通の決定関数へ抽出して単一NavOptionsへ変換する。
 - [非同期正規化中にユーザーがBackまたは再入場すると古いcallbackが発火する] → Tabs entry IDと現在entryを照合して古いNavigationだけを抑止する。
 - [destination再生成時に保存済みPagerの旧settledPageがユーザー操作として通知される] → `lastSynchronizedSelectedKey`をComposition開始時にnullで初期化し、selected key変更に伴うprogrammatic scrollが対象keyへsettleするまでsettled callbackを抑止する。
-- [一覧ロード前・並び替え反映前に初期スクロールして位置がずれる] → 表示一覧が確定してから一度だけkeyをindexへ解決し、レイアウト情報を待って中央補正する。keyが解決できない場合は末尾へ移動する。
+- [一覧ロード前・並び替え反映前に初期スクロールして位置がずれる] → 表示一覧が確定してから一度だけkeyをindexへ解決し、`initialFirstVisibleItemIndex`へ渡したうえでレイアウト情報を待って中央補正する。keyが解決できない場合は末尾indexを使う。
 - [画面再生成や検索変更で初期位置がユーザー位置を上書きする] → 初期化済みフラグを一覧stateのライフサイクルに紐づけ、初期処理と既存の検索先頭処理を別のeffectとして維持する。
 - [トップレベルTabsをBoard / Thread起点と誤判定する] → 直前entryがBoard / Threadの場合だけcontextual Tabsとし、それ以外はsourceなしとして扱うテストを追加する。
 - [BottomSheet削除で検索状態のライフサイクルが変わる] → contextual Tabsはentry popでViewModelを破棄し、トップレベルTabsは従来のdestination scopeを維持する。検索状態を`TabSessionStore`へ移さない。
