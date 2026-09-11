@@ -30,6 +30,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.bbsroute.isSharedTransitionCandidate
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
@@ -48,6 +49,19 @@ private enum class TabListDisplayState {
     SearchResults,
     SearchEmpty,
 }
+
+/** カードが表示中pageのtargetかつ操作中でない場合だけShared Bounds候補にする。 */
+internal fun isTabCardSharedTransitionEnabled(
+    pageSharedTransitionEnabled: Boolean,
+    isRemoving: Boolean,
+    isDragging: Boolean,
+    isSelectionMode: Boolean,
+    isInLongPressSelectionMode: Boolean,
+): Boolean = pageSharedTransitionEnabled &&
+    !isRemoving &&
+    !isDragging &&
+    !isSelectionMode &&
+    !isInLongPressSelectionMode
 
 /**
  * タブ一覧のページャーを提供し、板/スレ一覧を切り替えて表示する。
@@ -112,6 +126,11 @@ fun TabsPagerContent(
         modifier = modifier.fillMaxSize(),
         userScrollEnabled = false,
     ) { page ->
+        val isCurrentTabListPage = isSharedTransitionCandidate(
+            page = page,
+            settledPage = pagerState.settledPage,
+            isScrollInProgress = pagerState.isScrollInProgress,
+        )
         when (TabPage.fromIndex(page)) {
             TabPage.BOARD -> AnimatedListContent(
                 displayState = when {
@@ -119,7 +138,7 @@ fun TabsPagerContent(
                     filteredBoardTabs.isEmpty() -> TabListDisplayState.SearchEmpty
                     else -> TabListDisplayState.SearchResults
                 },
-                normalContent = {
+                normalContent = { isTarget ->
                     OpenBoardsList(
                         openTabs = openBoardTabs,
                         onCloseClick = onCloseBoardTab,
@@ -147,9 +166,10 @@ fun TabsPagerContent(
                          tabsEntryId = tabsEntryId,
                          sharedTransitionScope = sharedTransitionScope,
                          animatedVisibilityScope = animatedVisibilityScope,
-                     )
+                         pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
-                searchResultContent = {
+                searchResultContent = { isTarget ->
                     OpenBoardsList(
                         openTabs = filteredBoardTabs,
                         onCloseClick = onCloseBoardTab,
@@ -170,8 +190,9 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                          sharedTransitionScope = sharedTransitionScope,
-                         animatedVisibilityScope = animatedVisibilityScope,
-                     )
+                          animatedVisibilityScope = animatedVisibilityScope,
+                          pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
                 searchEmptyContent = {
                     SearchResultEmptyState(contentPadding = listContentPadding)
@@ -184,7 +205,7 @@ fun TabsPagerContent(
                     filteredThreadTabs.isEmpty() -> TabListDisplayState.SearchEmpty
                     else -> TabListDisplayState.SearchResults
                 },
-                normalContent = {
+                normalContent = { isTarget ->
                     OpenThreadsList(
                         openTabs = openThreadTabs,
                         onCloseClick = onCloseThreadTab,
@@ -213,10 +234,11 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                          sharedTransitionScope = sharedTransitionScope,
-                         animatedVisibilityScope = animatedVisibilityScope,
-                     )
+                          animatedVisibilityScope = animatedVisibilityScope,
+                          pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
-                searchResultContent = {
+                searchResultContent = { isTarget ->
                     OpenThreadsList(
                         openTabs = filteredThreadTabs,
                         onCloseClick = onCloseThreadTab,
@@ -239,8 +261,9 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                          sharedTransitionScope = sharedTransitionScope,
-                         animatedVisibilityScope = animatedVisibilityScope,
-                     )
+                          animatedVisibilityScope = animatedVisibilityScope,
+                          pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
                 searchEmptyContent = {
                     SearchResultEmptyState(contentPadding = listContentPadding)
@@ -286,8 +309,8 @@ private fun SearchResultEmptyState(
 @Composable
 private fun AnimatedListContent(
     displayState: TabListDisplayState,
-    normalContent: @Composable () -> Unit,
-    searchResultContent: @Composable () -> Unit,
+    normalContent: @Composable (isTarget: Boolean) -> Unit,
+    searchResultContent: @Composable (isTarget: Boolean) -> Unit,
     searchEmptyContent: @Composable () -> Unit,
 ) {
     AnimatedContent(
@@ -299,8 +322,8 @@ private fun AnimatedListContent(
         label = "TabListSearchTransition",
     ) { state ->
         when (state) {
-            TabListDisplayState.Normal -> normalContent()
-            TabListDisplayState.SearchResults -> searchResultContent()
+            TabListDisplayState.Normal -> normalContent(state == displayState)
+            TabListDisplayState.SearchResults -> searchResultContent(state == displayState)
             TabListDisplayState.SearchEmpty -> searchEmptyContent()
         }
     }

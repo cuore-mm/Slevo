@@ -248,6 +248,28 @@ class NavigationExtensionsTest {
         assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
     }
 
+    /** Thread直下ではない古いBoardを、TabsからのBoard選択で誤って再利用しない。 */
+    @Test
+    fun showBoardScreenFromTabs_doesNotReuseNonAdjacentOlderBoard() {
+        val controller = createController()
+        val oldBoard = boardRoute("old-board")
+        val thread = threadRoute("1")
+        val selectedBoard = boardRoute("selected-board")
+        controller.navigateToBoardScreen(oldBoard)
+        controller.navigate(AppRoute.BookmarkList)
+        controller.navigateToThreadScreen(thread)
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = thread,
+            tabsEntryId = tabsEntryId,
+            route = selectedBoard,
+        )
+
+        assertBoardRoute(selectedBoard, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
     @Test
     fun showBoardScreenFromTabs_keepsRootTabsForRootSelection() {
         val controller = createController()

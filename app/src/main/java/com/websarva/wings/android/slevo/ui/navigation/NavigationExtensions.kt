@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
 
@@ -160,19 +161,17 @@ private fun NavHostController.isCurrentTabsEntry(tabsEntryId: String): Boolean =
 /**
  * 公開されているcurrentBackStackから、Tabsの直下がThread、その直下がBoardかを判定する。
  *
- * Graph entryなどBoard / Thread / Tabs以外のentryを除外し、選択中Tabsに対応する末尾の
- * destination列だけを判定対象にする。
+ * graph entryだけを除外し、Bookmarkなどの実destinationは列に残すことで、より古いBoardを
+ * 直下Boardとして誤再利用しない。
  */
 private fun NavHostController.hasBoardImmediatelyBelowThread(tabsEntryId: String): Boolean {
-    val bbsEntries = currentBackStack.value.filter { entry ->
-        entry.destination.hasRoute<AppRoute.Board>() ||
-            entry.destination.hasRoute<AppRoute.Thread>() ||
-            entry.destination.hasRoute<AppRoute.Tabs>()
+    val destinationEntries = currentBackStack.value.filterNot { entry ->
+        entry.destination is NavGraph
     }
-    val tabsIndex = bbsEntries.indexOfLast { it.id == tabsEntryId }
+    val tabsIndex = destinationEntries.indexOfLast { it.id == tabsEntryId }
     if (tabsIndex < 2) return false
-    return bbsEntries[tabsIndex - 1].destination.hasRoute<AppRoute.Thread>() &&
-        bbsEntries[tabsIndex - 2].destination.hasRoute<AppRoute.Board>()
+    return destinationEntries[tabsIndex - 1].destination.hasRoute<AppRoute.Thread>() &&
+        destinationEntries[tabsIndex - 2].destination.hasRoute<AppRoute.Board>()
 }
 
 /**

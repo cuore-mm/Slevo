@@ -65,6 +65,7 @@ fun OpenThreadsList(
     tabsEntryId: String = "",
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    pageSharedTransitionEnabled: Boolean = true,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -138,6 +139,7 @@ fun OpenThreadsList(
              isDragging = isDragging,
              sharedTransitionScope = sharedTransitionScope,
              animatedVisibilityScope = animatedVisibilityScope,
+             pageSharedTransitionEnabled = pageSharedTransitionEnabled,
              isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenThreadCard
@@ -176,6 +178,7 @@ private fun OpenThreadCard(
     isDragging: Boolean = false,
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
+    pageSharedTransitionEnabled: Boolean,
     reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
     onReorderFinished: () -> Unit = {},
     onReorderCancelled: () -> Unit = {},
@@ -190,8 +193,13 @@ private fun OpenThreadCard(
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
             key = BbsPageSharedBoundsKey.Thread(tab.id.value),
-            enabled = !isRemoving && !isDragging && !isSelectionMode &&
-                !isInLongPressSelectionMode,
+            enabled = isTabCardSharedTransitionEnabled(
+                pageSharedTransitionEnabled = pageSharedTransitionEnabled,
+                isRemoving = isRemoving,
+                isDragging = isDragging,
+                isSelectionMode = isSelectionMode,
+                isInLongPressSelectionMode = isInLongPressSelectionMode,
+            ),
         )
     } else {
         Modifier

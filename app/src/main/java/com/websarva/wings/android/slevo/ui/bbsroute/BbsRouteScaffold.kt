@@ -256,8 +256,9 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val settledProgress =
             actionProgressStates.getOrPut(settledTabKey) { mutableFloatStateOf(1f) }
         val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-        val canUsePageSharedTransition = isSharedTransitionCandidate(
+        val canUsePageSharedTransition = isPageSharedTransitionCandidate(
             page = settledPage,
+            pageCount = tabs.size,
             settledPage = pagerState.settledPage,
             isScrollInProgress = pagerState.isScrollInProgress,
         )
@@ -670,6 +671,15 @@ internal fun isSharedTransitionCandidate(
     settledPage: Int,
     isScrollInProgress: Boolean,
 ): Boolean = page == settledPage && !isScrollInProgress
+
+/** ページ数を含めて現在表示ページがShared Bounds候補として有効か判定する。 */
+internal fun isPageSharedTransitionCandidate(
+    page: Int,
+    pageCount: Int,
+    settledPage: Int,
+    isScrollInProgress: Boolean,
+): Boolean = page in 0 until pageCount &&
+    isSharedTransitionCandidate(page, settledPage, isScrollInProgress)
 
 /**
  * 本文Pagerのページ進行をタイトルviewportの移動距離へ変換する。
