@@ -1017,6 +1017,7 @@ class ThreadTabsCoordinatorTest {
         databaseFlow.emit(emptyList())
         runCurrent()
         deleteJob.await()
+        runCurrent()
 
         coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(only.id) }
         coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(null) }
