@@ -12,11 +12,11 @@ internal const val DefaultAnimDuration = 300
 
 /** TabsとBoard / ThreadページのShared Boundsを邪魔しないfade-only enterを返す。 */
 fun bbsPageEnterTransition(): EnterTransition =
-    fadeIn(animationSpec = tween(DefaultAnimDuration))
+    EnterTransition.None
 
 /** TabsとBoard / ThreadページのShared Boundsを邪魔しないfade-only exitを返す。 */
 fun bbsPageExitTransition(): ExitTransition =
-    fadeOut(animationSpec = tween(DefaultAnimDuration))
+    ExitTransition.None
 
 // --- 通常画面用トランジション ---
 fun defaultEnterTransition(): EnterTransition =

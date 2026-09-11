@@ -346,6 +346,7 @@ fun ThreadScaffold(
                 animatedVisibilityScope = animatedVisibilityScope,
                 key = BbsPageSharedBoundsKey.Thread(tab.id.value),
                 enabled = isSharedTransitionCandidate,
+                debugLabel = "Page.Thread",
             )
         },
         optionalSheetContent = { tab, uiState ->

@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.common.transition
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -8,6 +9,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 
 const val BbsControllerTransitionDurationMillis = 300
@@ -46,8 +49,27 @@ fun Modifier.bbsControllerSharedBounds(
     if (!enabled) return this
 
     return with(sharedTransitionScope) {
+        val sharedContentState = rememberSharedContentState(key)
+
+        LaunchedEffect(sharedContentState) {
+            var previous: Boolean? = null
+
+            while (true) {
+                withFrameNanos { }
+
+                val current = sharedContentState.isMatchFound
+                if (current != previous) {
+                    Log.d(
+                        "BbsControllerSharedBounds",
+                        "key=$key match=$current",
+                    )
+                    previous = current
+                }
+            }
+        }
+
         sharedBounds(
-            sharedContentState = rememberSharedContentState(key),
+            sharedContentState = sharedContentState,
             animatedVisibilityScope = animatedVisibilityScope,
             resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
         )

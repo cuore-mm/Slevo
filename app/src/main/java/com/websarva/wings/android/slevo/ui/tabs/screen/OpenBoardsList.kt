@@ -192,6 +192,7 @@ private fun OpenBoardCard(
                 isSelectionMode = isSelectionMode,
                 isInLongPressSelectionMode = isInLongPressSelectionMode,
             ),
+            debugLabel = "Tabs.Board",
         )
     } else {
         Modifier

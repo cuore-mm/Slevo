@@ -295,6 +295,7 @@ fun BoardScaffold(
                 animatedVisibilityScope = animatedVisibilityScope,
                 key = BbsPageSharedBoundsKey.Board(tab.boardUrl),
                 enabled = isSharedTransitionCandidate,
+                debugLabel = "Page.Board",
             )
         },
         optionalSheetContent = { tab, uiState ->
