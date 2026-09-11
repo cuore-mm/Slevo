@@ -999,6 +999,7 @@ class ThreadTabsCoordinatorTest {
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val only = testTab("sole-delete", 0)
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+        every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(null)
         every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
         coEvery { tabsRepository.deleteOpenThreadTab(only.id) } returns true
         databaseFlow.emit(listOf(only))
@@ -1013,14 +1014,23 @@ class ThreadTabsCoordinatorTest {
         runCurrent()
 
         assertTrue(coordinator.openThreadTabs.value.isEmpty())
-        assertNull(coordinator.selectedThreadTabKey.value)
+        assertEquals(only.id.value, coordinator.selectedThreadTabKey.value)
+        assertEquals(
+            TabSelectionResolution.PendingMissing(only.id.value),
+            coordinator.threadPresentationState.value.selection,
+        )
         databaseFlow.emit(emptyList())
         runCurrent()
         deleteJob.await()
         runCurrent()
 
+        assertNull(coordinator.selectedThreadTabKey.value)
+        assertEquals(
+            TabSelectionResolution.Empty,
+            coordinator.threadPresentationState.value.selection,
+        )
         coVerify(exactly = 1) { tabsRepository.deleteOpenThreadTab(only.id) }
-        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(null) }
+        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(null) }
         coordinator.close()
     }
 
@@ -1083,7 +1093,7 @@ class ThreadTabsCoordinatorTest {
 
         bulkJob.await()
         assertEquals(listOf(first, second), coordinator.openThreadTabs.value)
-        coVerify(atLeast = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
+        coVerify(exactly = 1) { tabsRepository.setSelectedThreadTabKey(second.id.value) }
         coordinator.close()
     }
 
