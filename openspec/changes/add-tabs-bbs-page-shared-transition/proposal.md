@@ -10,7 +10,7 @@
 - 拡縮対象は現在表示中のページviewport、本文、ページ背景、タイトルを含む下部ツールバー、およびステータスバー保護とする。非表示Pagerページ、Dialog、BottomSheet、Popup、Drawer、Snackbar、アプリ共通chromeは対象外とする。
 - タイトルカード、画面種別ボタン、下段アクション行の既存Board↔Thread Shared Boundsはページ遷移と別keyで維持する。
 - Tabs↔Board / Thread間の既存横slideを削除し、ページShared Boundsが成立しない場合は短いfadeへフォールバックする。
-- Shared Transition専用の選択keyやフレーム待機状態は追加せず、既存のタブ登録・選択完了後にNavigationして同一keyを照合する。
+- Shared Transition専用の選択keyやフレーム待機状態は追加せず、Board / Threadのタブ登録・選択確認完了後にNavigationする。同種別のcontextual Tabs選択では、同一identityを含めて選択先の新destinationを生成し、遷移開始時からpage identityを固定する。
 - 既存の最終back stack、contextual Tabs除去、Tabs entry ID guard、`sourceRoute`によるNavigation文脈と初期ページ決定を維持する。選択カードと最終destinationを1回のNavigation transitionで接続するため、同じ最終stackを作る連続pop・push・replaceは単一のpopまたは`popUpTo`付きnavigateへ統合する。
 
 ## Capabilities

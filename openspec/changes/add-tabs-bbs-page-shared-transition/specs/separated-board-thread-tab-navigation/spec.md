@@ -15,7 +15,8 @@
 
 #### Scenario: contextual Tabsで同種タブを選択する
 - **WHEN** BoardまたはThreadから開いたTabsで遷移元と同種のタブを選択する
-- **THEN** システムはTabsを除去して既存destinationを再利用し、選択カードと選択後のsettle済み現在ページを1回のNavigation transitionで接続する
+- **THEN** システムは選択先の新しい同種destinationを生成し、source destinationとTabsを`navigate` + `popUpTo(inclusive = true)`で1回に置換する
+- **AND** 選択先destinationは初期表示から選択済みタブをsettled pageとして構成し、選択カードとpage全体を1回のNavigation transitionで接続する
 
 #### Scenario: contextual Tabsで別種タブを選択する
 - **WHEN** BoardまたはThreadから開いたTabsで遷移元と異なる種別のタブを選択する

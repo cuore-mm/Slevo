@@ -613,8 +613,9 @@ fun TabScreenContent(
                             val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
                                 is UrlOpenResult.NavigateBoard -> {
-                                    val index = tabSessionStore.registerAndSelectBoardRoute(result.route)
-                                    if (index >= 0) {
+                                    val isConfirmed =
+                                        tabSessionStore.registerAndConfirmBoardRoute(result.route)
+                                    if (isConfirmed) {
                                         navController.showBoardScreenFromTabs(
                                             sourceRoute = sourceRoute,
                                             tabsEntryId = tabsEntryId,

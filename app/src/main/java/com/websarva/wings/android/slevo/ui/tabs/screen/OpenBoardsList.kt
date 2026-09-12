@@ -103,8 +103,9 @@ fun OpenBoardsList(
                 coroutineScope.launch {
                     val normalizedRoute =
                         tabSessionStore?.normalizeBoardRouteForNavigation(route) ?: route
-                    val index = tabSessionStore?.registerAndSelectBoardRoute(normalizedRoute) ?: -1
-                    if (index >= 0) {
+                    val isConfirmed =
+                        tabSessionStore?.registerAndConfirmBoardRoute(normalizedRoute) == true
+                    if (isConfirmed) {
                         navController.showBoardScreenFromTabs(
                             sourceRoute = sourceRoute,
                             tabsEntryId = tabsEntryId,

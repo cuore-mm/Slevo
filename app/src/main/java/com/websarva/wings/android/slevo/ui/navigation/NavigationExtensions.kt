@@ -81,9 +81,9 @@ fun NavHostController.showThreadScreenForTabSelection(
 /**
  * Tabs上で選択した板を、Tabsを除去した後の既存画面種別へ反映する。
  *
- * contextual Tabsでは現在の公開back stack列から直下のBoard有無を判定し、TabsとThreadを
- * まとめて除去する。直下のBoardがない場合はThreadとTabsを一度に置換し、ルートTabsでは
- * Tabsを残して通常のpush規則を使う。
+ * contextual TabsではBoard起点の同種選択を、source BoardとTabsを除去して選択先Boardへ
+ * 置換する。Thread起点では、直下Boardの有無に応じて既存のBoard再利用またはThread置換を
+ * 行う。ルートTabsではTabsを残して通常のpush規則を使う。
  */
 fun NavHostController.showBoardScreenFromTabs(
     sourceRoute: AppRoute?,
@@ -101,7 +101,9 @@ fun NavHostController.showBoardScreenFromTabs(
     // Guard: 非同期の選択処理中にTabsを離れていた場合は、古いcallbackで履歴を変更しない。
     when (sourceRoute) {
         is AppRoute.Board -> {
-            if (!popBackStack()) return
+            navigateToBoardScreen(route) {
+                popUpTo(sourceRoute) { inclusive = true }
+            }
         }
 
         is AppRoute.Thread -> {
@@ -121,8 +123,9 @@ fun NavHostController.showBoardScreenFromTabs(
 /**
  * Tabs上で選択したスレッドを、Tabsを除去した後の既存画面種別へ反映する。
  *
- * contextual TabsではBoard起点ならBoardを残してThreadを追加し、Thread起点なら既存Threadを
- * 再利用する。ルートTabsではTabsを残して通常のpush規則を使う。
+ * contextual TabsではBoard起点ならBoardを残してThreadを追加し、Thread起点の同種選択なら
+ * source ThreadとTabsを除去して選択先Threadへ置換する。ルートTabsではTabsを残して通常の
+ * push規則を使う。
  */
 fun NavHostController.showThreadScreenFromTabs(
     sourceRoute: AppRoute?,
@@ -146,7 +149,9 @@ fun NavHostController.showThreadScreenFromTabs(
         }
 
         is AppRoute.Thread -> {
-            if (!popBackStack()) return
+            navigateToThreadScreen(route) {
+                popUpTo(sourceRoute) { inclusive = true }
+            }
         }
 
         else -> return

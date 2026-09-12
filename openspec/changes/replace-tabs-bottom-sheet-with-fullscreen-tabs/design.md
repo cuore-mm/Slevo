@@ -78,8 +78,8 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 
 1. 入力またはタブ情報からrouteを作成する。
 2. `TabSessionStore` でrouteを正規化する。
-3. `registerAndSelectBoardRoute` または `registerAndSelectThreadRoute` を実行する。
-4. Threadでは返却indexが0以上の場合だけ、Boardでは登録処理完了後にTabs選択用Navigation関数を呼ぶ。
+3. Boardは`registerAndConfirmBoardRoute`、Threadはcanonical確認付きの`registerAndSelectThreadRoute`を実行する。
+4. Boardは確認結果がtrue、Threadは返却indexが0以上の場合だけ、Tabs選択用Navigation関数を呼ぶ。
 
 `closeDrawer`を別途呼ばない。Tabs entryのID確認により、非同期処理中にBackした場合や別のTabs entryを開き直した場合は古い処理からNavigationしない。登録・選択が既に完了していた場合は`TabSessionStore`の選択key更新は保持するが、現在画面を予期せず変更しない。
 
@@ -104,7 +104,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 - `TabsScaffold.kt` は `sourceRoute` とTabs entry IDを `TabScreenContent` へ渡し、初期ページをBoard=0、Thread=1、その他=`lastSelectedTabsPage`として導出する。
 - `NavigationExtensions.kt` の既存 `showBoardScreenForTabSelection`、`showThreadScreenForTabSelection`、`replaceCurrentScreen` の責務と既存呼び出し元を壊さず、Tabs専用の薄いラッパーを追加する。
 - Tabs専用ラッパーは期待するTabs entry IDと現在entryの一致を確認し、コンテキスト付きTabsをpopしてから既存関数へ委譲する。直接`popUpTo`で同じ分岐を再実装しない。
-- `TabSessionStore`への登録・選択が成功する前にTabsをpopしない。
+- `TabSessionStore`への登録・選択確認が成功する前にTabsをpopしない。Boardは`registerAndConfirmBoardRoute`の成功をNavigation開始条件とする。
 - 初期スクロールは `sourceRoute` ではなく `TabSessionStore`のselected keyと表示順反映後の一覧を使い、keyが解決できない場合は末尾へフォールバックする。
 - 初期スクロール対象indexは通常用`LazyListState`の生成時に`initialFirstVisibleItemIndex`へ渡し、中央補正はレイアウト確定後に対象カード・viewport・スクロール可能範囲を実測して境界内に収める。初期化済みの一覧を再Compositionで再移動しない。
 - `TabsBottomSheet.kt` と、その表示だけに必要だったstate・imports・parametersを残さない。

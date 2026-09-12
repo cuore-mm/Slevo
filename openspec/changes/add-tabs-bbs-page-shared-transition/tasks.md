@@ -28,10 +28,10 @@
 ## 4. contextual Tabsの単一可視transition
 
 - [x] 4.1 実装開始前に導入済みNavigation Composeの公開APIで現在のback stack entry列を取得できることを確認し、`Tabs → Thread → Board`の連続entry判定方法を`NavigationExtensions.kt`のKDocとテストへ固定する。取得できなければ実装を止めてOpenSpec更新のblockerとして報告する。
-- [x] 4.2 `showBoardScreenFromTabs` / `showThreadScreenFromTabs`を、entry ID guardと登録・選択後呼び出しを維持したまま、同種選択はTabsを1回popする実装に整理する。
+- [x] 4.2 `showBoardScreenFromTabs` / `showThreadScreenFromTabs`を、entry ID guardと登録・選択確認後呼び出しを維持したまま、同種別選択でもsource destinationとTabsを`popUpTo(inclusive = true)`付き新destinationへ1回で置換する実装に整理する。
 - [x] 4.3 Board→Tabs→Threadを、Tabsをinclusiveに除去する`popUpTo`付きThread navigate 1回へ変更し、最終stackが従来どおり`Board → Thread`になることをテストする。
 - [x] 4.4 Thread→Tabs→Boardで直下がBoardの場合はTabsとThreadをBoardまで1回でpopし、直下がBoard以外の場合はsource ThreadとTabsをinclusiveに除去するBoard navigate 1回で置換する。
-- [x] 4.5 `NavigationExtensionsTest.kt`でルートTabs、同種Board / Thread、Board→Thread、Thread→Boardの直下Boardあり／なし、より古いBoardを誤再利用しないケースを検証し、既存と同じ最終entry列を確認する。
+- [x] 4.5 `NavigationExtensionsTest.kt`でルートTabs、同種Board / Threadの同一・別identity置換、Board→Thread、Thread→Boardの直下Boardあり／なし、より古いBoardを誤再利用しないケースを検証し、既存と同じ最終entry構造を確認する。
 - [x] 4.6 entry ID不一致、現在entryがTabs以外、非同期登録中Back、pop / navigate不能では古いcallbackが履歴を変更しないことを既存テストと追加ケースで確認する。
 
 ## 5. Tabs↔BBS transitionの置換

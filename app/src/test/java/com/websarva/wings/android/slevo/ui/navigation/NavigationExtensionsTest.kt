@@ -8,6 +8,7 @@ import androidx.navigation.testing.TestNavHostController
 import androidx.navigation.toRoute
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -143,10 +144,12 @@ class NavigationExtensionsTest {
         assertEquals(previousBoardEntryId, controller.currentBackStackEntry?.id)
     }
 
+    /** Board起点の同種別選択ではsource BoardとTabsを選択先Boardへ置換する。 */
     @Test
-    fun showBoardScreenFromTabs_reusesBoardAndKeepsPreviousHistory() {
+    fun showBoardScreenFromTabs_replacesBoardAndKeepsPreviousHistory() {
         val controller = createController()
         val board = boardRoute("board-a")
+        val selectedBoard = boardRoute("board-b")
         controller.navigate(AppRoute.BookmarkList)
         controller.navigateToBoardScreen(board)
         val boardEntryId = controller.currentBackStackEntry?.id
@@ -155,12 +158,31 @@ class NavigationExtensionsTest {
         controller.showBoardScreenFromTabs(
             sourceRoute = board,
             tabsEntryId = tabsEntryId,
-            route = boardRoute("board-b"),
+            route = selectedBoard,
+        )
+
+        assertBoardRoute(selectedBoard, controller)
+        assertNotEquals(boardEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
+    /** 同一Board identityでも新destinationを生成し、Pagerの旧表示状態を再利用しない。 */
+    @Test
+    fun showBoardScreenFromTabs_replacesBoardForSameIdentity() {
+        val controller = createController()
+        val board = boardRoute("board-a")
+        controller.navigateToBoardScreen(board)
+        val boardEntryId = controller.currentBackStackEntry?.id
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showBoardScreenFromTabs(
+            sourceRoute = board,
+            tabsEntryId = tabsEntryId,
+            route = board,
         )
 
         assertBoardRoute(board, controller)
-        assertEquals(boardEntryId, controller.currentBackStackEntry?.id)
-        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+        assertNotEquals(boardEntryId, controller.currentBackStackEntry?.id)
     }
 
     @Test
@@ -186,10 +208,12 @@ class NavigationExtensionsTest {
         assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
     }
 
+    /** Thread起点の同種別選択ではsource ThreadとTabsを選択先Threadへ置換する。 */
     @Test
-    fun showThreadScreenFromTabs_reusesThreadAndKeepsPreviousHistory() {
+    fun showThreadScreenFromTabs_replacesThreadAndKeepsPreviousHistory() {
         val controller = createController()
         val thread = threadRoute("1")
+        val selectedThread = threadRoute("2")
         controller.navigate(AppRoute.BookmarkList)
         controller.navigateToThreadScreen(thread)
         val threadEntryId = controller.currentBackStackEntry?.id
@@ -198,12 +222,31 @@ class NavigationExtensionsTest {
         controller.showThreadScreenFromTabs(
             sourceRoute = thread,
             tabsEntryId = tabsEntryId,
-            route = threadRoute("2"),
+            route = selectedThread,
+        )
+
+        assertThreadRoute(selectedThread, controller)
+        assertNotEquals(threadEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+    }
+
+    /** 同一Thread identityでも新destinationを生成し、Pagerの旧表示状態を再利用しない。 */
+    @Test
+    fun showThreadScreenFromTabs_replacesThreadForSameIdentity() {
+        val controller = createController()
+        val thread = threadRoute("1")
+        controller.navigateToThreadScreen(thread)
+        val threadEntryId = controller.currentBackStackEntry?.id
+        val tabsEntryId = navigateToTabs(controller)
+
+        controller.showThreadScreenFromTabs(
+            sourceRoute = thread,
+            tabsEntryId = tabsEntryId,
+            route = thread,
         )
 
         assertThreadRoute(thread, controller)
-        assertEquals(threadEntryId, controller.currentBackStackEntry?.id)
-        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+        assertNotEquals(threadEntryId, controller.currentBackStackEntry?.id)
     }
 
     @Test

@@ -8,14 +8,14 @@
 
 - [x] 2.1 `NavigationExtensions.kt` にBoard選択用のTabs完了関数を追加し、期待するTabs entry IDと現在entryを照合したうえで、contextual Tabsだけをpopして既存`showBoardScreenForTabSelection`へsource route付きで委譲する。sourceなしではTabsを残して従来のpushを実行する。
 - [x] 2.2 `NavigationExtensions.kt` にThread選択用のTabs完了関数を追加し、2.1と同じentry検証・Tabs除去を行って既存`showThreadScreenForTabSelection`へ委譲する。Tabsのpop失敗時とentry不一致時は後続Navigationを実行しない。
-- [x] 2.3 `NavigationExtensionsTest.kt` に`Bookmark → Board → Tabs`からBoard選択でBoard entryを再利用するケースと、Thread選択で`Bookmark → Board → Thread`になるケースを追加し、Tabsが残らずBookmark相当entryが維持されることを検証する。
-- [x] 2.4 `NavigationExtensionsTest.kt` に`Bookmark → Board → Thread → Tabs`からThread選択でThread entryを再利用するケースと、Board選択で既存Boardまでpopするケースを追加し、同種destinationを追加しないことをentry IDで検証する。
+- [x] 2.3 `NavigationExtensionsTest.kt` に`Bookmark → Board → Tabs`からBoard選択でsource BoardとTabsを除去して選択先Boardへ置換するケースと、Thread選択で`Bookmark → Board → Thread`になるケースを追加し、Tabsが残らずBookmark相当entryが維持されることを検証する。
+- [x] 2.4 `NavigationExtensionsTest.kt` に`Bookmark → Board → Thread → Tabs`からThread選択でsource ThreadとTabsを除去して選択先Threadへ置換するケースと、Board選択で既存Boardまでpopするケースを追加し、同種destinationの旧entryを再利用しないことをentry IDで検証する。
 - [x] 2.5 `NavigationExtensionsTest.kt` に背後Boardなしの`Bookmark → Thread → Tabs`からBoard選択でThreadをreplaceするケース、ルートTabsではTabsを残して選択先をpushするケース、entry ID不一致およびTabs pop失敗で遷移しないケースを追加する。
 
 ## 3. タブ一覧の選択処理統一
 
 - [x] 3.1 `TabScreenContent.kt`、`TabsPagerContent.kt`、`OpenBoardsList.kt`、`OpenThreadsList.kt` の引数伝播を、`closeDrawer`ではなくsource routeとTabs entry IDを使う形へ変更し、BottomSheet固有の命名とno-op callbackを除去する。
-- [x] 3.2 `OpenBoardsList.kt` のカード選択を「route作成→正規化→`registerAndSelectBoardRoute`完了→Board用Tabs完了関数」の順へ変更し、登録前にTabsを閉じないことをコードとテストで確認する。
+- [x] 3.2 `OpenBoardsList.kt` と`TabScreenContent.kt`のBoard選択を「route作成→正規化→`registerAndConfirmBoardRoute`完了→Board用Tabs完了関数」の順へ変更し、確認前にTabsを閉じないことをコードとテストで確認する。
 - [x] 3.3 `OpenThreadsList.kt` のカード選択を「route作成→正規化→`registerAndSelectThreadRoute`→indexが0以上の場合だけThread用Tabs完了関数」の順へ変更し、登録失敗時にTabsへ留まることを検証する。
 - [x] 3.4 `TabScreenContent.kt` のURL入力によるBoard / Thread遷移もカード選択と同じTabs完了関数へ統一し、Navigation後の`closeDrawer`を削除する。非同期処理中にBackまたは別Tabs entryへ再入場した場合に古いentry IDから遷移しないことを検証する。
 - [x] 3.5 選択処理変更後も、板は正規化済みboard URL、スレッドは`ThreadId`を`TabSessionStore`のselected keyとして更新し、ComposableやNavigation entryに選択状態の正本を追加していないことを確認する。

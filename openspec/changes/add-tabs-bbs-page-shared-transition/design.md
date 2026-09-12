@@ -2,9 +2,9 @@
 
 `AppScaffold.kt`は`AppNavGraph`を単一の`SharedTransitionLayout`で包んでいる。Board / Threadでは`BbsControllerSharedBoundsKey`と`bbsControllerSharedBounds`がタイトルカード、画面種別ボタン、下段アクション行をBoard↔Thread切替時に接続するが、TabsカードとBBSページ全体を接続するkeyは存在しない。
 
-`BbsRouteScaffold.kt`は1つのBoardまたはThread destination内に複数タブの`HorizontalPager`を持つ。navigation routeのidentityはdestinationを作成したタブを示す一方、実際の表示タブは`pagerState.settledPage`から解決した`settledTab`であり、同一destination内のタブ切替後は両者が異なり得る。現在のroot `Box`内では`Scaffold`と`BbsRouteStatusBarProtection`の後にBookmark sheet、任意overlay、URL dialogが兄弟として描画される。
+`BbsRouteScaffold.kt`は1つのBoardまたはThread destination内に複数タブの`HorizontalPager`を持つ。navigation routeのidentityはdestinationを作成したタブを示す一方、実際の表示タブは`pagerState.settledPage`から解決した`settledTab`であり、同一destination内のタブ切替後は両者が異なり得る。contextual Tabsの同種別選択で既存destinationを再利用すると、遷移中にPagerが旧タブから新タブへ同期され、page keyが変化する。現在のroot `Box`内では`Scaffold`と`BbsRouteStatusBarProtection`の後にBookmark sheet、任意overlay、URL dialogが兄弟として描画される。
 
-Tabs↔Board / Threadには`TransitionSpecs.kt`の横slide＋fadeが適用される。contextual Tabsの同種選択はTabsをpopし、別種選択はTabsをpopした後に既存Board / Thread規則へ委譲するため、複数のback stack操作が連続する場合がある。
+Tabs↔Board / Threadには`TransitionSpecs.kt`の横slide＋fadeが適用される。contextual Tabsの同種選択は選択先destinationへ1回で置換し、別種選択は既存のBoard / Thread規則へ委譲するため、遷移開始時のpage identityを固定できる。
 
 ## Goals / Non-Goals
 
@@ -60,20 +60,20 @@ HorizontalPagerのsettle済み現在ページだけを有効化するため、`T
 
 ### 5. contextual Tabsの最終stackを1回の可視transitionで作る
 
-`NavigationExtensions.kt`の`showBoardScreenFromTabs` / `showThreadScreenFromTabs`は、既存entry ID guardと最終stackを維持しつつ、選択カードから最終destinationまでの中間destinationを描画しない操作へ整理する。
+`NavigationExtensions.kt`の`showBoardScreenFromTabs` / `showThreadScreenFromTabs`は、既存entry ID guardと最終stackを維持しつつ、同種別の選択先を新しいdestinationとして1回で置換する。選択先routeを初期値にしたdestinationを生成することで、選択カードから最終destinationまでのpage identityを変化させない。
 
 | 遷移 | Navigation操作 | 最終stack |
 |---|---|---|
 | ルートTabs→Board / Thread | 既存navigate | `Tabs → target` |
-| Board→Tabs→Board | Tabsを1回pop | 元Boardを再利用 |
-| Thread→Tabs→Thread | Tabsを1回pop | 元Threadを再利用 |
+| Board→Tabs→Board | 選択先Boardへ`popUpTo(source, inclusive = true)`付きnavigate | `Board(target)` |
+| Thread→Tabs→Thread | 選択先Threadへ`popUpTo(source, inclusive = true)`付きnavigate | `Thread(target)` |
 | Board→Tabs→Thread | Tabsをinclusiveに除去する`popUpTo`付きThread navigate | `Board → Thread` |
 | Thread→Tabs→Board、直下がBoard | TabsとThreadをBoardまで1回でpop | 直下Boardを再利用 |
 | Thread→Tabs→Board、直下がBoard以外 | source ThreadとTabsをinclusiveに除去する`popUpTo`付きBoard navigate | ThreadをBoardへ置換 |
 
 直下Boardの判定はTabs選択時のNavController back stackで`Tabs → Thread → Board`の連続entryを確認する。より古いBoardを探索・再利用しない。実装時は現在導入済みNavigation Compose APIでback stack snapshotを取得できることを先に確認し、公開APIで取得できない場合は実装を開始せず計画更新のblockerとして報告する。
 
-タブ登録・選択は引き続きNavigation前に完了させる。操作中にTabsを離れた場合はentry ID guardで履歴変更を抑止する。連続タップ抑止が必要な場合もページkeyへ状態を混在させず、既存の操作guardまたは別UI操作状態として扱う。
+タブ登録・選択確認はNavigation前に完了させる。Boardは`registerAndConfirmBoardRoute`、Threadは既存のcanonical確認付き登録・選択APIを使用する。操作中にTabsを離れた場合はentry ID guardで履歴変更を抑止する。連続タップ抑止が必要な場合もページkeyへ状態を混在させず、既存の操作guardまたは別UI操作状態として扱う。
 
 ### 6. Tabs↔BBSだけ横slideをfadeへ置き換える
 
@@ -91,7 +91,7 @@ Board↔Threadの判定を優先して既存slide-onlyを維持し、ImageViewer
 - `BbsRouteScaffold.kt`では`Scaffold`と`BbsRouteStatusBarProtection`だけをページ共有コンテナへ含め、sheet、optional overlay、URL dialogを含めない。
 - ページ共有コンテナは1destinationにつき1つとし、HorizontalPagerの各page itemへページkeyを付けない。
 - Tabs PagerとBBS Pagerがscroll中、key解決不能、カード操作中、検索crossfade退出側ではShared Boundsを無効化する。
-- Navigationの最終entry列、sourceRouteによる初期ページ、登録・選択順序、Tabs entry ID guardを維持する。内部操作を統合しても既存`NavigationExtensionsTest.kt`の最終stack期待を変えない。
+- Navigationの最終entry列、sourceRouteによる初期ページ、登録・選択確認順序、Tabs entry ID guardを維持する。同種別選択ではsource destinationを選択先destinationへ置換するが、既存`NavigationExtensionsTest.kt`の最終stack構造は変えない。
 - Tabs↔BBSでは横slideを使用しない。Board↔Thread、ImageViewer、その他destinationのtransitionを変更しない。
 - 新しいclass/interfaceにはKDoc、非自明関数にはKDocとguard / fallbackコメントを付け、Preview関数にはdoc commentを追加しない。
 
@@ -126,7 +126,7 @@ Board↔Threadの判定を優先して既存slide-onlyを維持し、ImageViewer
 - [ページkeyと既存タイトルkeyのネスト競合] → 型を分離し、Tabs↔BBSとBoard↔Threadを別々に統合テストする。
 - [contextual別種選択の連続back stack操作で中間画面が見える] → 同じ最終stackを作る単一popまたは`popUpTo`付きnavigateへ統合する。
 - [カードの角丸から矩形ページへのshape変化が自動補間されない] → 初回は既存カードclipとsharedBounds crossfadeを維持し、角の不連続が受入不能なら別changeでoverlay clip補間を設計する。
-- [対応カードが未composeで逆遷移できない] → 自動スクロールや代替keyを使わずfade-onlyへフォールバックする。
+- [対応カードが未composeで逆遷移できない] → 自動スクロールや代替keyを使わずfade-onlyへフォールバックする。新destinationへの置換でも、戻り先カードが存在しない場合は同じfallbackを使う。
 
 ## Migration Plan
 
