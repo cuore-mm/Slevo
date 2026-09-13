@@ -1,6 +1,7 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.createGraph
