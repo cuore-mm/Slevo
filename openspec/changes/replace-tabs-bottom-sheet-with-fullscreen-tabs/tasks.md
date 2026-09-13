@@ -1,6 +1,6 @@
 ## 1. Tabs遷移コンテキストと初期ページ
 
-- [x] 1.1 `AppNavGraph.kt` の `composable<AppRoute.Tabs>` で現在のTabs entry IDを取得し、直前entryが`AppRoute.Board`または`AppRoute.Thread`の場合だけ`toRoute`でsource routeを復元して`TabsScaffold`へ渡す。start destinationおよびBoard / Thread以外の直前entryではsourceがnullになることを確認する。
+- [x] 1.1 `RootNavGraph.kt`の`composable<AppRoute.MainShell>`と`MainShellNavGraph.kt`の`composable<AppRoute.Tabs>`で現在のRoot / Tabs entry IDを取得し、contextual MainShellの直前entryが`AppRoute.Board`または`AppRoute.Thread`の場合だけ`toRoute`でsource routeを復元して`TabsScaffold`へ渡す。base MainShellおよびBoard / Thread以外の直前entryではsourceがnullになることを確認する。
 - [x] 1.2 `TabsScaffold.kt` にsource routeとTabs entry IDの引数を追加し、Board起点は板ページ、Thread起点はスレッドページ、sourceなしは`TabSessionStore.lastSelectedTabsPage`を初期ページに使う純粋な導出処理を実装する。ページ切替後の`setLastSelectedTabsPage`は維持する。
 - [x] 1.3 初期ページ導出のunit testを追加し、最後のページがスレッドでもBoard起点は板、最後のページが板でもThread起点はスレッド、sourceなしは最後のページになることを検証する。
 
@@ -22,7 +22,7 @@
 
 ## 4. Board / Thread入口の全画面化
 
-- [x] 4.1 `BbsRouteScaffold.kt` の下部タイトルカードとコンテンツからのタブ一覧コールバックを`navController.navigate(AppRoute.Tabs)`へ変更し、Board / Thread destinationの直上へTabsをpushする。
+- [x] 4.1 `BbsRouteScaffold.kt` の下部タイトルカードとコンテンツからのタブ一覧コールバックを`AppRoute.MainShell(MainShellMode.ContextualTabs)`へのRoot pushへ変更し、Board / Thread destinationの直上へTabs用MainShellをpushする。
 - [x] 4.2 `BbsRouteScaffold.kt` から`showTabListSheet`、タブ一覧用sheet state、`TabsBottomSheet`描画ブロック、および不要になったimportsを削除し、詳細・Bookmark・URL入力用BottomSheet/Dialogには影響がないことを確認する。
 - [x] 4.3 `TabsBottomSheet.kt` を削除し、プロジェクト全体で`TabsBottomSheet`、`showTabListSheet`、タブ一覧用途の`closeDrawer`参照が0件であることを検索して確認する。
 - [x] 4.4 Board / Threadのタブ一覧操作が`AppRoute.Tabs`へ遷移し、システムBackで元のBoard / Threadへ戻ることをNavigationテストとCIで検証する。既存の可視文言、content description、フォーカス順に変更がないことも確認する。

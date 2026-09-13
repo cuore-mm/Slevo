@@ -17,7 +17,7 @@
 
 ## 3. Tabsカードの接続
 
-- [x] 3.1 `AppNavGraph.kt`のTabs destinationから既存`sharedTransitionScope`と`this@composable`を`TabsScaffold.kt`、`TabScreenContent.kt`、`TabsPagerContent.kt`へ明示的に伝播する。`sourceRoute`は初期ページとNavigation文脈だけに残す。
+- [x] 3.1 `MainShellNavGraph.kt`のTabs inner destinationからRoot MainShellの`sharedTransitionScope`と`AnimatedVisibilityScope`を`TabsScaffold.kt`、`TabScreenContent.kt`、`TabsPagerContent.kt`へ明示的に伝播する。`sourceRoute`は初期ページとNavigation文脈だけに残す。
 - [x] 3.2 `TabsPagerContent.kt`で既存`isSharedTransitionCandidate`を使い、settle済み現在ページかつ非scroll時だけ`OpenBoardsList.kt` / `OpenThreadsList.kt`のページShared Boundsを有効にする。
 - [x] 3.3 `TabsPagerContent.kt`の`AnimatedListContent`で通常／検索のtarget display stateだけを有効にし、crossfade退出側へ同一page keyを登録しない。
 - [x] 3.4 `OpenBoardsList.kt`の各`TabListCard` rootへ`BbsPageSharedBoundsKey.Board(tab.boardUrl)`を適用し、削除、drag、長押しPreview、複数選択中は無効化する。Shared Transition専用selected keyや待機stateを追加しない。
@@ -37,7 +37,7 @@
 ## 5. Tabs↔BBS transitionの置換
 
 - [x] 5.1 `TransitionSpecs.kt`へTabs↔Board / Threadのroute組合せ判定と横移動を含まないfade-only enter / exit / pop transitionを追加し、非自明関数へKDocを付ける。
-- [x] 5.2 `AppNavGraph.kt`のBoard、Thread、Tabs destinationでTabs↔BBS判定時だけfade-onlyを使用し、既存横slideを適用しない。Board↔Thread判定、ImageViewerのnull、Bookmark / BbsServiceGroupの`None`、その他default transitionの優先順位を維持する。
+- [x] 5.2 `RootNavGraph.kt`のBoard、Thread、MainShell destinationで`BbsEntryTransition.TabsSharedBounds`時だけfade-onlyを使用し、既存横slideを適用しない。Board↔Thread判定、ImageViewerのnull、MainShell内Bookmark / BbsServiceGroupの`None`、その他default transitionの優先順位を維持する。
 - [x] 5.3 `TransitionSpecsTest.kt`でTabs→Board、Tabs→Thread、Board→Tabs、Thread→Tabsのpush / popがfade-only対象になり、Board↔Threadとその他routeが従来判定のままであることを検証する。
 - [ ] 5.4 実NavHost testでShared Bounds成立時に選択カードと最終page rootが同時にmatchし、contextual別種選択で中間Board / Thread画面が描画されないことを検証する。
 - [ ] 5.5 Shared Bounds不成立時に横slideを発生させずfade-onlyで完了し、Navigationの最終stackと選択タブが正しいことを検証する。

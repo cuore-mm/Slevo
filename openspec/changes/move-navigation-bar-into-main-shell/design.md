@@ -1,6 +1,6 @@
 ## Context
 
-`AppScaffold.kt`は現在、単一の`NavHostController`、ルート`Scaffold`、`RenderBottomBar`、`PendingRestoreResultSnackbar`を所有する。`Scaffold.bottomBar`にあるNavigationBarは`SharedTransitionLayout`と`AppNavGraph`の外側にあり、Board / Threadへ遷移するとdestinationより先に非表示となってNavHostへ渡す下余白を変更する。TabsカードからBBSページへのShared Boundsはこの再測定の影響を受ける。
+`AppScaffold.kt`は現在、単一の`NavHostController`、ルート`Scaffold`、`RenderBottomBar`、`PendingRestoreResultSnackbar`を所有する。`Scaffold.bottomBar`にあるNavigationBarは`SharedTransitionLayout`と旧単一graphの外側にあり、Board / Threadへ遷移するとdestinationより先に非表示となってNavHostへ渡す下余白を変更する。TabsカードからBBSページへのShared Boundsはこの再測定の影響を受ける。
 
 旧`AppNavGraph.kt`は`AppRoute.Tabs`をstart destinationとし、Tabs、Bookmark、BBSサービス一覧、Board、Thread、Settings、History、ImageViewerを同じback stackで管理していた。Board / Threadから開くTabsは直前entryを`sourceRoute`として解決し、`NavigationExtensions.kt`がTabs選択後のpush / pop / replaceを行う。route定義は`AppRoute.kt`へ分離し、graph本体は`RootNavGraph.kt`と`MainShellNavGraph.kt`へ分割する。
 
@@ -104,6 +104,17 @@ marker interface自体を`composable<T>`または`navigation<T>`のdestination�
 
 MainShell内画面へRoot controllerを直接渡さず、`onOpenBoard`、`onOpenThread`、`onOpenSettings`等のcallbackを渡す。Root Navigationのstack変換はRoot用extensionまたはcoordinatorへ集約し、MainShell内top-level切替はMainShell用extensionへ分離する。Board / ThreadからMainShell内のBookmarkまたはBBS一覧を開く操作は、Root controllerへの直接navigateではなく、初期inner destination付きMainShellをpushするcallbackへ接続する。
 
+責務とViewModel ownerは次のとおり整理する。
+
+| 所属 | destination | 主なComposable / ViewModel owner |
+|---|---|---|
+| Root | `MainShell` | `MainShell` entryごとのinner `NavHostController`、inner画面のViewModelは各inner entry |
+| Root | Board / Thread | `BoardScaffold` / `ThreadScaffold` のRoot entry、各 `hiltViewModel()` |
+| Root | History / Settings / About / ImageViewer | `HistoryListScaffold`、`addSettingsRoute`、About、ImageViewerの各Root entry |
+| MainShell | Tabs | `TabsScaffold` / `TabScreenContent` のinner entry |
+| MainShell | Bookmark | `BookmarkListScaffold` のinner entry |
+| MainShell | BBSサービス・カテゴリ・板一覧 | `addRegisteredBBSNavigation` 内の各inner entry |
+
 ### 5. entryへ遷移文脈enumを保存する
 
 Root transition lambdaはMainShellのinner destinationを直接参照しない。Board / Threadを開く要求時に次のenumをroute argumentへ保存する。
@@ -181,7 +192,7 @@ MainShell固有Snackbarは実際の通知要件が追加されるまで作らな
 
 ## Implementation Contract
 
-- 編集開始前に`AppScaffold.kt`、`AppNavGraph.kt`、`RenderBottomBar.kt`、`NavigationExtensions.kt`、`RegisteredBBSNavigation.kt`、`SettingsRoute.kt`の最新route登録とcontroller受け渡しを再確認する。
+- 編集開始前に`AppScaffold.kt`、`AppRoute.kt`、`RootNavGraph.kt`、`MainShellNavGraph.kt`、`RenderBottomBar.kt`、`NavigationExtensions.kt`、`RegisteredBBSNavigation.kt`、`SettingsRoute.kt`の最新route登録とcontroller受け渡しを再確認する。
 - `SharedTransitionLayout`は`AppScaffold.kt`に一つだけ置き、RootNavHostを包む。MainShellNavHost内へ二つ目を追加しない。
 - RootNavHostへNavigationBar由来のpaddingを渡さず、MainShellの`Scaffold.innerPadding`はMainShell内画面だけへ適用する。
 - `pendingRestoreSnackbarHostState`と`PendingRestoreResultSnackbar`はRoot/AppScaffold所有を維持し、MainShellへ移動しない。

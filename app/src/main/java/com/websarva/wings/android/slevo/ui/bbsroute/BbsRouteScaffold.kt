@@ -57,6 +57,7 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.MainShellMode
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
@@ -241,7 +242,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
         val openTabList: () -> Unit = onOpenTabList ?: {
-            navController.navigate(AppRoute.Tabs) {
+            navController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs)) {
                 launchSingleTop = true
             }
         }

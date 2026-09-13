@@ -1,6 +1,6 @@
 ## Context
 
-`AppScaffold.kt`は`AppNavGraph`を単一の`SharedTransitionLayout`で包んでいる。Board / Threadでは`BbsControllerSharedBoundsKey`と`bbsControllerSharedBounds`がタイトルカード、画面種別ボタン、下段アクション行をBoard↔Thread切替時に接続するが、TabsカードとBBSページ全体を接続するkeyは存在しない。
+`AppScaffold.kt`は`RootNavGraph`を単一の`SharedTransitionLayout`で包んでいる。Board / Threadでは`BbsControllerSharedBoundsKey`と`bbsControllerSharedBounds`がタイトルカード、画面種別ボタン、下段アクション行をBoard↔Thread切替時に接続するが、TabsカードとBBSページ全体を接続するkeyは存在しない。
 
 `BbsRouteScaffold.kt`は1つのBoardまたはThread destination内に複数タブの`HorizontalPager`を持つ。navigation routeのidentityはdestinationを作成したタブを示す一方、実際の表示タブは`pagerState.settledPage`から解決した`settledTab`であり、同一destination内のタブ切替後は両者が異なり得る。contextual Tabsの同種別選択で既存destinationを再利用すると、遷移中にPagerが旧タブから新タブへ同期され、page keyが変化する。現在のroot `Box`内では`Scaffold`と`BbsRouteStatusBarProtection`の後にBookmark sheet、任意overlay、URL dialogが兄弟として描画される。
 
@@ -36,7 +36,7 @@ Tabs↔Board / Threadには`TransitionSpecs.kt`の横slide＋fadeが適用され
 
 ### 2. Tabsでは各カードへ最初から一意なページkeyを付ける
 
-`AppNavGraph.kt`のTabs destinationから既存`sharedTransitionScope`とNavHostの`this@composable`を、`TabsScaffold.kt`→`TabScreenContent.kt`→`TabsPagerContent.kt`→`OpenBoardsList.kt` / `OpenThreadsList.kt`へ伝播する。
+`MainShellNavGraph.kt`のTabs inner destinationからRoot `MainShell` destinationの`AnimatedVisibilityScope`と既存`sharedTransitionScope`を、`TabsScaffold.kt`→`TabScreenContent.kt`→`TabsPagerContent.kt`→`OpenBoardsList.kt` / `OpenThreadsList.kt`へ伝播する。TabsはMainShellのinner destinationだが、ページShared BoundsのscopeはRoot側を使う。
 
 `OpenBoardCard`の`TabListCard` root modifierには`Board(tab.boardUrl)`、`OpenThreadCard`には`Thread(tab.id.value)`を付ける。全カードが固有keyで参加しても、遷移先のsettled pageと同じkeyだけが自動的にmatchするため、タップ対象keyを別状態として保持しない。
 
@@ -77,13 +77,13 @@ HorizontalPagerのsettle済み現在ページだけを有効化するため、`T
 
 ### 6. Tabs↔BBSだけ横slideをfadeへ置き換える
 
-`TransitionSpecs.kt`へTabsとBoard / Threadのroute組合せを判定する関数と、横移動を含まない短いfade-only transitionを追加する。`AppNavGraph.kt`のBoard、Thread、Tabs各destinationで、Tabs↔BBSの場合はenter / exit / popEnter / popExitにfade-onlyを選ぶ。
+`TransitionSpecs.kt`へTabsとBoard / Threadのroute組合せを判定する関数と、横移動を含まない短いfade-only transitionを追加する。`RootNavGraph.kt`のRoot transitionで`BbsEntryTransition.TabsSharedBounds`を判定し、MainShell内のTabs切替transitionは`MainShellNavGraph.kt`で選ぶ。
 
 Board↔Threadの判定を優先して既存slide-onlyを維持し、ImageViewerのnull transition、Bookmark / BbsServiceGroupとTabs間の`None`、その他のdefault slide＋fadeを変更しない。Shared Boundsがmatchした要素は共有overlay上でbounds変形し、matchしない場合はfade-onlyがフォールバックになる。
 
 ## Implementation Contract
 
-- `AppScaffold.kt`の既存`SharedTransitionLayout`を唯一の共有領域として使い、新しい`SharedTransitionLayout`を追加しない。
+- `AppScaffold.kt`の既存`SharedTransitionLayout`を唯一の共有領域として使い、新しい`SharedTransitionLayout`を追加しない。Rootは`RootNavGraph.kt`、Tabsは`MainShellNavGraph.kt`に登録する。
 - ページkeyは新規`BbsPageSharedBoundsKey`に分離し、既存`BbsControllerSharedBoundsKey`、`bbsControllerSharedBounds`、`bbsControllerActionsSharedBounds`を変更しない。
 - Board page identityは`settledTab.boardUrl`、Thread page identityは`settledTab.id.value`とし、`sourceRoute`、`boardRoute`、`threadRoute`、Pager indexを使わない。
 - TabsカードはBoard=`tab.boardUrl`、Thread=`tab.id.value`を使い、全カードへ固有keyを付ける。Shared Transition専用selected keyをUiStateへ追加しない。

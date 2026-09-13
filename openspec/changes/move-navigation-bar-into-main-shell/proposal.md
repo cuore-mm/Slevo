@@ -28,7 +28,7 @@
 
 ## Impact
 
-- 主な対象は`AppScaffold.kt`、`AppNavGraph.kt`、`NavigationExtensions.kt`、`TransitionSpecs.kt`、`RenderBottomBar.kt`、`NavigationBottomBar.kt`、`TabsScaffold.kt`、`BbsRouteScaffold.kt`、`RegisteredBBSNavigation.kt`、`SettingsRoute.kt`、Deep linkおよびRoot/MainShell間Navigationの呼び出し元である。
+- 主な対象は`AppScaffold.kt`、`AppRoute.kt`、`RootNavGraph.kt`、`MainShellNavGraph.kt`、`NavigationExtensions.kt`、`TransitionSpecs.kt`、`RenderBottomBar.kt`、`NavigationBottomBar.kt`、`TabsScaffold.kt`、`BbsRouteScaffold.kt`、`RegisteredBBSNavigation.kt`、`SettingsRoute.kt`、Deep linkおよびRoot/MainShell間Navigationの呼び出し元である。
 - 既存の`AppRoute.Board` / `AppRoute.Thread`の画面データ引数は維持し、永続データ、Room、DataStoreのmigrationは追加しない。遷移文脈にはNavigation Composeが標準対応するenumだけを追加する。
 - Root/MainShellの二つのback stack、entry ID guard、プロセス再生成、Hilt ViewModel owner、Shared Transition scope、Snackbar overlayの統合テストが必要になる。
 - `add-tabs-bbs-page-shared-transition`および`replace-tabs-bottom-sheet-with-fullscreen-tabs`の未完了計画と実装を前提に、route履歴・Shared Bounds・テスト記述を本変更へ整合させる。

@@ -1,6 +1,6 @@
 ## Context
 
-`AppRoute.Tabs` は `AppNavGraph.kt` で `TabsScaffold` を表示する既存の全画面 destination である。一方、Board / Thread の `BbsRouteScaffold.kt` はローカルの `showTabListSheet` と `TabsBottomSheet` を使い、同じ `TabScreenContent` を BottomSheet 内に表示している。
+`AppRoute.Tabs` は `MainShellNavGraph.kt` で `TabsScaffold` を表示するMainShell内のdestinationである。一方、Board / Thread の `BbsRouteScaffold.kt` はローカルの `showTabListSheet` と `TabsBottomSheet` を使い、同じ `TabScreenContent` を BottomSheet 内に表示している。
 
 現在の `TabsScaffold` は `TabScreenContent` に `currentScreenRoute = null` と no-op の `closeDrawer` を渡す。したがって、Board / Thread から単純に `AppRoute.Tabs` をpushするだけでは、タブ選択時に元の画面種別を判定できず、`NavigationExtensions.kt` の `showBoardScreenForTabSelection` / `showThreadScreenForTabSelection` が選択先を追加でpushしてTabsを履歴に残す。
 
@@ -30,13 +30,13 @@
 
 ### 1. 既存の`AppRoute.Tabs`を全画面表示先として再利用する
 
-`BbsRouteScaffold.kt` のタブ一覧コールバックは `showTabListSheet = true` ではなく `navController.navigate(AppRoute.Tabs)` を実行する。新しいrouteや全画面Composableは追加せず、`TabsScaffold` → `TabScreenContent` の既存表示経路を使う。
+`BbsRouteScaffold.kt` のタブ一覧コールバックは `showTabListSheet = true` ではなく `AppRoute.MainShell(MainShellMode.ContextualTabs)`をRoot controllerへpushする。新しい一覧Composableは追加せず、`MainShellNavGraph` → `TabsScaffold` → `TabScreenContent` の既存表示経路を使う。
 
 別のTabs routeを追加する案は、同じ一覧UIに複数のdestinationとViewModel scopeを再び作るため採用しない。`AppRoute.Tabs` にorigin引数を追加する案も、back stackに既に存在する遷移元と同じ情報をroute引数として重複管理し、トップレベルTabsのroute同一性とrestoreStateに影響するため採用しない。
 
 ### 2. Tabsの遷移元は直前のback stack entryから導出する
 
-`AppNavGraph.kt` の `composable<AppRoute.Tabs>` ラムダで受け取るTabs entryに対し、`navController.previousBackStackEntry` が `AppRoute.Board` または `AppRoute.Thread` かを `hasRoute` / `toRoute` で判定する。復元したrouteオブジェクトを `TabsScaffold` の `sourceRoute: AppRoute?` に渡す。それ以外の直前destinationまたはstart destinationとしてのTabsでは `sourceRoute = null` とする。
+`RootNavGraph.kt` の `composable<AppRoute.MainShell>` ラムダで受け取るRoot entryに対し、contextual MainShellの場合だけRootの`previousBackStackEntry`が `AppRoute.Board` または `AppRoute.Thread` かを `hasRoute` / `toRoute` で判定する。復元したrouteオブジェクトを `MainShellNavGraph.kt` のTabs inner destinationから `TabsScaffold` の `sourceRoute: AppRoute?` に渡す。base MainShellまたはBoard / Thread以外の直前destinationでは `sourceRoute = null` とする。
 
 この判定は直前entryだけを対象とする。Board / ThreadからTabsを開く操作は必ず対象画面の直上へTabsをpushするため、より古いback stack全体を探索しない。これによりBookmarkなどを誤ってpop対象にしない。
 
@@ -100,7 +100,7 @@ Tabsから直接ケース別の`popUpTo`を組み立てる案は、既存の `sh
 ## Implementation Contract
 
 - `AppRoute.Tabs` の型とトップレベルNavigation項目を変更しない。
-- `AppNavGraph.kt` はTabs entry、直前のBoard / Thread route、`NavHostController`を `TabsScaffold` に渡せる形にする。遷移元を `rememberSaveable`、ViewModel、`TabSessionStore`へ複製しない。
+- `RootNavGraph.kt` / `MainShellNavGraph.kt` はRoot MainShell entry、直前のBoard / Thread route、inner `NavHostController`を `TabsScaffold` に渡せる形にする。遷移元を `rememberSaveable`、ViewModel、`TabSessionStore`へ複製しない。
 - `TabsScaffold.kt` は `sourceRoute` とTabs entry IDを `TabScreenContent` へ渡し、初期ページをBoard=0、Thread=1、その他=`lastSelectedTabsPage`として導出する。
 - `NavigationExtensions.kt` の既存 `showBoardScreenForTabSelection`、`showThreadScreenForTabSelection`、`replaceCurrentScreen` の責務と既存呼び出し元を壊さず、Tabs専用の薄いラッパーを追加する。
 - Tabs専用ラッパーは期待するTabs entry IDと現在entryの一致を確認し、コンテキスト付きTabsをpopしてから既存関数へ委譲する。直接`popUpTo`で同じ分岐を再実装しない。

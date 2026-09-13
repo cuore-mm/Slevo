@@ -27,7 +27,7 @@
 ## Impact
 
 - Shared Transition keyとmodifier: `ui/common/transition`配下へページ専用keyとhelperを追加する。
-- Navigation: `AppScaffold.kt`の既存`SharedTransitionLayout`を再利用し、`AppNavGraph.kt`からTabsとBoard / Threadへscopeを伝播する。Tabs↔BBSのtransition specだけを変更する。
+- Navigation: `AppScaffold.kt`の既存`SharedTransitionLayout`を再利用し、`RootNavGraph.kt`と`MainShellNavGraph.kt`からTabsとBoard / Threadへscopeを伝播する。Tabs↔BBSのtransition specだけを変更する。
 - Board / Thread共通画面: `BbsRouteScaffold.kt`でsettle済み現在タブをページidentityとして、表示ページviewportへmodifierを適用する。
 - Tabs UI: `TabsScaffold.kt`、`TabScreenContent.kt`、`TabsPagerContent.kt`、`OpenBoardsList.kt`、`OpenThreadsList.kt`へscopeと候補状態を伝播する。
 - テスト: page key、settled tab、検索crossfade、Pager候補、全画面bounds、Back逆遷移、Navigation stack、既存Board↔Thread / ImageViewer回帰を検証する。

@@ -27,7 +27,7 @@ Board / Thread 画面のタブ一覧は BottomSheet と全画面 destination の
 
 ## Impact
 
-- Navigation: `AppNavGraph.kt`、`NavigationExtensions.kt`、`AppRoute.Tabs` の呼び出し箇所と back stack テスト。
+- Navigation: `RootNavGraph.kt`、`MainShellNavGraph.kt`、`NavigationExtensions.kt`、`AppRoute.Tabs` の呼び出し箇所と二階層 back stack テスト。
 - Board / Thread 共通 UI: `BbsRouteScaffold.kt` のタブ一覧表示状態とコールバック。
 - タブ一覧 UI: `TabsScaffold.kt`、`TabScreenContent.kt`、`TabsPagerContent.kt`、`OpenBoardsList.kt`、`OpenThreadsList.kt`。
 - 削除対象: `TabsBottomSheet.kt` と BottomSheet 固有の state・dismiss・検索状態リセット処理。
