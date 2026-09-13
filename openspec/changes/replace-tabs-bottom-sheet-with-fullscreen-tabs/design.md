@@ -30,13 +30,13 @@
 
 ### 1. 既存の`AppRoute.Tabs`を全画面表示先として再利用する
 
-`BbsRouteScaffold.kt` のタブ一覧コールバックは `showTabListSheet = true` ではなく `AppRoute.MainShell(MainShellMode.ContextualTabs)`をRoot controllerへpushする。新しい一覧Composableは追加せず、`MainShellNavGraph` → `TabsScaffold` → `TabScreenContent` の既存表示経路を使う。
+`BbsRouteScaffold.kt` のタブ一覧コールバックは `showTabListSheet = true` ではなく `AppRoute.MainShell(startDestination = Tabs)`をRoot controllerへpushする。新しい一覧Composableは追加せず、`MainShellNavGraph` → `TabsScaffold` → `TabScreenContent` の既存表示経路を使う。
 
 別のTabs routeを追加する案は、同じ一覧UIに複数のdestinationとViewModel scopeを再び作るため採用しない。`AppRoute.Tabs` にorigin引数を追加する案も、back stackに既に存在する遷移元と同じ情報をroute引数として重複管理し、トップレベルTabsのroute同一性とrestoreStateに影響するため採用しない。
 
 ### 2. Tabsの遷移元は直前のback stack entryから導出する
 
-`RootNavGraph.kt` の `composable<AppRoute.MainShell>` ラムダで受け取るRoot entryに対し、contextual MainShellの場合だけRootの`previousBackStackEntry`が `AppRoute.Board` または `AppRoute.Thread` かを `hasRoute` / `toRoute` で判定する。復元したrouteオブジェクトを `MainShellNavGraph.kt` のTabs inner destinationから `TabsScaffold` の `sourceRoute: AppRoute?` に渡す。base MainShellまたはBoard / Thread以外の直前destinationでは `sourceRoute = null` とする。
+`RootNavGraph.kt` の `composable<AppRoute.MainShell>` ラムダで受け取るRoot entryに対し、`startDestination == Tabs`で、Rootの`previousBackStackEntry`が `AppRoute.Board` または `AppRoute.Thread` の場合だけ、`hasRoute` / `toRoute`でsource routeを復元する。復元したrouteオブジェクトを `MainShellNavGraph.kt` のTabs inner destinationから `TabsScaffold` の `sourceRoute: AppRoute?` に渡す。Root startのMainShell、Bookmark/BBS一覧を初期表示するMainShell、またはBoard / Thread以外の直前destinationでは `sourceRoute = null` とする。
 
 この判定は直前entryだけを対象とする。Board / ThreadからTabsを開く操作は必ず対象画面の直上へTabsをpushするため、より古いback stack全体を探索しない。これによりBookmarkなどを誤ってpop対象にしない。
 

@@ -368,7 +368,7 @@ class NavigationExtensionsTest {
         val selectedBoard = boardRoute("board-b")
         controller.navigateToBoardScreen(sourceBoard)
         val sourceBoardEntryId = controller.currentBackStackEntry?.id
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -397,7 +397,7 @@ class NavigationExtensionsTest {
         val sourceThread = threadRoute("1")
         val selectedThread = threadRoute("2")
         controller.navigateToThreadScreen(sourceThread)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -425,7 +425,7 @@ class NavigationExtensionsTest {
         val sourceBoard = boardRoute("board-a")
         val selectedBoard = boardRoute("board-b")
         controller.navigateToBoardScreen(sourceBoard)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         innerController.navigate(AppRoute.BookmarkList)
@@ -456,7 +456,7 @@ class NavigationExtensionsTest {
         val controller = createRootController()
         val sourceBoard = boardRoute("board-a")
         controller.navigateToBoardScreen(sourceBoard)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -487,7 +487,7 @@ class NavigationExtensionsTest {
         val controller = createRootController()
         val sourceBoard = boardRoute("board-a")
         controller.navigateToBoardScreen(sourceBoard)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         innerController.navigate(AppRoute.BookmarkList)
@@ -516,7 +516,7 @@ class NavigationExtensionsTest {
         val sourceBoard = boardRoute("board-a")
         val selectedThread = threadRoute("thread-b")
         controller.navigateToBoardScreen(sourceBoard)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -545,7 +545,7 @@ class NavigationExtensionsTest {
         val sourceThread = threadRoute("thread-a")
         controller.navigateToBoardScreen(sourceBoard)
         controller.navigateToThreadScreen(sourceThread)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -570,7 +570,7 @@ class NavigationExtensionsTest {
         val sourceThread = threadRoute("thread-a")
         val selectedBoard = boardRoute("board-b")
         controller.navigateToThreadScreen(sourceThread)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -593,7 +593,7 @@ class NavigationExtensionsTest {
         val boardController = createRootController()
         val boardSource = boardRoute("board-a")
         boardController.navigateToBoardScreen(boardSource)
-        boardController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        boardController.navigate(AppRoute.MainShell())
         val boardShellId = boardController.currentBackStackEntry?.id.orEmpty()
         val boardInnerController = createController().apply { navigate(AppRoute.BookmarkList) }
         val boardBefore = boardController.currentBackStackEntry?.id
@@ -613,7 +613,7 @@ class NavigationExtensionsTest {
         val threadController = createRootController()
         val threadSource = threadRoute("thread-a")
         threadController.navigateToThreadScreen(threadSource)
-        threadController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        threadController.navigate(AppRoute.MainShell())
         val threadShellId = threadController.currentBackStackEntry?.id.orEmpty()
         val threadInnerController = createController().apply { navigate(AppRoute.BookmarkList) }
         threadController.showThreadScreenFromMainShell(
@@ -635,7 +635,7 @@ class NavigationExtensionsTest {
         val boardController = createRootController()
         val boardSource = boardRoute("board-a")
         boardController.navigateToBoardScreen(boardSource)
-        boardController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        boardController.navigate(AppRoute.MainShell())
         val boardShellId = boardController.currentBackStackEntry?.id.orEmpty()
         val boardInnerController = createController().apply { navigate(AppRoute.BbsServiceGroup) }
         boardController.showBoardScreenFromMainShell(
@@ -653,7 +653,7 @@ class NavigationExtensionsTest {
         val threadController = createRootController()
         val threadSource = threadRoute("thread-a")
         threadController.navigateToThreadScreen(threadSource)
-        threadController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        threadController.navigate(AppRoute.MainShell())
         val threadShellId = threadController.currentBackStackEntry?.id.orEmpty()
         val threadInnerController = createController().apply { navigate(AppRoute.BbsServiceGroup) }
         threadController.showThreadScreenFromMainShell(
@@ -676,7 +676,7 @@ class NavigationExtensionsTest {
         val sourceBoard = boardRoute("board-a")
         val sourceThread = threadRoute("thread-a")
         controller.navigateToBoardScreen(sourceBoard)
-        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        controller.navigate(AppRoute.MainShell())
         val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
         val innerController = createController()
         val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
@@ -709,7 +709,6 @@ class NavigationExtensionsTest {
     fun bbsRoutes_keepDefaultEntryTransition() {
         assertEquals(BbsEntryTransition.Default, boardRoute("board-a").entryTransition)
         assertEquals(BbsEntryTransition.Default, threadRoute("1").entryTransition)
-        assertEquals(MainShellMode.Base, AppRoute.MainShell().mode)
         assertEquals(MainShellStartDestination.Tabs, AppRoute.MainShell().startDestination)
     }
 

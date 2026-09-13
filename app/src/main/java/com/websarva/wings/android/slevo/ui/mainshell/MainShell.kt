@@ -17,7 +17,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.ui.bottombar.RenderBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.MainShellMode
 import com.websarva.wings.android.slevo.ui.navigation.MainShellBbsOrigin
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 
@@ -46,9 +45,6 @@ fun MainShell(
 ) {
     val mainShellNavController = rememberNavController()
     val currentEntry by mainShellNavController.currentBackStackEntryAsState()
-    val contextualSourceRoute = sourceRoute.takeIf {
-        route.mode == MainShellMode.ContextualTabs
-    }
 
     MainShellBackHandler(mainShellNavController)
 
@@ -73,7 +69,7 @@ fun MainShell(
             appChromePadding = innerPadding,
             navController = mainShellNavController,
             startDestination = route.startDestination,
-            sourceRoute = contextualSourceRoute,
+            sourceRoute = sourceRoute,
             openDrawer = openDrawer,
             tabSessionStore = tabSessionStore,
             topBarState = topBarState,

@@ -53,28 +53,28 @@ fun RootNavGraph(
     ) {
         composable<AppRoute.MainShell>(
             enterTransition = {
-                if (isBbsToContextualMainShellTransition(initialState, targetState)) {
+                if (isBbsToTabsMainShellTransition(initialState, targetState)) {
                     bbsPageEnterTransition()
                 } else {
                     defaultEnterTransition()
                 }
             },
             exitTransition = {
-                 if (isContextualMainShellToTabsSharedBbsTransition(initialState, targetState)) {
+                 if (isMainShellToTabsSharedBbsTransition(initialState, targetState)) {
                     bbsPageExitTransition()
                 } else {
                     defaultExitTransition()
                 }
             },
             popEnterTransition = {
-                if (isBbsToContextualMainShellTransition(initialState, targetState)) {
+                if (isBbsToTabsMainShellTransition(initialState, targetState)) {
                     bbsPageEnterTransition()
                 } else {
                     defaultPopEnterTransition()
                 }
             },
             popExitTransition = {
-                 if (isContextualMainShellToTabsSharedBbsTransition(initialState, targetState)) {
+                 if (isMainShellToTabsSharedBbsTransition(initialState, targetState)) {
                     bbsPageExitTransition()
                 } else {
                     defaultPopExitTransition()
@@ -82,7 +82,7 @@ fun RootNavGraph(
             },
         ) { backStackEntry ->
             val route = backStackEntry.toRoute<AppRoute.MainShell>()
-            val sourceRoute = if (route.mode == MainShellMode.ContextualTabs) {
+            val sourceRoute = if (route.startDestination == MainShellStartDestination.Tabs) {
                 navController.previousBackStackEntry?.toBbsRouteOrNull()
             } else {
                 null
@@ -144,7 +144,7 @@ fun RootNavGraph(
             },
             exitTransition = {
                 when {
-                    isBbsToContextualMainShellTransition(initialState, targetState) ->
+                    isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
                     isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
                         boardThreadExitTransition()
@@ -162,7 +162,7 @@ fun RootNavGraph(
             },
             popExitTransition = {
                 when {
-                    isBbsToContextualMainShellTransition(initialState, targetState) ->
+                    isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
                     isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
                         boardThreadPopExitTransition()
@@ -178,7 +178,7 @@ fun RootNavGraph(
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this@composable,
                 onOpenTabList = {
-                    navController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+                    navController.navigate(AppRoute.MainShell())
                 },
                 onOpenBookmarkList = {
                     navController.navigate(
@@ -212,7 +212,7 @@ fun RootNavGraph(
             exitTransition = {
                 when {
                     targetState.destination.isRoute<AppRoute.ImageViewer>() -> null
-                    isBbsToContextualMainShellTransition(initialState, targetState) ->
+                    isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
                     isThreadToBoardTransition(initialState.destination.route, targetState.destination.route) ->
                         boardThreadPopExitTransition()
@@ -234,7 +234,7 @@ fun RootNavGraph(
             popExitTransition = {
                 when {
                     targetState.destination.isRoute<AppRoute.ImageViewer>() -> null
-                    isBbsToContextualMainShellTransition(initialState, targetState) ->
+                    isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
                     isThreadToBoardTransition(initialState.destination.route, targetState.destination.route) ->
                         boardThreadPopExitTransition()
@@ -250,7 +250,7 @@ fun RootNavGraph(
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this@composable,
                 onOpenTabList = {
-                    navController.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+                    navController.navigate(AppRoute.MainShell())
                 },
                 onOpenBookmarkList = {
                     navController.navigate(
@@ -341,42 +341,31 @@ fun RootNavGraph(
 private inline fun <reified T : Any> androidx.navigation.NavDestination.isRoute(): Boolean =
     hasRoute<T>()
 
-/** Board / Thread routeからTabs用contextual MainShellへShared Boundsで遷移する組み合わせを判定する。 */
-private fun isBbsToContextualMainShellTransition(
+/** Board / Thread routeからTabs開始のMainShellへShared Boundsで遷移する組み合わせを判定する。 */
+private fun isBbsToTabsMainShellTransition(
     initialState: NavBackStackEntry,
     targetState: NavBackStackEntry,
 ): Boolean =
     initialState.isBbsRoute() &&
         initialState.bbsEntryTransition() != BbsEntryTransition.MainShellSlide &&
-        targetState.isContextualMainShell()
-
-/** contextual MainShellのTabsからBoard / ThreadへShared Boundsで遷移する組み合わせを判定する。 */
-private fun isContextualMainShellToTabsSharedBbsTransition(
-    initialState: NavBackStackEntry,
-    targetState: NavBackStackEntry,
-): Boolean =
-    initialState.isContextualMainShell() &&
-        targetState.bbsEntryTransition() == BbsEntryTransition.TabsSharedBounds
+        targetState.isTabsMainShell()
 
 /** MainShellからShared Bounds対象のBoard / Threadへ遷移する組み合わせを判定する。 */
 private fun isMainShellToTabsSharedBbsTransition(
     initialState: NavBackStackEntry,
     targetState: NavBackStackEntry,
 ): Boolean =
-    initialState.isMainShell() && targetState.bbsEntryTransition() == BbsEntryTransition.TabsSharedBounds
+    initialState.isTabsMainShell() &&
+        targetState.bbsEntryTransition() == BbsEntryTransition.TabsSharedBounds
 
 /** BoardまたはThread routeかを判定する。 */
 private fun NavBackStackEntry.isBbsRoute(): Boolean =
     destination.hasRoute<AppRoute.Board>() || destination.hasRoute<AppRoute.Thread>()
 
-/** MainShell routeかを判定する。 */
-private fun NavBackStackEntry.isMainShell(): Boolean =
-    destination.hasRoute<AppRoute.MainShell>()
-
-/** ContextualTabs用途のMainShell routeかを判定する。 */
-private fun NavBackStackEntry.isContextualMainShell(): Boolean =
+/** Tabsを初期表示するMainShell routeかを判定する。 */
+private fun NavBackStackEntry.isTabsMainShell(): Boolean =
     destination.hasRoute<AppRoute.MainShell>() &&
-        toRoute<AppRoute.MainShell>().mode == MainShellMode.ContextualTabs
+        toRoute<AppRoute.MainShell>().startDestination == MainShellStartDestination.Tabs
 
 /** Board / Thread routeから保存済みの入口transitionを取り出す。 */
 private fun NavBackStackEntry.bbsEntryTransition(): BbsEntryTransition? = when {

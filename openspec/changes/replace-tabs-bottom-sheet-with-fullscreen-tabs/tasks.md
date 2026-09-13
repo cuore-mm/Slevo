@@ -22,7 +22,7 @@
 
 ## 4. Board / Thread入口の全画面化
 
-- [x] 4.1 `BbsRouteScaffold.kt` の下部タイトルカードとコンテンツからのタブ一覧コールバックを`AppRoute.MainShell(MainShellMode.ContextualTabs)`へのRoot pushへ変更し、Board / Thread destinationの直上へTabs用MainShellをpushする。
+- [x] 4.1 `BbsRouteScaffold.kt` の下部タイトルカードとコンテンツからのタブ一覧コールバックを`AppRoute.MainShell(startDestination = Tabs)`へのRoot pushへ変更し、Board / Thread destinationの直上へTabs用MainShellをpushする。
 - [x] 4.2 `BbsRouteScaffold.kt` から`showTabListSheet`、タブ一覧用sheet state、`TabsBottomSheet`描画ブロック、および不要になったimportsを削除し、詳細・Bookmark・URL入力用BottomSheet/Dialogには影響がないことを確認する。
 - [x] 4.3 `TabsBottomSheet.kt` を削除し、プロジェクト全体で`TabsBottomSheet`、`showTabListSheet`、タブ一覧用途の`closeDrawer`参照が0件であることを検索して確認する。
 - [x] 4.4 Board / Threadのタブ一覧操作が`AppRoute.Tabs`へ遷移し、システムBackで元のBoard / Threadへ戻ることをNavigationテストとCIで検証する。既存の可視文言、content description、フォーカス順に変更がないことも確認する。

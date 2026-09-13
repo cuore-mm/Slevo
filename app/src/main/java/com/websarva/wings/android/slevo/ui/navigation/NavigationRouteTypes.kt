@@ -18,18 +18,6 @@ sealed interface RootRoute
 sealed interface MainShellRoute
 
 /**
- * Root stack上のMainShellがどの用途で生成されたかを表す。
- *
- * Baseはアプリ起動時のMainShell、ContextualTabsはBoardまたはThreadから開くタブ一覧用である。
- */
-@Keep
-@Serializable
-enum class MainShellMode {
-    Base,
-    ContextualTabs,
-}
-
-/**
  * 新しく生成するMainShellで最初に表示するinner destinationを表す。
  *
  * 通常の起動はTabsを使い、BoardまたはThread上の既存メニューから開く場合だけBookmarkまたは

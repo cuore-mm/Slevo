@@ -99,12 +99,11 @@ sealed class AppRoute {
     /**
      * NavigationBarを含むMainShellのRoot entryを表す。
      *
-     * Baseは通常起動用、ContextualTabsはBoardまたはThreadから開くTabs用で、開始するinner画面は
-     * `startDestination`で指定する。
+     * 開始するinner画面は`startDestination`で指定する。Tabs開始entryがBoardまたはThreadの直後に
+     * 追加された場合は、Root back stackの直前entryからcontextualな遷移文脈を導出する。
      */
     @Serializable
     data class MainShell(
-        val mode: MainShellMode = MainShellMode.Base,
         val startDestination: MainShellStartDestination = MainShellStartDestination.Tabs,
     ) : AppRoute(), RootRoute
 

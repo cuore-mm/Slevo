@@ -35,7 +35,6 @@ class NavigationRouteContractTest {
     fun savedState_restoresDefaultArgumentsAndEnums() {
         val controller = createController()
         val mainShell = AppRoute.MainShell(
-            mode = MainShellMode.ContextualTabs,
             startDestination = MainShellStartDestination.BookmarkList,
         )
         val board = AppRoute.Board(
