@@ -751,6 +751,8 @@ class NavigationExtensionsTest {
                 graph = createGraph(startDestination = AppRoute.Tabs) {
                     composable<AppRoute.Tabs> { }
                     composable<AppRoute.BookmarkList> { }
+                    composable<AppRoute.BbsServiceGroup> { }
+                    composable<AppRoute.ServiceList> { }
                     composable<AppRoute.Board> { }
                     composable<AppRoute.Thread> { }
                 }
