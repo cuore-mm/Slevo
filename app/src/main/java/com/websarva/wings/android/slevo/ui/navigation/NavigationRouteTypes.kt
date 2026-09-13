@@ -8,14 +8,14 @@ import kotlinx.serialization.Serializable
  *
  * この型自体はNavigation destinationとして登録せず、RootとMainShellの責務を静的に区別する。
  */
-interface RootRoute
+sealed interface RootRoute
 
 /**
  * MainShell内部のNavigationで管理されるrouteが実装する所属marker。
  *
  * この型自体はNavigation destinationとして登録せず、MainShell内の画面を識別する。
  */
-interface MainShellRoute
+sealed interface MainShellRoute
 
 /**
  * Root stack上のMainShellがどの用途で生成されたかを表す。
@@ -63,6 +63,8 @@ enum class BbsEntryTransition {
  *
  * Contextual Tabsの直接選択だけが遷移元を統合し、それ以外は中間履歴を保持する。
  */
+@Keep
+@Serializable
 enum class MainShellBbsOrigin {
     Tabs,
     Bookmark,
