@@ -1,5 +1,7 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -123,5 +125,40 @@ class TransitionSpecsTest {
     @Test
     fun boardThreadTransition_usesExistingDuration() {
         assertEquals(300, DefaultAnimDuration)
+    }
+
+    /** Tabs Shared Bounds用transitionは横移動を追加せず、Root側のscopeに任せる。 */
+    @Test
+    fun bbsPageTransition_isFadeOnlyWithoutSlide() {
+        assertEquals(EnterTransition.None, bbsPageEnterTransition())
+        assertEquals(ExitTransition.None, bbsPageExitTransition())
+    }
+
+    /** 保存される全遷移文脈がenumとして存在し、routeのdefaultがDefaultであることを確認する。 */
+    @Test
+    fun bbsEntryTransition_containsAllNavigationContexts() {
+        assertEquals(
+            listOf(
+                BbsEntryTransition.TabsSharedBounds,
+                BbsEntryTransition.MainShellSlide,
+                BbsEntryTransition.BoardThreadSlide,
+                BbsEntryTransition.DeepLink,
+                BbsEntryTransition.Default,
+            ),
+            BbsEntryTransition.entries,
+        )
+        assertEquals(
+            BbsEntryTransition.Default,
+            AppRoute.Board(boardName = "board", boardUrl = "https://example.com/board/")
+                .entryTransition,
+        )
+        assertEquals(
+            BbsEntryTransition.Default,
+            AppRoute.Thread(
+                threadKey = "thread",
+                boardUrl = "https://example.com/board/",
+                boardName = "board",
+            ).entryTransition,
+        )
     }
 }

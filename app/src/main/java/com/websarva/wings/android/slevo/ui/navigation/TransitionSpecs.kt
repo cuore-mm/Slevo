@@ -19,24 +19,28 @@ fun bbsPageExitTransition(): ExitTransition =
     ExitTransition.None
 
 // --- 通常画面用トランジション ---
+/** 通常のpush遷移として右から入り、fade inするtransitionを返す。 */
 fun defaultEnterTransition(): EnterTransition =
     slideInHorizontally(
         initialOffsetX = { fullWidth -> fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeIn(animationSpec = tween(DefaultAnimDuration))
 
+/** 通常のpush遷移として左へ抜け、fade outするtransitionを返す。 */
 fun defaultExitTransition(): ExitTransition =
     slideOutHorizontally(
         targetOffsetX = { fullWidth -> -fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeOut(animationSpec = tween(DefaultAnimDuration))
 
+/** 通常のpop遷移として左から入り、fade inするtransitionを返す。 */
 fun defaultPopEnterTransition(): EnterTransition =
     slideInHorizontally(
         initialOffsetX = { fullWidth -> -fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeIn(animationSpec = tween(DefaultAnimDuration))
 
+/** 通常のpop遷移として右へ抜け、fade outするtransitionを返す。 */
 fun defaultPopExitTransition(): ExitTransition =
     slideOutHorizontally(
         targetOffsetX = { fullWidth -> fullWidth },

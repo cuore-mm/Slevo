@@ -10,13 +10,14 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.ui.bbslist.service.ServiceListViewModel
 import com.websarva.wings.android.slevo.ui.bookmarklist.BookmarkViewModel
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.navigateToMainShellTopLevel
 import com.websarva.wings.android.slevo.ui.util.isInRoute
 
 /**
- * 現在の route と選択状態に応じて、ルート専用の下部ナビゲーションを描画する。
+ * 現在のMainShell内destinationに対応する下部バーを描画する。
  *
- * Tabs、Bookmark、BBS一覧だけがこのルート chrome を使用し、HistoryやBoard／Threadなどは
- * 各画面の Scaffold が固有の下部バーを所有する。
+ * Tabs、Bookmark、BBS一覧だけがこのroute chromeを使用し、選択モード中は一覧固有の操作バーへ
+ * 切り替える。それ以外では共通のトップレベル切替をMainShell内controllerへ委譲する。
  */
 @Composable
 fun RenderBottomBar(
@@ -37,15 +38,7 @@ fun RenderBottomBar(
                 NavigationBottomBar(
                     modifier = modifier,
                     currentDestination = currentDestination,
-                    onClick = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onClick = navController::navigateToMainShellTopLevel,
                     onMoreClick = onMoreClick
                 )
             } else {
@@ -68,15 +61,7 @@ fun RenderBottomBar(
                 NavigationBottomBar(
                     modifier = modifier,
                     currentDestination = currentDestination,
-                    onClick = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onClick = navController::navigateToMainShellTopLevel,
                     onMoreClick = onMoreClick
                 )
             } else {

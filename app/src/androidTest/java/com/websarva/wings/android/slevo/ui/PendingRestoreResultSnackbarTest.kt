@@ -1,15 +1,22 @@
 package com.websarva.wings.android.slevo.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.squareup.moshi.Moshi
 import com.websarva.wings.android.slevo.core.log.AppLogger
@@ -168,6 +175,32 @@ class PendingRestoreResultSnackbarTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("バックアップの復元に失敗しました").assertIsDisplayed()
+    }
+
+    /** Root overlayを兄弟として置いてもRoot contentの測定boundsが変化しない。 */
+    @Test
+    fun rootSnackbarHost_isOverlayAndDoesNotResizeRootContent() {
+        composeRule.setContent {
+            val hostState = remember { SnackbarHostState() }
+            Box(modifier = Modifier.size(200.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("root-nav-host"),
+                )
+                RootSnackbarHost(
+                    snackbarHostState = hostState,
+                    bottomChromeHeight = 48.dp,
+                    modifier = Modifier.testTag("root-snackbar-overlay"),
+                )
+                LaunchedEffect(hostState) {
+                    hostState.showSnackbar("root overlay")
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("root-nav-host").assertIsDisplayed()
+        composeRule.onNodeWithText("root overlay").assertIsDisplayed()
     }
 
     /** Snackbar test用にpayloadを出力しないloggerを使う。 */

@@ -2,17 +2,10 @@ package com.websarva.wings.android.slevo.ui
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberTopAppBarState
@@ -20,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,20 +65,20 @@ fun AppScaffold(
 
     var showMoreMenu by remember { mutableStateOf(false) }
     val pendingRestoreSnackbarHostState = remember { SnackbarHostState() }
-    var mainShellBottomChromeHeightPx by remember { mutableIntStateOf(0) }
-    var bbsBottomChromeHeightPx by remember { mutableIntStateOf(0) }
-    val bottomChromeHeightPx = when {
+    var rootBottomChromeHeights by remember { mutableStateOf(RootBottomChromeHeights()) }
+    val bottomChromeOwner = when {
         navBackStackEntry?.destination?.hasRoute<AppRoute.MainShell>() == true -> {
-            mainShellBottomChromeHeightPx
+            RootBottomChromeOwner.MainShell
         }
 
         navBackStackEntry?.destination?.hasRoute<AppRoute.Board>() == true ||
             navBackStackEntry?.destination?.hasRoute<AppRoute.Thread>() == true -> {
-            bbsBottomChromeHeightPx
+            RootBottomChromeOwner.Bbs
         }
 
-        else -> 0
+        else -> RootBottomChromeOwner.None
     }
+    val bottomChromeHeightPx = rootBottomChromeHeights.heightFor(bottomChromeOwner)
     val bottomChromeHeight = with(LocalDensity.current) {
         bottomChromeHeightPx.toDp()
     }
@@ -114,13 +106,17 @@ fun AppScaffold(
                 tabSessionStore = tabSessionStore,
                 sharedTransitionScope = this,
                 onMainShellBottomChromeHeightChanged = { height ->
-                    if (mainShellBottomChromeHeightPx != height) {
-                        mainShellBottomChromeHeightPx = height
+                    if (rootBottomChromeHeights.mainShellHeightPx != height) {
+                        rootBottomChromeHeights = rootBottomChromeHeights.copy(
+                            mainShellHeightPx = height,
+                        )
                     }
                 },
                 onBbsBottomChromeHeightChanged = { height ->
-                    if (bbsBottomChromeHeightPx != height) {
-                        bbsBottomChromeHeightPx = height
+                    if (rootBottomChromeHeights.bbsHeightPx != height) {
+                        rootBottomChromeHeights = rootBottomChromeHeights.copy(
+                            bbsHeightPx = height,
+                        )
                     }
                 },
                 onMoreClick = { showMoreMenu = true },
@@ -129,12 +125,10 @@ fun AppScaffold(
         }
 
         // アプリ全体の通知はRoot Navigationの遷移対象外にし、下部chromeだけを避ける。
-        SnackbarHost(
+        RootSnackbarHost(
             hostState = pendingRestoreSnackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
-                .padding(bottom = bottomChromeHeight),
+            bottomChromeHeight = bottomChromeHeight,
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 
