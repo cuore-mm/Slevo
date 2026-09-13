@@ -10,21 +10,27 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed class AppRoute {
+    /** Bookmark一覧を表示するMainShell内route。 */
     @Serializable
     data object BookmarkList : AppRoute(), MainShellRoute
 
+    /** 閲覧履歴一覧を表示するRoot route。 */
     @Serializable
     data object HistoryList : AppRoute(), RootRoute
 
+    /** 登録BBS一覧graphを表すMainShell内route。 */
     @Serializable
     data object BbsServiceGroup : AppRoute(), MainShellRoute
 
+    /** 登録BBSのサービス一覧を表示するMainShell内route。 */
     @Serializable
     data object ServiceList : AppRoute(), MainShellRoute
 
+    /** 指定サービスのカテゴリ一覧を表示するMainShell内route。 */
     @Serializable
     data class BoardCategoryList(val serviceId: Long, val serviceName: String) : AppRoute(), MainShellRoute
 
+    /** 指定カテゴリの板一覧を表示するMainShell内route。 */
     @Serializable
     data class BoardListByCategory(
         val serviceId: Long,
@@ -33,6 +39,7 @@ sealed class AppRoute {
         val categoryName: String,
     ) : AppRoute(), MainShellRoute
 
+    /** 板画面を表示するRoot route。 */
     @Serializable
     data class Board(
         val boardId: Long? = null, // 任意：未登録の場合は画面側で解決
@@ -41,6 +48,7 @@ sealed class AppRoute {
         val entryTransition: BbsEntryTransition = BbsEntryTransition.Default,
     ) : AppRoute(), RootRoute
 
+    /** スレッド画面を表示するRoot route。 */
     @Serializable
     data class Thread(
         val threadKey: String, // 必須：スレッド識別子
@@ -52,30 +60,39 @@ sealed class AppRoute {
         val entryTransition: BbsEntryTransition = BbsEntryTransition.Default,
     ) : AppRoute(), RootRoute
 
+    /** 設定graphのRoot route。 */
     @Serializable
     data object Settings : AppRoute(), RootRoute
 
+    /** 設定トップ画面を表示するRoot route。 */
     @Serializable
     data object SettingsHome : AppRoute(), RootRoute
 
+    /** 一般設定画面を表示するRoot route。 */
     @Serializable
     data object SettingsGeneral : AppRoute(), RootRoute
 
+    /** NG設定画面を表示するRoot route。 */
     @Serializable
     data object SettingsNg : AppRoute(), RootRoute
 
+    /** スレッド設定画面を表示するRoot route。 */
     @Serializable
     data object SettingsThread : AppRoute(), RootRoute
 
+    /** Cookie設定画面を表示するRoot route。 */
     @Serializable
     data object SettingsCookie : AppRoute(), RootRoute
 
+    /** ジェスチャー設定画面を表示するRoot route。 */
     @Serializable
     data object SettingsGesture : AppRoute(), RootRoute
 
+    /** バックアップ設定画面を表示するRoot route。 */
     @Serializable
     data object SettingsBackup : AppRoute(), RootRoute
 
+    /** Tabs一覧を表示するMainShell内route。 */
     @Serializable
     data object Tabs : AppRoute(), MainShellRoute
 
@@ -103,9 +120,11 @@ sealed class AppRoute {
         val transitionNamespace: String = "",
     ) : AppRoute(), RootRoute
 
+    /** About画面を表示するRoot route。 */
     @Serializable
     data object About : AppRoute(), RootRoute
 
+    /** オープンソースライセンス画面を表示するRoot route。 */
     @Serializable
     data object OpenSourceLicense : AppRoute(), RootRoute
 
