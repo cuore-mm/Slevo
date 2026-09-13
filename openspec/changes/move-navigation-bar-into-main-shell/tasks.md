@@ -1,7 +1,7 @@
 ## 1. Route契約と互換性
 
-- [ ] 1.1 `AppNavGraph.kt`の`AppRoute`へ`RootRoute` / `MainShellRoute` markerを追加し、全具象routeを設計どおり片方へ所属させてコンパイルで確認する
-- [ ] 1.2 default付き`AppRoute.MainShell`、`MainShellMode`、`BbsEntryTransition`、`MainShellBbsOrigin`を追加し、新しい型へ規約どおりKDocとenum用`@Keep` / `@Serializable`を付ける
+- [ ] 1.1 `AppRoute.kt`（旧`AppNavGraph.kt`）の`AppRoute`へ`RootRoute` / `MainShellRoute` markerを追加し、全具象routeを設計どおり片方へ所属させてコンパイルで確認する
+- [ ] 1.2 default付き`AppRoute.MainShell`、`MainShellMode`、`MainShellStartDestination`、`BbsEntryTransition`、`MainShellBbsOrigin`を追加し、新しい型へ規約どおりKDocとenum用`@Keep` / `@Serializable`を付ける
 - [ ] 1.3 `AppRoute.Board` / `AppRoute.Thread`へdefault付き`BbsEntryTransition`を追加し、既存画面データ引数と呼び出し元が従来値を維持する単体テストを追加する
 - [ ] 1.4 Navigation Compose 2.8.9のproduction graphで全routeを登録・serialize・`toRoute`でき、custom `NavType`が不要なことをinstrumentedまたはAndroid単体テストで確認する
 - [ ] 1.5 Activity再生成相当のsaved stateテストでdefault付きroute引数とenumを復元し、互換性を確認できない場合はgraph移行前に本changeのdesignを更新する
@@ -28,7 +28,7 @@
 
 ## 4. Root/MainShell間Navigation
 
-- [ ] 4.1 `NavigationExtensions.kt`をRoot用とMainShell用責務へ分け、MainShell内画面からRoot画面を開く処理を`onOpenBoard` / `onOpenThread` / Settings等のcallbackへ置換する
+- [ ] 4.1 `NavigationExtensions.kt`をRoot用とMainShell用責務へ分け、MainShell内画面からRoot画面を開く処理を`onOpenBoard` / `onOpenThread` / Settings等のcallbackへ置換する。Board / ThreadからBookmark・BBS一覧を開く既存操作は、初期inner destination付きMainShell callbackへ接続する
 - [ ] 4.2 Bookmarkと`RegisteredBBSNavigation.kt`の板・スレッド起動を`BbsEntryTransition.MainShellSlide`付きRoot Navigationへ接続し、既存slide＋fadeとBack先をテストする
 - [ ] 4.3 TabsカードとURL入力のBoard / Thread起動を`BbsEntryTransition.TabsSharedBounds`付きRoot Navigationへ接続し、登録・選択確認がNavigationより先に完了することをテストする
 - [ ] 4.4 Board→Thread、Thread→Board、Deep linkの起動に適切な`BbsEntryTransition`を設定し、既存push / pop / replaceとroute正規化を維持する

@@ -48,6 +48,7 @@ import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActio
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.common.postdialog.PostDialogAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.BbsEntryTransition
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -82,6 +83,10 @@ fun ThreadScaffold(
     tabSessionStore: TabSessionStore,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onOpenTabList: (() -> Unit)? = null,
+    onOpenBookmarkList: (() -> Unit)? = null,
+    onOpenBoardList: (() -> Unit)? = null,
+    onBottomChromeHeightChanged: (Int) -> Unit = {},
 ) {
     val routeViewModel: ThreadRouteViewModel = hiltViewModel()
     val threadPresentationState by tabSessionStore.threadPresentationState.collectAsState()
@@ -156,6 +161,8 @@ fun ThreadScaffold(
         animateToPageFlow = tabSessionStore.threadPageAnimation,
         animateAdjacentSelection = true,
         bottomBarActionVisibilityEnabled = !isPopupVisible,
+        onOpenTabList = onOpenTabList,
+        onBottomChromeHeightChanged = onBottomChromeHeightChanged,
         titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier, openTabListSheet ->
             ThreadTabTitleCard(
                 modifier = modifier.bbsControllerSharedBounds(
@@ -211,7 +218,9 @@ fun ThreadScaffold(
                                 if (index >= 0) {
                                     navController.showBoardScreenForTabSelection(
                                         currentScreenRoute = threadRoute,
-                                        route = route,
+                                        route = route.copy(
+                                            entryTransition = BbsEntryTransition.BoardThreadSlide,
+                                        ),
                                     )
                                 }
                             }
@@ -320,8 +329,10 @@ fun ThreadScaffold(
                             onPostOrCreateThread = { routeViewModel.postDialogActionsFor(tab.id.value).showDialog() },
                             onSearch = { routeViewModel.startSearch(tab.id.value) },
                             onOpenTabList = openTabListSheet,
-                            onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
-                            onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
+                             onOpenBookmarkList = onOpenBookmarkList
+                                 ?: { navController.navigate(AppRoute.BookmarkList) },
+                             onOpenBoardList = onOpenBoardList
+                                 ?: { navController.navigate(AppRoute.ServiceList) },
                             onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
                             onOpenNewTab = openUrlDialog,
                             // タブ切替は下部コントローラーへ集約し、本文の横ジェスチャーでは変更しない。
@@ -544,11 +555,11 @@ fun ThreadScaffold(
                     onDismissRequest = { routeViewModel.closeMoreSheet(tab.id.value) },
                     onBookmarkClick = {
                         routeViewModel.closeMoreSheet(tab.id.value)
-                        navController.navigate(AppRoute.BookmarkList)
+                        (onOpenBookmarkList ?: { navController.navigate(AppRoute.BookmarkList) })()
                     },
                     onBoardListClick = {
                         routeViewModel.closeMoreSheet(tab.id.value)
-                        navController.navigate(AppRoute.ServiceList)
+                        (onOpenBoardList ?: { navController.navigate(AppRoute.ServiceList) })()
                     },
                     onHistoryClick = {
                         routeViewModel.closeMoreSheet(tab.id.value)

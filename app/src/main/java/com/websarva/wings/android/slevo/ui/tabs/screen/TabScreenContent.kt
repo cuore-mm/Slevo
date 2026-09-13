@@ -104,6 +104,8 @@ fun TabScreenContent(
     tabsEntryId: String,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
+    onThreadSelected: ((AppRoute.Thread) -> Unit)? = null,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
@@ -472,7 +474,9 @@ fun TabScreenContent(
                           tabsEntryId = tabsEntryId,
                           sharedTransitionScope = sharedTransitionScope,
                           animatedVisibilityScope = animatedVisibilityScope,
-                     )
+                          onBoardSelected = onBoardSelected,
+                          onThreadSelected = onThreadSelected,
+                      )
                 }
             }
 
@@ -590,9 +594,10 @@ fun TabScreenContent(
                  onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
                  navController = navController,
                  tabSessionStore = tabSessionStore,
-                  sourceRoute = sourceRoute,
-                  tabsEntryId = tabsEntryId,
-             )
+                   sourceRoute = sourceRoute,
+                   tabsEntryId = tabsEntryId,
+                   onBoardSelected = onBoardSelected,
+              )
 
             // --- URL dialog ---
             if (listUiState.showUrlDialog) {
@@ -616,11 +621,15 @@ fun TabScreenContent(
                                     val isConfirmed =
                                         tabSessionStore.registerAndConfirmBoardRoute(result.route)
                                     if (isConfirmed) {
-                                        navController.showBoardScreenFromTabs(
-                                            sourceRoute = sourceRoute,
-                                            tabsEntryId = tabsEntryId,
-                                            route = result.route,
-                                        )
+                                        if (onBoardSelected != null) {
+                                            onBoardSelected(result.route)
+                                        } else {
+                                            navController.showBoardScreenFromTabs(
+                                                sourceRoute = sourceRoute,
+                                                tabsEntryId = tabsEntryId,
+                                                route = result.route,
+                                            )
+                                        }
                                     }
                                     tabListViewModel.setUrlDialogVisible(false)
                                 }
@@ -628,11 +637,15 @@ fun TabScreenContent(
                                 is UrlOpenResult.NavigateThread -> {
                                     val index = tabSessionStore.registerAndSelectThreadRoute(result.route)
                                     if (index >= 0) {
-                                        navController.showThreadScreenFromTabs(
-                                            sourceRoute = sourceRoute,
-                                            tabsEntryId = tabsEntryId,
-                                            route = result.route,
-                                        )
+                                        if (onThreadSelected != null) {
+                                            onThreadSelected(result.route)
+                                        } else {
+                                            navController.showThreadScreenFromTabs(
+                                                sourceRoute = sourceRoute,
+                                                tabsEntryId = tabsEntryId,
+                                                route = result.route,
+                                            )
+                                        }
                                         tabListViewModel.setUrlDialogVisible(false)
                                     }
                                 }
@@ -661,9 +674,10 @@ private fun TabDetailBottomSheets(
     onDismissBoardSheet: () -> Unit,
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
-    tabSessionStore: TabSessionStore,
-    sourceRoute: AppRoute?,
-    tabsEntryId: String,
+     tabSessionStore: TabSessionStore,
+     sourceRoute: AppRoute?,
+     tabsEntryId: String,
+     onBoardSelected: ((AppRoute.Board) -> Unit)?,
 ) {
     val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
@@ -705,7 +719,8 @@ private fun TabDetailBottomSheets(
              tabSessionStore = tabSessionStore,
               currentScreenRoute = sourceRoute,
               tabsEntryId = tabsEntryId,
-             showBoardAction = true,
+              onBoardSelected = onBoardSelected,
+              showBoardAction = true,
          )
     }
 }

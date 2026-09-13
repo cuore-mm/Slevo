@@ -75,7 +75,9 @@ private suspend fun handleDeepLinkUrl(
                 )
             )
             handleBoardDeepLinkRoute(route, tabSessionStore) {
-                navController.navigateToBoardScreen(route)
+                navController.navigateToBoardScreen(
+                    route.copy(entryTransition = BbsEntryTransition.DeepLink),
+                )
             }
         }
         is ResolvedUrl.Thread -> {
@@ -92,7 +94,11 @@ private suspend fun handleDeepLinkUrl(
                 handleThreadDeepLinkRoute(
                     route = route,
                     tabSessionStore = tabSessionStore,
-                    navigate = { navController.navigateToThreadScreen(route) },
+                    navigate = {
+                        navController.navigateToThreadScreen(
+                            route.copy(entryTransition = BbsEntryTransition.DeepLink),
+                        )
+                    },
                 )
             } catch (cancellationException: CancellationException) {
                 throw cancellationException
@@ -109,7 +115,9 @@ private suspend fun handleDeepLinkUrl(
                 )
             )
             handleBoardDeepLinkRoute(route, tabSessionStore) {
-                navController.navigateToBoardScreen(route)
+                navController.navigateToBoardScreen(
+                    route.copy(entryTransition = BbsEntryTransition.DeepLink),
+                )
             }
         }
         is ResolvedUrl.Unknown -> false

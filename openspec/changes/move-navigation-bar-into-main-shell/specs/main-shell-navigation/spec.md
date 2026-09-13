@@ -20,6 +20,11 @@
 - **WHEN** ユーザーがMainShellからSettingsを開き、Backを実行する
 - **THEN** システムはSettingsをRoot履歴から除去して以前のMainShell状態を復元する
 
+### Scenario: 詳細画面からMainShell内の一覧を開く
+- **WHEN** ユーザーがBoardまたはThreadの既存ジェスチャー・オーバーフローメニューからBookmarkまたはBBS一覧を開く
+- **THEN** システムは対象の初期inner destinationを持つMainShellをRoot履歴へ追加し、対象一覧を表示する
+- **AND** Backで直前のBoardまたはThreadへ戻る
+
 ### Requirement: NavigationBarをMainShellの一部として遷移させる
 システムはNavigationBarをMainShellの表示領域に含め、MainShellからRoot詳細画面へ遷移するときにMainShell全体と同じ遷移期間で退出させなければならない（MUST）。NavigationBarの表示状態変更によってRoot画面の利用可能boundsを遷移中に変更してはならない（MUST NOT）。
 

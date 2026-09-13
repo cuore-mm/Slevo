@@ -45,6 +45,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
     navController: NavHostController,
     openDrawer: () -> Unit,
     tabSessionStore: TabSessionStore,
+    onOpenBoard: (AppRoute.Board) -> Unit = { route -> navController.navigateToBoardScreen(route) },
 ) {
     navigation<AppRoute.BbsServiceGroup>(
         startDestination = AppRoute.ServiceList,
@@ -295,13 +296,7 @@ fun NavGraphBuilder.addRegisteredBBSNavigation(
                                 )
                             )
                             tabSessionStore.registerAndSelectBoardRoute(route)
-                            navController.navigateToBoardScreen(route) {
-                                popUpTo(route) {
-                                    inclusive = false
-                                    saveState = true
-                                }
-                                restoreState = true
-                            }
+                            onOpenBoard(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
                         }
                     }
                 )

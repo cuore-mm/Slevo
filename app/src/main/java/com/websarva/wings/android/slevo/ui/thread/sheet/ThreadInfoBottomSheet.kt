@@ -44,6 +44,7 @@ import com.websarva.wings.android.slevo.ui.common.InfoBottomSheetContent
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.BbsEntryTransition
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenFromTabs
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
@@ -70,6 +71,7 @@ fun ThreadInfoBottomSheet(
     currentScreenRoute: AppRoute? = null,
     tabsEntryId: String? = null,
     showBoardAction: Boolean = true,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
 ) {
     // --- Sheet state ---
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -112,7 +114,9 @@ fun ThreadInfoBottomSheet(
                         if (tabsEntryId != null && registrationIndex < 0) {
                             return@launch
                         }
-                        if (tabsEntryId != null) {
+                        if (onBoardSelected != null) {
+                            onBoardSelected(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
+                        } else if (tabsEntryId != null) {
                             navController.showBoardScreenFromTabs(
                                 sourceRoute = currentScreenRoute,
                                 tabsEntryId = tabsEntryId,

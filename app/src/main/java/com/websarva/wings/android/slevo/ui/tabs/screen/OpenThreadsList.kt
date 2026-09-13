@@ -66,6 +66,7 @@ fun OpenThreadsList(
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
     pageSharedTransitionEnabled: Boolean = true,
+    onThreadSelected: ((AppRoute.Thread) -> Unit)? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -113,11 +114,15 @@ fun OpenThreadsList(
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     val index = tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute) ?: -1
                     if (index >= 0) {
-                        navController.showThreadScreenFromTabs(
-                            sourceRoute = sourceRoute,
-                            tabsEntryId = tabsEntryId,
-                            route = normalizedRoute,
-                        )
+                        if (onThreadSelected != null) {
+                            onThreadSelected(normalizedRoute)
+                        } else {
+                            navController.showThreadScreenFromTabs(
+                                sourceRoute = sourceRoute,
+                                tabsEntryId = tabsEntryId,
+                                route = normalizedRoute,
+                            )
+                        }
                     }
                 }
             },

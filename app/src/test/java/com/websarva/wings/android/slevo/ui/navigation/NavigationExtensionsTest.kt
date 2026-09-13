@@ -359,6 +359,164 @@ class NavigationExtensionsTest {
         assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
     }
 
+    /** Board起点のcontextual MainShellからの直接Board選択では、source BoardをRoot履歴から除去する。 */
+    @Test
+    fun showBoardScreenFromMainShell_replacesSourceBoard() {
+        val controller = createRootController()
+        val sourceBoard = boardRoute("board-a")
+        val selectedBoard = boardRoute("board-b")
+        controller.navigateToBoardScreen(sourceBoard)
+        val sourceBoardEntryId = controller.currentBackStackEntry?.id
+        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val innerController = createController()
+        val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
+
+        controller.showBoardScreenFromMainShell(
+            sourceRoute = sourceBoard,
+            mainShellEntryId = mainShellEntryId,
+            tabsEntryId = tabsEntryId,
+            mainShellNavController = innerController,
+            route = selectedBoard,
+        )
+
+        assertBoardRoute(selectedBoard, controller)
+        assertNotEquals(sourceBoardEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.MainShell::class) == true)
+        assertEquals(
+            BbsEntryTransition.TabsSharedBounds,
+            controller.currentBackStackEntry?.toRoute<AppRoute.Board>()?.entryTransition,
+        )
+    }
+
+    /** Thread起点のcontextual MainShellからの直接Thread選択では、source ThreadをRoot履歴から除去する。 */
+    @Test
+    fun showThreadScreenFromMainShell_replacesSourceThread() {
+        val controller = createRootController()
+        val sourceThread = threadRoute("1")
+        val selectedThread = threadRoute("2")
+        controller.navigateToThreadScreen(sourceThread)
+        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val innerController = createController()
+        val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
+
+        controller.showThreadScreenFromMainShell(
+            sourceRoute = sourceThread,
+            mainShellEntryId = mainShellEntryId,
+            tabsEntryId = tabsEntryId,
+            mainShellNavController = innerController,
+            route = selectedThread,
+        )
+
+        assertThreadRoute(selectedThread, controller)
+        assertTrue(controller.previousBackStackEntry?.destination?.hasRoute(AppRoute.MainShell::class) == true)
+        assertEquals(
+            BbsEntryTransition.TabsSharedBounds,
+            controller.currentBackStackEntry?.toRoute<AppRoute.Thread>()?.entryTransition,
+        )
+    }
+
+    /** contextual MainShellのinner Bookmark経由では、Board起点と中間履歴を保持する。 */
+    @Test
+    fun mainShellBookmarkSelection_keepsRootAndInnerHistory() {
+        val controller = createRootController()
+        val sourceBoard = boardRoute("board-a")
+        val selectedBoard = boardRoute("board-b")
+        controller.navigateToBoardScreen(sourceBoard)
+        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val innerController = createController()
+        innerController.navigate(AppRoute.BookmarkList)
+
+        controller.navigateToBoardScreen(
+            selectedBoard.copy(entryTransition = BbsEntryTransition.MainShellSlide),
+        )
+
+        assertBoardRoute(selectedBoard, controller)
+        assertTrue(controller.previousBackStackEntry?.id == mainShellEntryId)
+        assertEquals(
+            BbsEntryTransition.MainShellSlide,
+            controller.currentBackStackEntry?.toRoute<AppRoute.Board>()?.entryTransition,
+        )
+
+        // Root Backでcontextual MainShellへ戻り、inner BackでBookmarkからTabsへ戻る。
+        controller.popBackStack()
+        assertTrue(innerController.currentBackStackEntry?.destination?.hasRoute(AppRoute.BookmarkList::class) == true)
+        innerController.popBackStack()
+        assertTrue(innerController.currentBackStackEntry?.destination?.hasRoute(AppRoute.Tabs::class) == true)
+        controller.popBackStack()
+        assertBoardRoute(sourceBoard, controller)
+    }
+
+    /** Rootまたはinnerのentry IDが古い場合は、選択結果がRoot履歴を変更しない。 */
+    @Test
+    fun showBoardScreenFromMainShell_ignoresStaleEntryIds() {
+        val controller = createRootController()
+        val sourceBoard = boardRoute("board-a")
+        controller.navigateToBoardScreen(sourceBoard)
+        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val innerController = createController()
+        val tabsEntryId = innerController.currentBackStackEntry?.id.orEmpty()
+        val currentRootEntryId = controller.currentBackStackEntry?.id
+
+        controller.showBoardScreenFromMainShell(
+            sourceRoute = sourceBoard,
+            mainShellEntryId = "stale-$mainShellEntryId",
+            tabsEntryId = tabsEntryId,
+            mainShellNavController = innerController,
+            route = boardRoute("board-b"),
+        )
+        controller.showBoardScreenFromMainShell(
+            sourceRoute = sourceBoard,
+            mainShellEntryId = mainShellEntryId,
+            tabsEntryId = "stale-$tabsEntryId",
+            mainShellNavController = innerController,
+            route = boardRoute("board-c"),
+        )
+
+        assertEquals(currentRootEntryId, controller.currentBackStackEntry?.id)
+        assertTrue(controller.currentBackStackEntry?.destination?.hasRoute(AppRoute.MainShell::class) == true)
+    }
+
+    /** Tabs以外のoriginではcontextual MainShellを統合せず、MainShellSlide付きでRootへ積む。 */
+    @Test
+    fun showBoardScreenFromMainShell_keepsNonTabsOriginHistory() {
+        val controller = createRootController()
+        val sourceBoard = boardRoute("board-a")
+        controller.navigateToBoardScreen(sourceBoard)
+        controller.navigate(AppRoute.MainShell(MainShellMode.ContextualTabs))
+        val mainShellEntryId = controller.currentBackStackEntry?.id.orEmpty()
+        val innerController = createController()
+        innerController.navigate(AppRoute.BookmarkList)
+
+        controller.showBoardScreenFromMainShell(
+            sourceRoute = sourceBoard,
+            origin = MainShellBbsOrigin.Bookmark,
+            mainShellEntryId = mainShellEntryId,
+            tabsEntryId = "not-current-tabs",
+            mainShellNavController = innerController,
+            route = boardRoute("board-b"),
+        )
+
+        assertBoardRoute(boardRoute("board-b"), controller)
+        assertEquals(mainShellEntryId, controller.previousBackStackEntry?.id)
+        assertEquals(
+            BbsEntryTransition.MainShellSlide,
+            controller.currentBackStackEntry?.toRoute<AppRoute.Board>()?.entryTransition,
+        )
+    }
+
+    /** 追加された遷移文脈はdefault値を持ち、既存のroute生成結果を変更しない。 */
+    @Test
+    fun bbsRoutes_keepDefaultEntryTransition() {
+        assertEquals(BbsEntryTransition.Default, boardRoute("board-a").entryTransition)
+        assertEquals(BbsEntryTransition.Default, threadRoute("1").entryTransition)
+        assertEquals(MainShellMode.Base, AppRoute.MainShell().mode)
+        assertEquals(MainShellStartDestination.Tabs, AppRoute.MainShell().startDestination)
+    }
+
     private fun createController(): TestNavHostController {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         return TestNavHostController(context).apply {
@@ -371,6 +529,21 @@ class NavigationExtensionsTest {
                     composable<AppRoute.Thread> { }
                 }
             , startDestinationArgs = null)
+        }
+    }
+
+    private fun createRootController(): TestNavHostController {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        return TestNavHostController(context).apply {
+            navigatorProvider.addNavigator(ComposeNavigator())
+            setGraph(
+                graph = createGraph(startDestination = AppRoute.MainShell()) {
+                    composable<AppRoute.MainShell> { }
+                    composable<AppRoute.Board> { }
+                    composable<AppRoute.Thread> { }
+                },
+                startDestinationArgs = null,
+            )
         }
     }
 

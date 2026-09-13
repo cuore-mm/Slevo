@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -120,6 +121,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
     animateAdjacentSelection: Boolean = false,
+    onBottomChromeHeightChanged: (Int) -> Unit = {},
     pageModifier: @Composable (
         tabInfo: TabInfo,
         isSharedTransitionCandidate: Boolean,
@@ -305,26 +307,32 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         ) {
             Scaffold(
                 bottomBar = {
-                    bottomBar(
-                        settledTab,
-                        settledUiState,
-                        settledProgress.value,
-                        openTabList,
-                        controllerModifier,
-                    ) { modifier ->
-                        PagerTitleCards(
-                            modifier = modifier,
-                            pagerState = pagerState,
-                            tabs = tabs,
-                            getUiState = getUiState,
-                            getKey = getKey,
-                            getActionProgress = { tab ->
-                                actionProgressStates.getOrPut(getKey(tab)) { mutableFloatStateOf(1f) }.value
-                            },
-                            overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
-                            titleCard = titleCard,
-                            openTabListSheet = openTabList,
-                        )
+                    Box(
+                        modifier = Modifier.onSizeChanged { size ->
+                            onBottomChromeHeightChanged(size.height)
+                        },
+                    ) {
+                        bottomBar(
+                            settledTab,
+                            settledUiState,
+                            settledProgress.value,
+                            openTabList,
+                            controllerModifier,
+                        ) { modifier ->
+                            PagerTitleCards(
+                                modifier = modifier,
+                                pagerState = pagerState,
+                                tabs = tabs,
+                                getUiState = getUiState,
+                                getKey = getKey,
+                                getActionProgress = { tab ->
+                                    actionProgressStates.getOrPut(getKey(tab)) { mutableFloatStateOf(1f) }.value
+                                },
+                                overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
+                                titleCard = titleCard,
+                                openTabListSheet = openTabList,
+                            )
+                        }
                     }
                 },
                 ) { innerPadding ->

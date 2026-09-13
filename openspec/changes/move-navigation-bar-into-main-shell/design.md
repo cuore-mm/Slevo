@@ -2,7 +2,7 @@
 
 `AppScaffold.kt`は現在、単一の`NavHostController`、ルート`Scaffold`、`RenderBottomBar`、`PendingRestoreResultSnackbar`を所有する。`Scaffold.bottomBar`にあるNavigationBarは`SharedTransitionLayout`と`AppNavGraph`の外側にあり、Board / Threadへ遷移するとdestinationより先に非表示となってNavHostへ渡す下余白を変更する。TabsカードからBBSページへのShared Boundsはこの再測定の影響を受ける。
 
-`AppNavGraph.kt`は`AppRoute.Tabs`をstart destinationとし、Tabs、Bookmark、BBSサービス一覧、Board、Thread、Settings、History、ImageViewerを同じback stackで管理する。Board / Threadから開くTabsは直前entryを`sourceRoute`として解決し、`NavigationExtensions.kt`がTabs選択後のpush / pop / replaceを行う。
+旧`AppNavGraph.kt`は`AppRoute.Tabs`をstart destinationとし、Tabs、Bookmark、BBSサービス一覧、Board、Thread、Settings、History、ImageViewerを同じback stackで管理していた。Board / Threadから開くTabsは直前entryを`sourceRoute`として解決し、`NavigationExtensions.kt`がTabs選択後のpush / pop / replaceを行う。route定義は`AppRoute.kt`へ分離し、graph本体は`RootNavGraph.kt`と`MainShellNavGraph.kt`へ分割する。
 
 `PendingRestoreResultSnackbar`はActivityスコープの`PendingRestoreResultViewModel`から供給され、現在のrouteに関係なく表示を継続するアプリ全体通知である。Board / Threadは`BbsRouteScaffold.kt`内に独自の下部ツールバーを持つため、Root Snackbarの回避対象はNavigationBarだけではない。
 
@@ -52,12 +52,16 @@ RootNavHostへNavigationBar由来のcontent paddingを渡さず、常にwindow�
 
 新しい`MainShell.kt`は`Scaffold`の`bottomBar`で既存`NavigationBottomBar`を描画し、contentに`MainShellNavGraph`を置く。MainShellの`innerPadding`はMainShell内destinationだけへ渡す。Board / Threadは従来どおり`BbsRouteScaffold`自身の下部ツールバーとInsetsを所有する。
 
-Root start destinationは新しい`AppRoute.MainShell`とする。通常のMainShellとBoard / Threadから開くcontextual MainShellを、serializableな`MainShellMode`で区別する。
+Root start destinationは新しい`AppRoute.MainShell`とする。通常のMainShellとBoard / Threadから開くcontextual MainShellを、serializableな`MainShellMode`で区別する。Board / Threadの既存ジェスチャー・オーバーフローメニューからBookmarkまたはBBS一覧を開く場合は、`MainShellStartDestination`をrouteへ保存して対象inner画面を初期表示する。
 
 ```kotlin
 @Keep
 @Serializable
 enum class MainShellMode { Base, ContextualTabs }
+
+@Keep
+@Serializable
+enum class MainShellStartDestination { Tabs, BookmarkList, BbsServiceGroup }
 ```
 
 各Root MainShell entryは自身の`rememberNavController()`を持つ。Rootのsaveable state holderにより、base MainShellとcontextual MainShellのinner back stackをentryごとに分離して保存・復元する。同じ`NavHostController`を同時に複数のMainShellへ接続する案は、Root transition中に二つのNavHostがcomposeされ得るため採用しない。
@@ -82,7 +86,7 @@ marker interface自体を`composable<T>`または`navigation<T>`のdestination�
 
 ### 4. destinationをRootとMainShellへ移す
 
-`AppNavGraph.kt`をRoot graphへ縮小するか、責務が明確になるよう`RootNavGraph.kt`へ改名する。次をRootへ登録する。
+旧`AppNavGraph.kt`のroute定義を`AppRoute.kt`へ分離し、graph本体を`RootNavGraph.kt`へ整理する。次をRootへ登録する。
 
 - `AppRoute.MainShell`
 - `AppRoute.Board`
@@ -98,7 +102,7 @@ marker interface自体を`composable<T>`または`navigation<T>`のdestination�
 - Bookmark list
 - `RegisteredBBSNavigation.kt`のBBSサービス、カテゴリ、板一覧graph
 
-MainShell内画面へRoot controllerを直接渡さず、`onOpenBoard`、`onOpenThread`、`onOpenSettings`等のcallbackを渡す。Root Navigationのstack変換はRoot用extensionまたはcoordinatorへ集約し、MainShell内top-level切替はMainShell用extensionへ分離する。
+MainShell内画面へRoot controllerを直接渡さず、`onOpenBoard`、`onOpenThread`、`onOpenSettings`等のcallbackを渡す。Root Navigationのstack変換はRoot用extensionまたはcoordinatorへ集約し、MainShell内top-level切替はMainShell用extensionへ分離する。Board / ThreadからMainShell内のBookmarkまたはBBS一覧を開く操作は、Root controllerへの直接navigateではなく、初期inner destination付きMainShellをpushするcallbackへ接続する。
 
 ### 5. entryへ遷移文脈enumを保存する
 
@@ -184,6 +188,7 @@ MainShell固有Snackbarは実際の通知要件が追加されるまで作らな
 - Root Snackbarのbottom offset変更をRootNavHostのsize、padding、constraintsへ反映しない。
 - 既存`AppRoute`具象型を別route data classへ包まない。marker interfaceを所属確認に使い、custom `NavType`を追加しない。
 - `BbsEntryTransition`と`MainShellMode`には`@Keep`と`@Serializable`を付け、既存route引数へdefault値を追加する。
+- `MainShellStartDestination`には`@Keep`と`@Serializable`を付け、既存の`AppRoute.MainShell()`呼び出しがTabs開始のままになるdefault値を持たせる。
 - Root/MainShell graphへ登録するのは具象routeだけとし、sealed marker interfaceをdestinationとして登録しない。
 - base MainShellとcontextual MainShellは別Root entryとして別々の`NavHostController`を所有し、一つのcontrollerを複数NavHostへ同時接続しない。
 - TabsページShared BoundsへRoot MainShell destinationの`AnimatedVisibilityScope`を明示伝播し、MainShellNavHost destination scopeで置き換えない。

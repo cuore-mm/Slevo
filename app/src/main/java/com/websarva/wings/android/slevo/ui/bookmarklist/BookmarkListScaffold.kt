@@ -25,6 +25,7 @@ import com.websarva.wings.android.slevo.ui.common.SelectedTopBarScreen
 import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.BbsEntryTransition
 import com.websarva.wings.android.slevo.ui.navigation.navigateToBoardScreen
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -43,6 +44,8 @@ fun BookmarkListScaffold(
     topBarState: TopAppBarState,
     openDrawer: () -> Unit,
     tabSessionStore: TabSessionStore,
+    onOpenBoard: (AppRoute.Board) -> Unit = { route -> navController.navigateToBoardScreen(route) },
+    onOpenThread: (AppRoute.Thread) -> Unit = { route -> navController.navigateToThreadScreen(route) },
 ) {
     val bookmarkViewModel: BookmarkViewModel = hiltViewModel()
     val uiState by bookmarkViewModel.uiState.collectAsState()
@@ -96,7 +99,7 @@ fun BookmarkListScaffold(
                         )
                     )
                     tabSessionStore.registerAndSelectBoardRoute(route)
-                    navController.navigateToBoardScreen(route)
+                    onOpenBoard(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
                 }
             },
             threadGroups = uiState.groupedThreadBookmarks,
@@ -113,7 +116,9 @@ fun BookmarkListScaffold(
                         )
                     )
                     val index = tabSessionStore.registerAndSelectThreadRoute(route)
-                    if (index >= 0) navController.navigateToThreadScreen(route)
+                    if (index >= 0) {
+                        onOpenThread(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
+                    }
                 }
             },
             selectMode = uiState.selectMode,

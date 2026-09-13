@@ -47,6 +47,7 @@ fun NavHostController.showBoardScreenForTabSelection(
         is AppRoute.Board -> Unit
 
         is AppRoute.Thread -> {
+            val targetRoute = route.copy(entryTransition = BbsEntryTransition.BoardThreadSlide)
             val previousIsBoard =
                 previousBackStackEntry
                     ?.destination
@@ -54,7 +55,7 @@ fun NavHostController.showBoardScreenForTabSelection(
             if (previousIsBoard) {
                 popBackStack()
             } else {
-                replaceCurrentScreen(currentScreenRoute, route)
+                replaceCurrentScreen(currentScreenRoute, targetRoute)
             }
         }
 
@@ -74,6 +75,9 @@ fun NavHostController.showThreadScreenForTabSelection(
 ) {
     when (currentScreenRoute) {
         is AppRoute.Thread -> Unit
+        is AppRoute.Board -> navigateToThreadScreen(
+            route.copy(entryTransition = BbsEntryTransition.BoardThreadSlide),
+        )
         else -> navigateToThreadScreen(route)
     }
 }
@@ -158,10 +162,105 @@ fun NavHostController.showThreadScreenFromTabs(
     }
 }
 
+/**
+ * MainShell内のTabsから選択した板をRoot Navigationへ反映する。
+ *
+ * contextual Tabsの直接選択（`origin == Tabs`）では遷移元Boardを置換し、Bookmarkなどを経由した
+ * 選択では通常のRoot pushを行う。Rootとinnerのentry IDを確認して古い非同期callbackを抑止する。
+ */
+fun NavHostController.showBoardScreenFromMainShell(
+    sourceRoute: AppRoute?,
+    origin: MainShellBbsOrigin = MainShellBbsOrigin.Tabs,
+    mainShellEntryId: String,
+    tabsEntryId: String,
+    mainShellNavController: NavHostController,
+    route: AppRoute.Board,
+) {
+    if (!isCurrentMainShellEntry(mainShellEntryId)) return
+    if (origin != MainShellBbsOrigin.Tabs) {
+        navigateToBoardScreen(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
+        return
+    }
+    if (!mainShellNavController.isCurrentTabsEntry(tabsEntryId)) return
+
+    val targetRoute = route.copy(entryTransition = BbsEntryTransition.TabsSharedBounds)
+    if (sourceRoute == null) {
+        navigateToBoardScreen(targetRoute)
+        return
+    }
+
+    // Guard: contextual MainShellではRoot側に必ずsource entryが存在する。
+    if (previousBackStackEntry == null) return
+    when (sourceRoute) {
+        is AppRoute.Board -> navigateToBoardScreen(targetRoute) {
+            popUpTo(sourceRoute) { inclusive = true }
+        }
+
+        is AppRoute.Thread -> {
+            if (hasBoardImmediatelyBelowMainShell(mainShellEntryId)) {
+                if (!popBackStack<AppRoute.Board>(inclusive = false)) return
+            } else {
+                navigateToBoardScreen(targetRoute) {
+                    popUpTo(sourceRoute) { inclusive = true }
+                }
+            }
+        }
+
+        else -> return
+    }
+}
+
+/**
+ * MainShell内のTabsから選択したスレッドをRoot Navigationへ反映する。
+ *
+ * Board起点ではBoardを残してThreadを追加し、Thread起点ではThreadを選択先へ置換する。Tabs以外の
+ * originではsourceを統合せず、通常のRoot pushを行う。
+ */
+fun NavHostController.showThreadScreenFromMainShell(
+    sourceRoute: AppRoute?,
+    origin: MainShellBbsOrigin = MainShellBbsOrigin.Tabs,
+    mainShellEntryId: String,
+    tabsEntryId: String,
+    mainShellNavController: NavHostController,
+    route: AppRoute.Thread,
+) {
+    if (!isCurrentMainShellEntry(mainShellEntryId)) return
+    if (origin != MainShellBbsOrigin.Tabs) {
+        navigateToThreadScreen(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
+        return
+    }
+    if (!mainShellNavController.isCurrentTabsEntry(tabsEntryId)) return
+
+    val targetRoute = route.copy(entryTransition = BbsEntryTransition.TabsSharedBounds)
+    if (sourceRoute == null) {
+        navigateToThreadScreen(targetRoute)
+        return
+    }
+
+    // Guard: contextual MainShellではRoot側に必ずsource entryが存在する。
+    if (previousBackStackEntry == null) return
+    when (sourceRoute) {
+        is AppRoute.Board -> navigateToThreadScreen(targetRoute) {
+            popUpTo(sourceRoute) { inclusive = false }
+        }
+
+        is AppRoute.Thread -> navigateToThreadScreen(targetRoute) {
+            popUpTo(sourceRoute) { inclusive = true }
+        }
+
+        else -> return
+    }
+}
+
 /** 現在のentryが、指定されたTabs destinationのままかを検証する。 */
 private fun NavHostController.isCurrentTabsEntry(tabsEntryId: String): Boolean =
     currentBackStackEntry?.id == tabsEntryId &&
         currentBackStackEntry?.destination?.hasRoute<AppRoute.Tabs>() == true
+
+/** Root側の現在entryが、非同期Navigationを開始したMainShellのままかを検証する。 */
+private fun NavHostController.isCurrentMainShellEntry(mainShellEntryId: String): Boolean =
+    currentBackStackEntry?.id == mainShellEntryId &&
+        currentBackStackEntry?.destination?.hasRoute<AppRoute.MainShell>() == true
 
 /**
  * 公開されているcurrentBackStackから、Tabsの直下がThread、その直下がBoardかを判定する。
@@ -177,6 +276,17 @@ private fun NavHostController.hasBoardImmediatelyBelowThread(tabsEntryId: String
     if (tabsIndex < 2) return false
     return destinationEntries[tabsIndex - 1].destination.hasRoute<AppRoute.Thread>() &&
         destinationEntries[tabsIndex - 2].destination.hasRoute<AppRoute.Board>()
+}
+
+/** MainShell直前のRoot entryがThread、その直前がBoardかを判定する。 */
+private fun NavHostController.hasBoardImmediatelyBelowMainShell(mainShellEntryId: String): Boolean {
+    val destinationEntries = currentBackStack.value.filterNot { entry ->
+        entry.destination is NavGraph
+    }
+    val shellIndex = destinationEntries.indexOfLast { it.id == mainShellEntryId }
+    if (shellIndex < 2) return false
+    return destinationEntries[shellIndex - 1].destination.hasRoute<AppRoute.Thread>() &&
+        destinationEntries[shellIndex - 2].destination.hasRoute<AppRoute.Board>()
 }
 
 /**

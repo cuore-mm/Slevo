@@ -63,6 +63,7 @@ fun OpenBoardsList(
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
     pageSharedTransitionEnabled: Boolean = true,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -106,11 +107,15 @@ fun OpenBoardsList(
                     val isConfirmed =
                         tabSessionStore?.registerAndConfirmBoardRoute(normalizedRoute) == true
                     if (isConfirmed) {
-                        navController.showBoardScreenFromTabs(
-                            sourceRoute = sourceRoute,
-                            tabsEntryId = tabsEntryId,
-                            route = normalizedRoute,
-                        )
+                        if (onBoardSelected != null) {
+                            onBoardSelected(normalizedRoute)
+                        } else {
+                            navController.showBoardScreenFromTabs(
+                                sourceRoute = sourceRoute,
+                                tabsEntryId = tabsEntryId,
+                                route = normalizedRoute,
+                            )
+                        }
                     }
                 }
             },

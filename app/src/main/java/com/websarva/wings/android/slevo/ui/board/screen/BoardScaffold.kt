@@ -34,6 +34,7 @@ import com.websarva.wings.android.slevo.ui.common.transition.bbsPageSharedBounds
 import com.websarva.wings.android.slevo.ui.common.interaction.CommonGestureActionHandlers
 import com.websarva.wings.android.slevo.ui.common.interaction.dispatchCommonGestureAction
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.navigation.BbsEntryTransition
 import com.websarva.wings.android.slevo.ui.navigation.buildImageViewerRoute
 import com.websarva.wings.android.slevo.ui.navigation.navigateToThreadScreen
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
@@ -57,6 +58,10 @@ fun BoardScaffold(
     tabSessionStore: TabSessionStore,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onOpenTabList: (() -> Unit)? = null,
+    onOpenBookmarkList: (() -> Unit)? = null,
+    onOpenBoardList: (() -> Unit)? = null,
+    onBottomChromeHeightChanged: (Int) -> Unit = {},
 ) {
     val routeViewModel: BoardRouteViewModel = hiltViewModel()
     // --- Tab/state ---
@@ -119,6 +124,8 @@ fun BoardScaffold(
         },
         onTabSelected = { tabSessionStore.selectBoardTab(it.boardUrl) },
         animateToPageFlow = tabSessionStore.boardPageAnimation,
+        onOpenTabList = onOpenTabList,
+        onBottomChromeHeightChanged = onBottomChromeHeightChanged,
         titleCard = { tab, uiState, actionProgress, isSharedTransitionCandidate, modifier, openTabListSheet ->
             BoardTabTitleCard(
                 modifier = modifier.bbsControllerSharedBounds(
@@ -174,7 +181,11 @@ fun BoardScaffold(
                                     ),
                                 )
                                 val index = tabSessionStore.registerAndSelectThreadRoute(route)
-                                if (index >= 0) navController.navigateToThreadScreen(route)
+                                 if (index >= 0) {
+                                     navController.navigateToThreadScreen(
+                                         route.copy(entryTransition = BbsEntryTransition.BoardThreadSlide),
+                                     )
+                                 }
                             }
                         }
                         Unit
@@ -236,7 +247,11 @@ fun BoardScaffold(
                             )
                         )
                         val index = tabSessionStore.registerAndSelectThreadRoute(route)
-                        if (index >= 0) navController.navigateToThreadScreen(route)
+                         if (index >= 0) {
+                             navController.navigateToThreadScreen(
+                                 route.copy(entryTransition = BbsEntryTransition.BoardThreadSlide),
+                             )
+                         }
                     }
                 },
                 onLongClick = { threadInfo ->
@@ -254,8 +269,10 @@ fun BoardScaffold(
                             onPostOrCreateThread = { routeViewModel.postDialogActionsFor(tab.boardUrl).showDialog() },
                             onSearch = { routeViewModel.setSearchMode(tab.boardUrl, true) },
                             onOpenTabList = openTabListSheet,
-                            onOpenBookmarkList = { navController.navigate(AppRoute.BookmarkList) },
-                            onOpenBoardList = { navController.navigate(AppRoute.ServiceList) },
+                             onOpenBookmarkList = onOpenBookmarkList
+                                 ?: { navController.navigate(AppRoute.BookmarkList) },
+                             onOpenBoardList = onOpenBoardList
+                                 ?: { navController.navigate(AppRoute.ServiceList) },
                             onOpenHistory = { navController.navigate(AppRoute.HistoryList) },
                             onOpenNewTab = openUrlDialog,
                             // タブ切替は下部コントローラーへ集約し、本文の横ジェスチャーでは変更しない。
@@ -317,11 +334,11 @@ fun BoardScaffold(
                     onDismissRequest = { routeViewModel.closeMoreSheet(tab.boardUrl) },
                     onBookmarkClick = {
                         routeViewModel.closeMoreSheet(tab.boardUrl)
-                        navController.navigate(AppRoute.BookmarkList)
+                        (onOpenBookmarkList ?: { navController.navigate(AppRoute.BookmarkList) })()
                     },
                     onBoardListClick = {
                         routeViewModel.closeMoreSheet(tab.boardUrl)
-                        navController.navigate(AppRoute.ServiceList)
+                        (onOpenBoardList ?: { navController.navigate(AppRoute.ServiceList) })()
                     },
                     onHistoryClick = {
                         routeViewModel.closeMoreSheet(tab.boardUrl)

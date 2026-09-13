@@ -26,6 +26,8 @@ fun TabsScaffold(
     tabsEntryId: String,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
+    onThreadSelected: ((AppRoute.Thread) -> Unit)? = null,
 ) {
     val lastPage by tabSessionStore.lastSelectedTabsPage.collectAsState(initial = TabPage.BOARD.index)
     val tabListViewModel: TabListViewModel = hiltViewModel()
@@ -41,6 +43,8 @@ fun TabsScaffold(
         tabsEntryId = tabsEntryId,
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
+        onBoardSelected = onBoardSelected,
+        onThreadSelected = onThreadSelected,
     )
 }
 
