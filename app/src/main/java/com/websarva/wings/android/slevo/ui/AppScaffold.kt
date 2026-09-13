@@ -126,7 +126,7 @@ fun AppScaffold(
 
         // アプリ全体の通知はRoot Navigationの遷移対象外にし、下部chromeだけを避ける。
         RootSnackbarHost(
-            hostState = pendingRestoreSnackbarHostState,
+            snackbarHostState = pendingRestoreSnackbarHostState,
             bottomChromeHeight = bottomChromeHeight,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
