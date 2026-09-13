@@ -50,10 +50,7 @@ fun MainShell(
         route.mode == MainShellMode.ContextualTabs
     }
 
-    // MainShell内に履歴がある場合は、Root Backより先にinner Backを消費する。
-    BackHandler(enabled = mainShellNavController.previousBackStackEntry != null) {
-        mainShellNavController.popBackStack()
-    }
+    MainShellBackHandler(mainShellNavController)
 
     Scaffold(
         modifier = modifier,
@@ -91,5 +88,18 @@ fun MainShell(
             onOpenBoard = onOpenBoard,
             onOpenThread = onOpenThread,
         )
+    }
+}
+
+/**
+ * MainShell内にpop可能なentryがある場合だけinner Backを消費する。
+ *
+ * start destinationではhandlerを無効にし、Root NavControllerのBack処理へ委譲する。
+ */
+@Composable
+internal fun MainShellBackHandler(navController: NavHostController) {
+    // MainShell内に履歴がある場合は、Root Backより先にinner Backを消費する。
+    BackHandler(enabled = navController.previousBackStackEntry != null) {
+        navController.popBackStack()
     }
 }

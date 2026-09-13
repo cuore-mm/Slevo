@@ -57,7 +57,7 @@
 
 - [x] 7.1 `DeepLinkHandler.kt`とMainActivityの初期NavigationをRoot/MainShell controllerへ振り分け、冷起動時はbase MainShellを土台として目的Rootまたはinner destinationを表示する
 - [ ] 7.2 base MainShellとcontextual MainShellが別々のinner controller stateを保持し、Root push / pop後に選択画面・nested list・スクロール状態を復元するActivity再生成テストを追加する
-- [ ] 7.3 MainShell内にpop可能なinner entryがある場合はinner Backを優先し、start destinationではRoot Backへ委譲するBack dispatcherテストを追加する
+- [x] 7.3 MainShell内にpop可能なinner entryがある場合はinner Backを優先し、start destinationではRoot Backへ委譲するBack dispatcherテストを追加する
 - [ ] 7.4 構成変更と可能なprocess recreation環境でRoot stack、各MainShell inner stack、`BbsEntryTransition`、pending restore通知候補を同時に復元する統合テストを追加する
 
 ## 8. 既存計画の整合と検証
