@@ -167,10 +167,9 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                           sharedTransitionScope = sharedTransitionScope,
-                          animatedVisibilityScope = animatedVisibilityScope,
-                          onBoardSelected = onBoardSelected,
-                          onThreadSelected = onThreadSelected,
-                          pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onBoardSelected = onBoardSelected,
+                           pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
                       )
                 },
                 searchResultContent = { isTarget ->
@@ -194,10 +193,9 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                           sharedTransitionScope = sharedTransitionScope,
-                          animatedVisibilityScope = animatedVisibilityScope,
-                          onBoardSelected = onBoardSelected,
-                          onThreadSelected = onThreadSelected,
-                           pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onBoardSelected = onBoardSelected,
+                            pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
                       )
                 },
                 searchEmptyContent = {
@@ -240,10 +238,9 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                           sharedTransitionScope = sharedTransitionScope,
-                          animatedVisibilityScope = animatedVisibilityScope,
-                          onBoardSelected = onBoardSelected,
-                          onThreadSelected = onThreadSelected,
-                           pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onThreadSelected = onThreadSelected,
+                            pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
                       )
                 },
                 searchResultContent = { isTarget ->
@@ -269,10 +266,9 @@ fun TabsPagerContent(
                          sourceRoute = sourceRoute,
                          tabsEntryId = tabsEntryId,
                           sharedTransitionScope = sharedTransitionScope,
-                          animatedVisibilityScope = animatedVisibilityScope,
-                          onBoardSelected = onBoardSelected,
-                          onThreadSelected = onThreadSelected,
-                           pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onThreadSelected = onThreadSelected,
+                            pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
                       )
                 },
                 searchEmptyContent = {

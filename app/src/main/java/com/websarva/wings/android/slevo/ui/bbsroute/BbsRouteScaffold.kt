@@ -121,6 +121,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
     animateAdjacentSelection: Boolean = false,
+    onOpenTabList: (() -> Unit)? = null,
     onBottomChromeHeightChanged: (Int) -> Unit = {},
     pageModifier: @Composable (
         tabInfo: TabInfo,
@@ -239,7 +240,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         var isUrlValidating by rememberSaveable { mutableStateOf(false) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
-        val openTabList: () -> Unit = {
+        val openTabList: () -> Unit = onOpenTabList ?: {
             navController.navigate(AppRoute.Tabs) {
                 launchSingleTop = true
             }

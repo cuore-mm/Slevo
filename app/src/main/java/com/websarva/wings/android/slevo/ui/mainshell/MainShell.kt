@@ -82,11 +82,11 @@ fun MainShell(
             topBarState = topBarState,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
-            onBoardSelected = { tabsEntryId, boardRoute ->
-                onBoardSelected(MainShellBbsOrigin.Tabs, mainShellNavController, tabsEntryId, boardRoute)
+            onBoardSelected = { origin, tabsEntryId, boardRoute ->
+                onBoardSelected(origin, mainShellNavController, tabsEntryId, boardRoute)
             },
-            onThreadSelected = { tabsEntryId, threadRoute ->
-                onThreadSelected(MainShellBbsOrigin.Tabs, mainShellNavController, tabsEntryId, threadRoute)
+            onThreadSelected = { origin, tabsEntryId, threadRoute ->
+                onThreadSelected(origin, mainShellNavController, tabsEntryId, threadRoute)
             },
             onOpenBoard = onOpenBoard,
             onOpenThread = onOpenThread,
