@@ -205,8 +205,7 @@ private fun OpenThreadCard(
                 isSelectionMode = isSelectionMode,
                 isInLongPressSelectionMode = isInLongPressSelectionMode,
             ),
-            debugLabel = "Tabs.Thread",
-        )
+            )
     } else {
         Modifier
     }
