@@ -1,7 +1,5 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -60,7 +58,7 @@ fun RootNavGraph(
                 }
             },
             exitTransition = {
-                 if (isMainShellToTabsSharedBbsTransition(initialState, targetState)) {
+                if (isMainShellToTabsSharedBbsTransition(initialState, targetState)) {
                     bbsPageExitTransition()
                 } else {
                     defaultExitTransition()
@@ -74,7 +72,7 @@ fun RootNavGraph(
                 }
             },
             popExitTransition = {
-                 if (isMainShellToTabsSharedBbsTransition(initialState, targetState)) {
+                if (isMainShellToTabsSharedBbsTransition(initialState, targetState)) {
                     bbsPageExitTransition()
                 } else {
                     defaultPopExitTransition()
@@ -133,12 +131,21 @@ fun RootNavGraph(
         composable<AppRoute.Board>(
             enterTransition = {
                 when {
-                    isThreadToBoardTransition(initialState.destination.route, targetState.destination.route) ->
+                    isThreadToBoardTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadPopEnterTransition()
+
                     isMainShellToTabsSharedBbsTransition(initialState, targetState) ->
                         bbsPageEnterTransition()
-                    isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadEnterTransition()
+
                     else -> defaultEnterTransition()
                 }
             },
@@ -146,17 +153,27 @@ fun RootNavGraph(
                 when {
                     isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
-                    isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadExitTransition()
+
                     else -> defaultExitTransition()
                 }
             },
             popEnterTransition = {
                 when {
-                    isThreadToBoardTransition(initialState.destination.route, targetState.destination.route) ->
+                    isThreadToBoardTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadPopEnterTransition()
+
                     isMainShellToTabsSharedBbsTransition(initialState, targetState) ->
                         bbsPageEnterTransition()
+
                     else -> defaultPopEnterTransition()
                 }
             },
@@ -164,8 +181,13 @@ fun RootNavGraph(
                 when {
                     isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
-                    isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadPopExitTransition()
+
                     else -> defaultPopExitTransition()
                 }
             },
@@ -204,8 +226,13 @@ fun RootNavGraph(
                     initialState.destination.isRoute<AppRoute.ImageViewer>() -> null
                     isMainShellToTabsSharedBbsTransition(initialState, targetState) ->
                         bbsPageEnterTransition()
-                    isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadEnterTransition()
+
                     else -> defaultEnterTransition()
                 }
             },
@@ -214,10 +241,19 @@ fun RootNavGraph(
                     targetState.destination.isRoute<AppRoute.ImageViewer>() -> null
                     isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
-                    isThreadToBoardTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isThreadToBoardTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadPopExitTransition()
-                    isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadExitTransition()
+
                     else -> defaultExitTransition()
                 }
             },
@@ -226,8 +262,13 @@ fun RootNavGraph(
                     initialState.destination.isRoute<AppRoute.ImageViewer>() -> null
                     isMainShellToTabsSharedBbsTransition(initialState, targetState) ->
                         bbsPageEnterTransition()
-                    isBoardToThreadTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isBoardToThreadTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadPopEnterTransition()
+
                     else -> defaultPopEnterTransition()
                 }
             },
@@ -236,8 +277,13 @@ fun RootNavGraph(
                     targetState.destination.isRoute<AppRoute.ImageViewer>() -> null
                     isBbsToTabsMainShellTransition(initialState, targetState) ->
                         bbsPageExitTransition()
-                    isThreadToBoardTransition(initialState.destination.route, targetState.destination.route) ->
+
+                    isThreadToBoardTransition(
+                        initialState.destination.route,
+                        targetState.destination.route
+                    ) ->
                         boardThreadPopExitTransition()
+
                     else -> defaultPopExitTransition()
                 }
             },
@@ -347,8 +393,8 @@ private fun isBbsToTabsMainShellTransition(
     targetState: NavBackStackEntry,
 ): Boolean =
     initialState.isBbsRoute() &&
-        initialState.bbsEntryTransition() != BbsEntryTransition.MainShellSlide &&
-        targetState.isTabsMainShell()
+            initialState.bbsEntryTransition() != BbsEntryTransition.MainShellSlide &&
+            targetState.isTabsMainShell()
 
 /** MainShellからShared Bounds対象のBoard / Threadへ遷移する組み合わせを判定する。 */
 private fun isMainShellToTabsSharedBbsTransition(
@@ -356,7 +402,7 @@ private fun isMainShellToTabsSharedBbsTransition(
     targetState: NavBackStackEntry,
 ): Boolean =
     initialState.isTabsMainShell() &&
-        targetState.bbsEntryTransition() == BbsEntryTransition.TabsSharedBounds
+            targetState.bbsEntryTransition() == BbsEntryTransition.TabsSharedBounds
 
 /** BoardまたはThread routeかを判定する。 */
 private fun NavBackStackEntry.isBbsRoute(): Boolean =
@@ -365,7 +411,7 @@ private fun NavBackStackEntry.isBbsRoute(): Boolean =
 /** Tabsを初期表示するMainShell routeかを判定する。 */
 private fun NavBackStackEntry.isTabsMainShell(): Boolean =
     destination.hasRoute<AppRoute.MainShell>() &&
-        toRoute<AppRoute.MainShell>().startDestination == MainShellStartDestination.Tabs
+            toRoute<AppRoute.MainShell>().startDestination == MainShellStartDestination.Tabs
 
 /** Board / Thread routeから保存済みの入口transitionを取り出す。 */
 private fun NavBackStackEntry.bbsEntryTransition(): BbsEntryTransition? = when {

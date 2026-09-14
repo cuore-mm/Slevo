@@ -1,21 +1,21 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
 package com.websarva.wings.android.slevo.ui.tabs
 
-import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.TabMutationResult
 import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
-import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
+import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsCoordinator
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabsLoadState
-import com.websarva.wings.android.slevo.ui.tabs.coordinator.ThreadTabPendingOperation
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.isThreadTabOperationConfirmed
 import com.websarva.wings.android.slevo.ui.tabs.coordinator.projectThreadTabs
-import com.websarva.wings.android.slevo.ui.bbsroute.TabSelectionResolution
 import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
-import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import com.websarva.wings.android.slevo.ui.tabs.model.mergeThreadTabMetadata
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadRefreshUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -25,15 +25,16 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import org.junit.Assert.assertFalse
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -69,7 +70,7 @@ class ThreadTabsCoordinatorTest {
             "https://medaka.5ch.io/test/read.cgi/mmominor/1723111700/",
             coordinator.openThreadTabs.value.first().title
         )
-         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
+        coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 
     /** 初回canonical読込前に保存されたThreadId keyを復元することを確認する。 */
@@ -78,11 +79,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("restore-first", 0)
-        val selected = testTab("restore-selected", 1)
+        val first = testTab("restore-first")
+        val selected = testTab("restore-selected")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(selected.id.value)
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         databaseFlow.emit(listOf(first, selected))
 
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -103,11 +106,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("invalid-first", 0)
-        val last = testTab("invalid-last", 1)
+        val first = testTab("invalid-first")
+        val last = testTab("invalid-last")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf("missing-thread")
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         databaseFlow.emit(listOf(first, last))
 
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -130,11 +135,13 @@ class ThreadTabsCoordinatorTest {
         val persistedSelection = MutableSharedFlow<String?>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("delayed-first", 0)
-        val last = testTab("delayed-last", 1)
+        val first = testTab("delayed-first")
+        val last = testTab("delayed-last")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { tabsRepository.observeSelectedThreadTabKey() } returns persistedSelection
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         databaseFlow.emit(listOf(first, last))
 
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -157,18 +164,19 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("write-first", 0)
-        val second = testTab("write-second", 1)
+        val first = testTab("write-first")
+        val second = testTab("write-second")
         var failNextWrite = true
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(first.id.value)
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.setSelectedThreadTabKey(any()) } coAnswers {
             if (failNextWrite) {
                 failNextWrite = false
                 throw IllegalStateException("write failure")
             }
-            Unit
         }
         databaseFlow.emit(listOf(first, second))
 
@@ -306,7 +314,7 @@ class ThreadTabsCoordinatorTest {
         val selected = coordinator.openThreadTabs.value.single().id
         assertTrue(coordinator.selectThreadTab(selected))
 
-        val missing = com.websarva.wings.android.slevo.data.model.ThreadId.of(
+        val missing = ThreadId.of(
             "medaka.5ch.io",
             "mmominor",
             "missing",
@@ -454,7 +462,7 @@ class ThreadTabsCoordinatorTest {
         }
 
         assertEquals("query", coordinator.getThreadSessionState(tab.id).searchQuery)
-         coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
+        coVerify(exactly = 0) { tabsRepository.replaceOpenThreadTabsForBulkOperation(any()) }
     }
 
     @Test
@@ -510,16 +518,19 @@ class ThreadTabsCoordinatorTest {
     /** 初回 Room 通知が届くまで、1,252 件の正規状態を空一覧で上書きしない。 */
     @Test
     fun ensureThreadTab_waitsForInitialSnapshotBeforeDatabaseWrite() = runTest {
-        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 0, extraBufferCapacity = 1)
+        val databaseFlow =
+            MutableSharedFlow<List<ThreadTabInfo>>(replay = 0, extraBufferCapacity = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val writeStarted = CompletableDeferred<Unit>()
         val writeRelease = CompletableDeferred<Unit>()
-        val initialTabs = (0 until 1_252).map { index -> testTab("existing-$index", index) }
+        val initialTabs = (0 until 1_252).map { index -> testTab("existing-$index") }
         val route = testRoute("new-thread")
-        val addedTab = testTab("new-thread", 1_252)
+        val addedTab = testTab("new-thread")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
             writeStarted.complete(Unit)
             writeRelease.await()
@@ -558,11 +569,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTabs = (0 until 1_252).map { index -> testTab("existing-$index", index) }
+        val initialTabs = (0 until 1_252).map { index -> testTab("existing-$index") }
         val route = testRoute("added")
-        val addedTab = testTab("added", 1_252)
+        val addedTab = testTab("added")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
         databaseFlow.emit(initialTabs)
@@ -579,13 +592,16 @@ class ThreadTabsCoordinatorTest {
         runCurrent()
 
         assertEquals(1_252, ensureJob.await())
-        assertEquals(initialTabs.map { it.id }.toSet() + addedTab.id, coordinator.openThreadTabs.value.map { it.id }.toSet())
+        assertEquals(
+            initialTabs.map { it.id }.toSet() + addedTab.id,
+            coordinator.openThreadTabs.value.map { it.id }.toSet()
+        )
     }
 
     /** Ensure と Info は対象 identity、Delete は不在、Pin は要求値で確認する。 */
     @Test
     fun ensureConfirmation_usesMinimalOperationConditions() {
-        val current = testTab("metadata", 3, isPinned = true, scrollIndex = 7).copy(
+        val current = testTab("metadata", isPinned = true, scrollIndex = 7).copy(
             title = "Old title",
             boardName = "Old board",
             boardId = 42L,
@@ -597,12 +613,42 @@ class ThreadTabsCoordinatorTest {
             boardId = 43L,
             resCount = 140,
         )
-        assertTrue(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Ensure(expected)))
-        assertTrue(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Info(expected)))
-        assertTrue(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Pin(current.id, true)))
-        assertTrue(isThreadTabOperationConfirmed(emptyList(), ThreadTabPendingOperation.Delete(current.id)))
-        assertFalse(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Delete(current.id)))
-        assertFalse(isThreadTabOperationConfirmed(listOf(current), ThreadTabPendingOperation.Pin(current.id, false)))
+        assertTrue(
+            isThreadTabOperationConfirmed(
+                listOf(current),
+                ThreadTabPendingOperation.Ensure(expected)
+            )
+        )
+        assertTrue(
+            isThreadTabOperationConfirmed(
+                listOf(current),
+                ThreadTabPendingOperation.Info(expected)
+            )
+        )
+        assertTrue(
+            isThreadTabOperationConfirmed(
+                listOf(current),
+                ThreadTabPendingOperation.Pin(current.id, true)
+            )
+        )
+        assertTrue(
+            isThreadTabOperationConfirmed(
+                emptyList(),
+                ThreadTabPendingOperation.Delete(current.id)
+            )
+        )
+        assertFalse(
+            isThreadTabOperationConfirmed(
+                listOf(current),
+                ThreadTabPendingOperation.Delete(current.id)
+            )
+        )
+        assertFalse(
+            isThreadTabOperationConfirmed(
+                listOf(current),
+                ThreadTabPendingOperation.Pin(current.id, false)
+            )
+        )
     }
 
     /** 無関係な通知で Ensure を完了でき、後続の canonical 通知で metadata が収束する。 */
@@ -611,26 +657,28 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val currentTarget = testTab("target", 3, isPinned = true, scrollIndex = 7).copy(
+        val currentTarget = testTab("target", isPinned = true, scrollIndex = 7).copy(
             title = "Old title",
             boardName = "Old board",
             boardId = 42L,
             resCount = 120,
             firstVisibleItemScrollOffset = 30,
         )
-        val currentUnrelated = testTab("unrelated", 4, isPinned = false, scrollIndex = 2)
+        val currentUnrelated = testTab("unrelated", isPinned = false, scrollIndex = 2)
         val requestedTarget = currentTarget.copy(
             title = "New title",
             boardName = "New board",
             boardId = 43L,
             resCount = 140,
         )
-        val next = testTab("next", 5)
+        val next = testTab("next")
         val requestedNext = testRoute("next")
         val writes = mutableListOf<String>()
 
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
             writes += (invocation.args[0] as ThreadTabInfo).id.value
             true
@@ -661,7 +709,8 @@ class ThreadTabsCoordinatorTest {
         assertFalse(ensureJob.isCompleted)
         assertFalse(nextJob.isCompleted)
 
-        val unrelatedRevision = listOf(currentTarget, currentUnrelated.copy(title = "Unrelated new title"))
+        val unrelatedRevision =
+            listOf(currentTarget, currentUnrelated.copy(title = "Unrelated new title"))
         databaseFlow.emit(unrelatedRevision)
         runCurrent()
 
@@ -679,7 +728,10 @@ class ThreadTabsCoordinatorTest {
         assertEquals(currentTarget.boardId, pendingTarget.boardId)
         assertEquals(currentTarget.resCount, pendingTarget.resCount)
         assertEquals(currentTarget.firstVisibleItemIndex, pendingTarget.firstVisibleItemIndex)
-        assertEquals(currentTarget.firstVisibleItemScrollOffset, pendingTarget.firstVisibleItemScrollOffset)
+        assertEquals(
+            currentTarget.firstVisibleItemScrollOffset,
+            pendingTarget.firstVisibleItemScrollOffset
+        )
         assertEquals(currentTarget.isPinned, pendingTarget.isPinned)
         assertEquals(
             "Unrelated new title",
@@ -687,22 +739,47 @@ class ThreadTabsCoordinatorTest {
         )
 
         val confirmedTarget = mergeThreadTabMetadata(currentTarget, requestedTarget)
-        databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title")))
+        databaseFlow.emit(
+            listOf(
+                confirmedTarget,
+                currentUnrelated.copy(title = "Unrelated new title")
+            )
+        )
         runCurrent()
 
         assertEquals(listOf(currentTarget.id.value, next.id.value), writes)
         assertFalse(nextJob.isCompleted)
-        assertEquals("New title", coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.title)
-        assertEquals("New board", coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.boardName)
-        assertEquals(43L, coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.boardId)
-        assertEquals(140, coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.resCount)
+        assertEquals(
+            "New title",
+            coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.title
+        )
+        assertEquals(
+            "New board",
+            coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.boardName
+        )
+        assertEquals(
+            43L,
+            coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.boardId
+        )
+        assertEquals(
+            140,
+            coordinator.openThreadTabs.value.first { it.id == currentTarget.id }.resCount
+        )
 
-        databaseFlow.emit(listOf(confirmedTarget, currentUnrelated.copy(title = "Unrelated new title"), next))
+        databaseFlow.emit(
+            listOf(
+                confirmedTarget,
+                currentUnrelated.copy(title = "Unrelated new title"),
+                next
+            )
+        )
         runCurrent()
 
         assertEquals(0, ensureJob.await())
         assertEquals(2, nextJob.await())
-        assertEquals(listOf(confirmedTarget.id, currentUnrelated.id, next.id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(
+            listOf(confirmedTarget.id, currentUnrelated.id, next.id),
+            coordinator.openThreadTabs.value.map { it.id })
     }
 
     /** 空の読み込み済み状態を有効な状態として扱い、空のスナップショット後に追加を実行できる。 */
@@ -712,9 +789,11 @@ class ThreadTabsCoordinatorTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val route = testRoute("first")
-        val tab = testTab("first", 0)
+        val tab = testTab("first")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
         databaseFlow.emit(emptyList())
@@ -732,9 +811,9 @@ class ThreadTabsCoordinatorTest {
     /** 投影処理は追加・削除・固定を FIFO 順に適用し、対象外タブの固有値を変更しない。 */
     @Test
     fun projection_appliesRapidMutationIntentsInOrder() {
-        val first = testTab("first", 0, isPinned = false, scrollIndex = 7)
-        val second = testTab("second", 1, isPinned = true, scrollIndex = 9)
-        val third = testTab("third", 2)
+        val first = testTab("first", isPinned = false, scrollIndex = 7)
+        val second = testTab("second", isPinned = true, scrollIndex = 9)
+        val third = testTab("third")
         val result = projectThreadTabs(
             canonicalTabs = listOf(first, second),
             pendingOperations = listOf(
@@ -752,9 +831,9 @@ class ThreadTabsCoordinatorTest {
     /** 新規Ensureのanchorがeffective tabsに存在する場合、対象を直後へ投影することを確認する。 */
     @Test
     fun projection_ensureWithAnchorInsertsImmediatelyAfterAnchor() {
-        val first = testTab("first", 0)
-        val second = testTab("second", 1)
-        val inserted = testTab("inserted", 2)
+        val first = testTab("first")
+        val second = testTab("second")
+        val inserted = testTab("inserted")
 
         val result = projectThreadTabs(
             canonicalTabs = listOf(first, second),
@@ -791,10 +870,10 @@ class ThreadTabsCoordinatorTest {
     /** pending reorder後もanchorをeffective orderから解決して直後へ追加することを確認する。 */
     @Test
     fun projection_pendingReorderResolvesAnchorFromEffectiveOrder() {
-        val first = testTab("first-after-reorder", 0)
-        val second = testTab("second-after-reorder", 1)
-        val third = testTab("third-after-reorder", 2)
-        val inserted = testTab("inserted-after-reorder", 3)
+        val first = testTab("first-after-reorder")
+        val second = testTab("second-after-reorder")
+        val third = testTab("third-after-reorder")
+        val inserted = testTab("inserted-after-reorder")
 
         val result = projectThreadTabs(
             canonicalTabs = listOf(first, second, third),
@@ -813,7 +892,7 @@ class ThreadTabsCoordinatorTest {
     /** プレースホルダーメタデータを、保留中の投影と正規行で同じようにマージする。 */
     @Test
     fun projection_placeholderEnsurePreservesResolvedMetadataAndTabFields() {
-        val current = testTab("resolved", 3, isPinned = true, scrollIndex = 7).copy(
+        val current = testTab("resolved", isPinned = true, scrollIndex = 7).copy(
             title = "Resolved title",
             boardName = "Resolved board",
             boardUrl = "https://host/board/",
@@ -821,7 +900,7 @@ class ThreadTabsCoordinatorTest {
             resCount = 120,
             firstVisibleItemScrollOffset = 30,
         )
-        val unrelated = testTab("unrelated", 4, isPinned = false, scrollIndex = 2)
+        val unrelated = testTab("unrelated", isPinned = false, scrollIndex = 2)
         val placeholder = current.copy(
             title = "https://host/test/read.cgi/board/resolved/",
             boardName = "https://other.example/wrong/",
@@ -854,7 +933,7 @@ class ThreadTabsCoordinatorTest {
     @Test
     fun projection_largeCanonicalAndRapidCommandsPreservesOrderAndUniqueKeys() {
         val canonical = (0 until 1_252).map { index ->
-            testTab("large-$index", index, isPinned = index % 2 == 0, scrollIndex = index)
+            testTab("large-$index", isPinned = index % 2 == 0, scrollIndex = index)
         }
         val pending = (0 until 100).map { index ->
             ThreadTabPendingOperation.Pin(canonical[index].id, isPinned = index % 2 != 0)
@@ -885,10 +964,12 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTab = testTab("pin-final-only", 0, isPinned = false)
+        val initialTab = testTab("pin-final-only", isPinned = false)
         val requestedPins = mutableListOf<Boolean>()
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
             requestedPins += (invocation.args[1] as Boolean)
             true
@@ -941,7 +1022,10 @@ class ThreadTabsCoordinatorTest {
             requestedSelection = pinned.id.value,
         )
 
-        assertEquals(listOf(pinned), projectThreadTabs(listOf(first, second, pinned), listOf(operation)))
+        assertEquals(
+            listOf(pinned),
+            projectThreadTabs(listOf(first, second, pinned), listOf(operation))
+        )
         assertFalse(isThreadTabOperationConfirmed(listOf(first, pinned), operation))
         assertTrue(isThreadTabOperationConfirmed(listOf(pinned), operation))
     }
@@ -954,9 +1038,11 @@ class ThreadTabsCoordinatorTest {
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
         val route = testRoute("ensure-delete-final-only")
-        val tab = testTab("ensure-delete-final-only", 0)
+        val tab = testTab("ensure-delete-final-only")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
         coEvery { tabsRepository.deleteOpenThreadTab(tab.id) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -997,10 +1083,12 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val only = testTab("sole-delete", 0)
+        val only = testTab("sole-delete")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(null)
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.deleteOpenThreadTab(only.id) } returns true
         databaseFlow.emit(listOf(only))
 
@@ -1040,11 +1128,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("bulk-first", 0)
-        val second = testTab("bulk-second", 1)
-        val last = testTab("bulk-last", 2)
+        val first = testTab("bulk-first")
+        val second = testTab("bulk-second")
+        val last = testTab("bulk-last")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns true
         databaseFlow.emit(listOf(first, second, last))
 
@@ -1075,11 +1165,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("bulk-failure-first", 0)
-        val second = testTab("bulk-failure-second", 1)
+        val first = testTab("bulk-failure-first")
+        val second = testTab("bulk-failure-second")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
         every { tabsRepository.observeSelectedThreadTabKey() } returns flowOf(second.id.value)
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.deleteOpenThreadTabs(any()) } returns false
         databaseFlow.emit(listOf(first, second))
 
@@ -1103,11 +1195,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val target = testTab("bulk-barrier-target", 0)
-        val ensureTab = testTab("bulk-barrier-ensure", 1)
+        val target = testTab("bulk-barrier-target")
+        val ensureTab = testTab("bulk-barrier-ensure")
         val writeRelease = CompletableDeferred<Boolean>()
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.deleteOpenThreadTabs(any()) } coAnswers { writeRelease.await() }
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
         databaseFlow.emit(listOf(target))
@@ -1145,9 +1239,11 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val tab = testTab("delete-ensure-final-only", 0)
+        val tab = testTab("delete-ensure-final-only")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.deleteOpenThreadTab(tab.id) } returns true
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -1188,10 +1284,12 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTab = testTab("pin-failed-successor", 0, isPinned = false)
+        val initialTab = testTab("pin-failed-successor", isPinned = false)
         var writeCount = 0
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
             writeCount += 1
             if (writeCount == 2) throw IllegalStateException("successor failed")
@@ -1230,10 +1328,12 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("independent-a", 0, isPinned = false)
-        val second = testTab("independent-b", 1, isPinned = false)
+        val first = testTab("independent-a", isPinned = false)
+        val second = testTab("independent-b", isPinned = false)
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.setThreadTabPinned(any(), any()) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
         databaseFlow.emit(listOf(first, second))
@@ -1273,26 +1373,31 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val existing = testTab("existing", 0)
+        val existing = testTab("existing")
         val failedRoute = testRoute("failed")
         val nextRoute = testRoute("next")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
-        coEvery { tabsRepository.ensureOpenThreadTab(match { it.id.value.endsWith("failed") }) } throws IllegalStateException("write failed")
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
+        coEvery { tabsRepository.ensureOpenThreadTab(match { it.id.value.endsWith("failed") }) } throws IllegalStateException(
+            "write failed"
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(match { it.id.value.endsWith("next") }) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
         databaseFlow.emit(listOf(existing))
         coordinator.bind(backgroundScope)
         runCurrent()
 
-        val failedJob = backgroundScope.async { runCatching { coordinator.ensureThreadTab(failedRoute) } }
+        val failedJob =
+            backgroundScope.async { runCatching { coordinator.ensureThreadTab(failedRoute) } }
         runCurrent()
         assertTrue(failedJob.await().isFailure)
         assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
-        val nextTab = testTab("next", 1)
+        val nextTab = testTab("next")
         databaseFlow.emit(listOf(existing, nextTab))
         runCurrent()
         assertEquals(1, nextJob.await())
@@ -1304,11 +1409,13 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val existing = testTab("existing", 0)
+        val existing = testTab("existing")
         val cancelledRoute = testRoute("cancelled")
         val nextRoute = testRoute("next")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } returns true
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
         coordinator.bind(backgroundScope)
@@ -1322,13 +1429,13 @@ class ThreadTabsCoordinatorTest {
         databaseFlow.emit(listOf(existing))
         runCurrent()
         coVerify(exactly = 0) {
-            tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled", 0).id })
+            tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled").id })
         }
         assertEquals(listOf(existing.id), coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("next", 1)))
+        databaseFlow.emit(listOf(existing, testTab("next")))
         runCurrent()
         assertEquals(1, nextJob.await())
         assertEquals(2, coordinator.openThreadTabs.value.size)
@@ -1343,12 +1450,14 @@ class ThreadTabsCoordinatorTest {
         val permitWait = CompletableDeferred<Unit>()
         val repositoryEntered = CompletableDeferred<Unit>()
         val repositoryCancelled = CompletableDeferred<Unit>()
-        val existing = testTab("existing", 0)
+        val existing = testTab("existing")
         val cancelledRoute = testRoute("cancelled")
         val nextRoute = testRoute("next")
         var invocationCount = 0
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
             invocationCount += 1
             if (invocationCount == 1) {
@@ -1375,14 +1484,16 @@ class ThreadTabsCoordinatorTest {
 
         assertFalse(repositoryCancelled.isCompleted)
         assertEquals(1, invocationCount)
-        assertEquals(listOf(existing.id, testTab("cancelled", 1).id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(
+            listOf(existing.id, testTab("cancelled").id),
+            coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
         assertEquals(2, invocationCount)
         permitWait.complete(Unit)
         runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("cancelled", 1), testTab("next", 2)))
+        databaseFlow.emit(listOf(existing, testTab("cancelled"), testTab("next")))
         runCurrent()
         assertEquals(2, nextJob.await())
         assertEquals(2, invocationCount)
@@ -1397,12 +1508,14 @@ class ThreadTabsCoordinatorTest {
         val transactionBarrier = CompletableDeferred<Unit>()
         val transactionStarted = CompletableDeferred<Unit>()
         val rollbackCompleted = CompletableDeferred<Unit>()
-        val existing = testTab("existing", 0)
+        val existing = testTab("existing")
         val cancelledRoute = testRoute("cancelled")
         val nextRoute = testRoute("next")
         var invocationCount = 0
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
             invocationCount += 1
             if (invocationCount == 1) {
@@ -1429,14 +1542,16 @@ class ThreadTabsCoordinatorTest {
 
         assertFalse(rollbackCompleted.isCompleted)
         assertEquals(1, invocationCount)
-        assertEquals(listOf(existing.id, testTab("cancelled", 1).id), coordinator.openThreadTabs.value.map { it.id })
+        assertEquals(
+            listOf(existing.id, testTab("cancelled").id),
+            coordinator.openThreadTabs.value.map { it.id })
 
         val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
         runCurrent()
         assertEquals(2, invocationCount)
         transactionBarrier.complete(Unit)
         runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("cancelled", 1), testTab("next", 2)))
+        databaseFlow.emit(listOf(existing, testTab("cancelled"), testTab("next")))
         runCurrent()
         assertEquals(2, nextJob.await())
         assertEquals(2, invocationCount)
@@ -1444,46 +1559,51 @@ class ThreadTabsCoordinatorTest {
 
     /** 呼び出し元のキャンセルより先に Repository の結果が確定した場合、補償処理や重複書き込みを発生させない。 */
     @Test
-    fun repositorySuccessBeforeCancellation_doesNotCompensateAndWorkerProcessesNextIntent() = runTest {
-        val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
-        val tabsRepository = mockk<TabsRepository>(relaxed = true)
-        val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val repositoryReturned = CompletableDeferred<Unit>()
-        val existing = testTab("existing", 0)
-        val cancelledRoute = testRoute("cancelled")
-        val nextRoute = testRoute("next")
-        var invocationCount = 0
-        every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
-        coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
-            invocationCount += 1
-            if (invocationCount == 1) repositoryReturned.complete(Unit)
-            true
+    fun repositorySuccessBeforeCancellation_doesNotCompensateAndWorkerProcessesNextIntent() =
+        runTest {
+            val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
+            val tabsRepository = mockk<TabsRepository>(relaxed = true)
+            val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
+            val repositoryReturned = CompletableDeferred<Unit>()
+            val existing = testTab("existing")
+            val cancelledRoute = testRoute("cancelled")
+            val nextRoute = testRoute("next")
+            var invocationCount = 0
+            every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
+            every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+                emptyList()
+            )
+            coEvery { tabsRepository.ensureOpenThreadTab(any()) } coAnswers {
+                invocationCount += 1
+                if (invocationCount == 1) repositoryReturned.complete(Unit)
+                true
+            }
+            val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
+            databaseFlow.emit(listOf(existing))
+            coordinator.bind(backgroundScope)
+            runCurrent()
+
+            val cancelledJob = backgroundScope.async { coordinator.ensureThreadTab(cancelledRoute) }
+            runCurrent()
+            assertTrue(repositoryReturned.isCompleted)
+            cancelledJob.cancel()
+            runCurrent()
+
+            assertEquals(1, invocationCount)
+            coVerify(exactly = 1) {
+                tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled").id })
+            }
+            assertEquals(
+                listOf(existing.id, testTab("cancelled").id),
+                coordinator.openThreadTabs.value.map { it.id })
+
+            val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
+            runCurrent()
+            databaseFlow.emit(listOf(existing, testTab("cancelled"), testTab("next")))
+            runCurrent()
+            assertEquals(2, nextJob.await())
+            assertEquals(2, invocationCount)
         }
-        val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
-        databaseFlow.emit(listOf(existing))
-        coordinator.bind(backgroundScope)
-        runCurrent()
-
-        val cancelledJob = backgroundScope.async { coordinator.ensureThreadTab(cancelledRoute) }
-        runCurrent()
-        assertTrue(repositoryReturned.isCompleted)
-        cancelledJob.cancel()
-        runCurrent()
-
-        assertEquals(1, invocationCount)
-        coVerify(exactly = 1) {
-            tabsRepository.ensureOpenThreadTab(match { it.id == testTab("cancelled", 0).id })
-        }
-        assertEquals(listOf(existing.id, testTab("cancelled", 1).id), coordinator.openThreadTabs.value.map { it.id })
-
-        val nextJob = backgroundScope.async { coordinator.ensureThreadTab(nextRoute) }
-        runCurrent()
-        databaseFlow.emit(listOf(existing, testTab("cancelled", 1), testTab("next", 2)))
-        runCurrent()
-        assertEquals(2, nextJob.await())
-        assertEquals(2, invocationCount)
-    }
 
     /** 選択中 tab の pending delete 中は key を保持し、canonical confirmation 後に隣接へ補正する。 */
     @Test
@@ -1491,10 +1611,12 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("pending-first", 0)
-        val second = testTab("pending-second", 1)
+        val first = testTab("pending-first")
+        val second = testTab("pending-second")
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.deleteOpenThreadTab(first.id) } returns true
 
         val coordinator = createCoordinator(tabsRepository, bookmarkRepository)
@@ -1518,7 +1640,10 @@ class ThreadTabsCoordinatorTest {
 
         databaseFlow.emit(listOf(first, second))
         runCurrent()
-        assertEquals(TabSelectionResolution.PendingMissing(first.id.value), coordinator.threadPresentationState.value.selection)
+        assertEquals(
+            TabSelectionResolution.PendingMissing(first.id.value),
+            coordinator.threadPresentationState.value.selection
+        )
         databaseFlow.emit(listOf(second))
         runCurrent()
         closeJob.await()
@@ -1536,12 +1661,14 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val first = testTab("reorder-first", 0)
-        val second = testTab("reorder-second", 1)
-        val third = testTab("reorder-third", 2)
+        val first = testTab("reorder-first")
+        val second = testTab("reorder-second")
+        val third = testTab("reorder-third")
         val requestedOrder = listOf(third.id.value, first.id.value, second.id.value)
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.reorderOpenThreadTabs(requestedOrder) } returns TabMutationResult.Success
         databaseFlow.emit(listOf(first, second, third))
 
@@ -1567,12 +1694,14 @@ class ThreadTabsCoordinatorTest {
         val databaseFlow = MutableSharedFlow<List<ThreadTabInfo>>(replay = 1)
         val tabsRepository = mockk<TabsRepository>(relaxed = true)
         val bookmarkRepository = mockk<ThreadBookmarkRepository>(relaxed = true)
-        val initialTab = testTab("pin-sequence", 0, isPinned = false)
+        val initialTab = testTab("pin-sequence", isPinned = false)
         val toggleCount = 4
         val requestedPins = mutableListOf<Boolean>()
         val writeReleases = List(toggleCount) { CompletableDeferred<Unit>() }
         every { tabsRepository.observeOpenThreadTabs() } returns databaseFlow
-        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(emptyList())
+        every { bookmarkRepository.observeSortedGroupsWithThreadBookmarks() } returns flowOf(
+            emptyList()
+        )
         coEvery { tabsRepository.setThreadTabPinned(initialTab.id, any()) } coAnswers {
             val writeIndex = requestedPins.size
             requestedPins += (invocation.args[1] as Boolean)
@@ -1627,11 +1756,10 @@ class ThreadTabsCoordinatorTest {
     /** テストデータ内で識別子が一意になる安定したテストタブを組み立てる。 */
     private fun testTab(
         key: String,
-        sortOrder: Int,
         isPinned: Boolean = false,
         scrollIndex: Int = 0,
     ): ThreadTabInfo = ThreadTabInfo(
-        id = com.websarva.wings.android.slevo.data.model.ThreadId.of("host", "board", key),
+        id = ThreadId.of("host", "board", key),
         title = key,
         boardName = "Board",
         boardUrl = "https://host/board/",

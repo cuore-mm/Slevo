@@ -1,9 +1,11 @@
 package com.websarva.wings.android.slevo.ui.navigation
 
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
+import androidx.navigation.compose.ComposeNavigator
+import androidx.navigation.get
 import androidx.navigation.toRoute
 
 /**
@@ -45,16 +47,19 @@ fun NavHostController.navigateToMainShellTopLevel(route: AppRoute) {
             launchSingleTop = true
             restoreState = true
         }
+
         AppRoute.BookmarkList -> navigate(AppRoute.BookmarkList) {
             popUpTo(graph.startDestinationId) { saveState = true }
             launchSingleTop = true
             restoreState = true
         }
+
         AppRoute.ServiceList -> navigate(AppRoute.ServiceList) {
             popUpTo(graph.startDestinationId) { saveState = true }
             launchSingleTop = true
             restoreState = true
         }
+
         else -> return
     }
 }
@@ -106,6 +111,7 @@ fun NavHostController.showThreadScreenForTabSelection(
         is AppRoute.Board -> navigateToThreadScreen(
             route.copy(entryTransition = BbsEntryTransition.BoardThreadSlide),
         )
+
         else -> navigateToThreadScreen(route)
     }
 }
@@ -289,38 +295,42 @@ fun NavHostController.showThreadScreenFromMainShell(
 /** 現在のentryが、指定されたTabs destinationのままかを検証する。 */
 private fun NavHostController.isCurrentTabsEntry(tabsEntryId: String): Boolean =
     currentBackStackEntry?.id == tabsEntryId &&
-        currentBackStackEntry?.destination?.hasRoute<AppRoute.Tabs>() == true
+            currentBackStackEntry?.destination?.hasRoute<AppRoute.Tabs>() == true
 
 /** Root側の現在entryが、非同期Navigationを開始したMainShellのままかを検証する。 */
 private fun NavHostController.isCurrentMainShellEntry(mainShellEntryId: String): Boolean =
     currentBackStackEntry?.id == mainShellEntryId &&
-        currentBackStackEntry?.destination?.hasRoute<AppRoute.MainShell>() == true
+            currentBackStackEntry?.destination?.hasRoute<AppRoute.MainShell>() == true
 
 /**
- * 公開されているcurrentBackStackから、Tabsの直下がThread、その直下がBoardかを判定する。
+ * Compose destination の back stack を返す。
  *
- * graph entryだけを除外し、Bookmarkなどの実destinationは列に残すことで、より古いBoardを
- * 直下Boardとして誤再利用しない。
+ * NavGraph entry は ComposeNavigator に含まれない。
+ */
+private fun NavHostController.composableBackStackEntries(): List<NavBackStackEntry> =
+    navigatorProvider[ComposeNavigator::class].backStack.value
+
+/**
+ * Tabs の直前が Thread、その直前が Board かを判定する。
+ *
+ * Bookmark などの composable destination も列に残すことで、
+ * より古い Board を直下の Board として誤再利用しない。
  */
 private fun NavHostController.hasBoardImmediatelyBelowThread(tabsEntryId: String): Boolean {
-    val destinationEntries = currentBackStack.value.filterNot { entry ->
-        entry.destination is NavGraph
-    }
+    val destinationEntries = composableBackStackEntries()
     val tabsIndex = destinationEntries.indexOfLast { it.id == tabsEntryId }
     if (tabsIndex < 2) return false
     return destinationEntries[tabsIndex - 1].destination.hasRoute<AppRoute.Thread>() &&
-        destinationEntries[tabsIndex - 2].destination.hasRoute<AppRoute.Board>()
+            destinationEntries[tabsIndex - 2].destination.hasRoute<AppRoute.Board>()
 }
 
 /** MainShell直前のRoot entryがThread、その直前がBoardかを判定する。 */
 private fun NavHostController.hasBoardImmediatelyBelowMainShell(mainShellEntryId: String): Boolean {
-    val destinationEntries = currentBackStack.value.filterNot { entry ->
-        entry.destination is NavGraph
-    }
+    val destinationEntries = composableBackStackEntries()
     val shellIndex = destinationEntries.indexOfLast { it.id == mainShellEntryId }
     if (shellIndex < 2) return false
     return destinationEntries[shellIndex - 1].destination.hasRoute<AppRoute.Thread>() &&
-        destinationEntries[shellIndex - 2].destination.hasRoute<AppRoute.Board>()
+            destinationEntries[shellIndex - 2].destination.hasRoute<AppRoute.Board>()
 }
 
 /** MainShell直前のRoot entryがcallback開始時のBoardまたはThreadと一致するかを判定する。 */
@@ -328,9 +338,11 @@ private fun NavHostController.isImmediateBbsSourceRoute(sourceRoute: AppRoute): 
     val previousEntry = previousBackStackEntry ?: return false
     return when (sourceRoute) {
         is AppRoute.Board -> previousEntry.destination.hasRoute<AppRoute.Board>() &&
-            previousEntry.toRoute<AppRoute.Board>() == sourceRoute
+                previousEntry.toRoute<AppRoute.Board>() == sourceRoute
+
         is AppRoute.Thread -> previousEntry.destination.hasRoute<AppRoute.Thread>() &&
-            previousEntry.toRoute<AppRoute.Thread>() == sourceRoute
+                previousEntry.toRoute<AppRoute.Thread>() == sourceRoute
+
         else -> false
     }
 }

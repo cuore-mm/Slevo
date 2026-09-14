@@ -28,6 +28,7 @@ import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainShell(
+    modifier: Modifier = Modifier,
     route: AppRoute.MainShell,
     sourceRoute: AppRoute?,
     tabSessionStore: TabSessionStore,
@@ -41,7 +42,6 @@ fun MainShell(
     onOpenBoard: (AppRoute.Board) -> Unit,
     onOpenThread: (AppRoute.Thread) -> Unit,
     onMainShellBottomChromeHeightChanged: (Int) -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val mainShellNavController = rememberNavController()
     val currentEntry by mainShellNavController.currentBackStackEntryAsState()
