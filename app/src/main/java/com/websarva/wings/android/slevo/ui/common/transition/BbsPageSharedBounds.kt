@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.scaleToBounds
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -102,12 +104,17 @@ fun Modifier.bbsPageSharedBounds(
         sharedBounds(
             sharedContentState = state,
             animatedVisibilityScope = animatedVisibilityScope,
-            boundsTransform = { _, _ -> tween(BbsPageTransitionDurationMillis) },
-            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+            boundsTransform = { _, _ ->
+                tween(
+                    durationMillis = BbsPageTransitionDurationMillis,
+                    easing = FastOutSlowInEasing,
+                )
+            },
+            resizeMode = scaleToBounds(),
         )
             .clipToBounds()
     }
 }
 
 /** TabsカードとBoard / Thread表示ページ全体の共有遷移時間。 */
-const val BbsPageTransitionDurationMillis = 500
+const val BbsPageTransitionDurationMillis = 350
