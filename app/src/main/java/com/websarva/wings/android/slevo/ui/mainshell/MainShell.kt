@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -15,9 +14,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.websarva.wings.android.slevo.ui.bottombar.RenderBottomBar
+import com.websarva.wings.android.slevo.ui.bottombar.NavigationBottomBar
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.MainShellBbsOrigin
+import com.websarva.wings.android.slevo.ui.navigation.navigateToMainShellTopLevel
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 
 /**
@@ -52,17 +52,14 @@ fun MainShell(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            Box(
+            NavigationBottomBar(
                 modifier = Modifier.onSizeChanged { size ->
                     onMainShellBottomChromeHeightChanged(size.height)
                 },
-            ) {
-                RenderBottomBar(
-                    navController = mainShellNavController,
-                    navBackStackEntry = currentEntry,
-                    onMoreClick = onMoreClick,
-                )
-            }
+                currentDestination = currentEntry?.destination,
+                onClick = mainShellNavController::navigateToMainShellTopLevel,
+                onMoreClick = onMoreClick,
+            )
         },
     ) { innerPadding ->
         MainShellNavGraph(

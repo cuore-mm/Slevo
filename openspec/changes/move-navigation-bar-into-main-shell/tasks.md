@@ -11,7 +11,7 @@
 - [x] 2.1 `AppRoute.kt`（旧`AppNavGraph.kt`）のdestinationと共通引数を棚卸しし、Rootへ残すroute、MainShellへ移すroute、各Hilt ViewModel ownerをテストまたは設計コメントで一覧化する
 - [x] 2.2 `RootNavGraph.kt`を作成し、start destinationを`AppRoute.MainShell`にしてBoard / Thread / History / Settings / About / ImageViewerを登録する
 - [x] 2.3 `MainShellNavGraph.kt`を追加し、Tabs / Bookmark / `RegisteredBBSNavigation.kt`のBBSサービス・カテゴリ・板一覧routeを登録する
-- [x] 2.4 `MainShell.kt`を追加し、entryごとの`rememberNavController()`、`Scaffold`、既存`NavigationBottomBar`、MainShellNavGraphを接続する（runtime依存のためMainShell自体はPreview対象外）
+- [x] 2.4 `MainShell.kt`を追加し、entryごとの`rememberNavController()`、`Scaffold`、既存`NavigationBottomBar`、MainShellNavGraphを接続する。`currentEntry == null`でもNavigationBottomBarを描画し、`onSizeChanged`をそのModifierへ直接付ける（runtime依存のためMainShell自体はPreview対象外）
 - [ ] 2.5 MainShellの`Scaffold.innerPadding`をMainShell内destinationだけへ適用し、RootNavHostのconstraintsがNavigationBar表示状態で変わらないCompose testを追加する
 - [x] 2.6 Root startのMainShellにおけるNavigationBar切替を既存`launchSingleTop` / `saveState` / `restoreState`規則へ接続し、Tabs / Bookmark / BBSサービス切替でRoot stackが増えないNavigation testを追加する
 - [x] 2.7 `sourceRoute`を持つMainShellではTabsからBookmark / BBSサービスをinner stackへpushし、BackでTabsへ戻るNavigation testを追加する

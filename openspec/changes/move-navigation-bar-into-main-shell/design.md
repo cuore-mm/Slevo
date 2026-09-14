@@ -1,6 +1,6 @@
 ## Context
 
-`AppScaffold.kt`は現在、単一の`NavHostController`、ルート`Scaffold`、`RenderBottomBar`、`PendingRestoreResultSnackbar`を所有する。`Scaffold.bottomBar`にあるNavigationBarは`SharedTransitionLayout`と旧単一graphの外側にあり、Board / Threadへ遷移するとdestinationより先に非表示となってNavHostへ渡す下余白を変更する。TabsカードからBBSページへのShared Boundsはこの再測定の影響を受ける。
+`AppScaffold.kt`は単一の`NavHostController`、Root overlay、`PendingRestoreResultSnackbar`を所有する。NavigationBarは`MainShell.kt`の`Scaffold.bottomBar`内で直接描画し、Rootの`SharedTransitionLayout`とRoot NavHostの外側に置く。これによりBoard / Threadへ遷移しても、NavigationBarの表示切替でRoot NavHostへ渡す下余白を変更しない。TabsカードからBBSページへのShared Boundsはこの一定boundsを利用する。
 
 旧`AppNavGraph.kt`は`AppRoute.Tabs`をstart destinationとし、Tabs、Bookmark、BBSサービス一覧、Board、Thread、Settings、History、ImageViewerを同じback stackで管理していた。Board / Threadから開くTabsは直前entryを`sourceRoute`として解決し、`NavigationExtensions.kt`がTabs選択後のpush / pop / replaceを行う。route定義は`AppRoute.kt`へ分離し、graph本体は`RootNavGraph.kt`と`MainShellNavGraph.kt`へ分割する。
 
@@ -50,7 +50,7 @@ RootNavHostへNavigationBar由来のcontent paddingを渡さず、常にwindow�
 
 ### 2. MainShellが`Scaffold`とNavigationBarを所有する
 
-新しい`MainShell.kt`は`Scaffold`の`bottomBar`で既存`NavigationBottomBar`を描画し、contentに`MainShellNavGraph`を置く。MainShellの`innerPadding`はMainShell内destinationだけへ渡す。Board / Threadは従来どおり`BbsRouteScaffold`自身の下部ツールバーとInsetsを所有する。
+新しい`MainShell.kt`は`Scaffold`の`bottomBar`から`NavigationBottomBar`を直接描画し、contentに`MainShellNavGraph`を置く。`currentEntry`がnullの初期compositionでもNavigationBottomBarを描画し、`currentDestination = null`によって未選択状態だけを表す。下部chromeの高さ計測用`onSizeChanged`はNavigationBottomBar自身のModifierへ付け、計測専用のBoxやrouteごとの下部バー切替を置かない。MainShellの`innerPadding`はMainShell内destinationだけへ渡す。Board / Threadは従来どおり`BbsRouteScaffold`自身の下部ツールバーとInsetsを所有する。
 
 Root start destinationは新しい`AppRoute.MainShell`とする。`MainShell` routeには、生成直後に表示するinner destinationだけを表す
 `MainShellStartDestination`を保存する。通常のTabs開始entryがRootのBoard / Thread直後へpushされた場合も用途識別値を保存せず、
@@ -195,7 +195,7 @@ MainShell固有Snackbarは実際の通知要件が追加されるまで作らな
 
 ## Implementation Contract
 
-- 編集開始前に`AppScaffold.kt`、`AppRoute.kt`、`RootNavGraph.kt`、`MainShellNavGraph.kt`、`RenderBottomBar.kt`、`NavigationExtensions.kt`、`RegisteredBBSNavigation.kt`、`SettingsRoute.kt`の最新route登録とcontroller受け渡しを再確認する。
+- 編集開始前に`AppScaffold.kt`、`AppRoute.kt`、`RootNavGraph.kt`、`MainShellNavGraph.kt`、`NavigationBottomBar.kt`、`NavigationExtensions.kt`、`RegisteredBBSNavigation.kt`、`SettingsRoute.kt`の最新route登録とcontroller受け渡しを再確認する。`RenderBottomBar.kt`は作成せず削除状態を維持する。
 - `SharedTransitionLayout`は`AppScaffold.kt`に一つだけ置き、RootNavHostを包む。MainShellNavHost内へ二つ目を追加しない。
 - RootNavHostへNavigationBar由来のpaddingを渡さず、MainShellの`Scaffold.innerPadding`はMainShell内画面だけへ適用する。
 - `pendingRestoreSnackbarHostState`と`PendingRestoreResultSnackbar`はRoot/AppScaffold所有を維持し、MainShellへ移動しない。
