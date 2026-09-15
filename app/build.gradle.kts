@@ -75,6 +75,7 @@ android {
         }
         create("releaseLocal") {
             initWith(getByName("release"))
+            isProfileable = true
             signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = ".local"
             versionNameSuffix = "-local"
