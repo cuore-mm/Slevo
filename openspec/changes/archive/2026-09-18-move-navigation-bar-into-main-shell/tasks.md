@@ -12,10 +12,10 @@
 - [x] 2.2 `RootNavGraph.kt`を作成し、start destinationを`AppRoute.MainShell`にしてBoard / Thread / History / Settings / About / ImageViewerを登録する
 - [x] 2.3 `MainShellNavGraph.kt`を追加し、Tabs / Bookmark / `RegisteredBBSNavigation.kt`のBBSサービス・カテゴリ・板一覧routeを登録する
 - [x] 2.4 `MainShell.kt`を追加し、entryごとの`rememberNavController()`、`Scaffold`、既存`NavigationBottomBar`、MainShellNavGraphを接続する。`currentEntry == null`でもNavigationBottomBarを描画し、`onSizeChanged`をそのModifierへ直接付ける（runtime依存のためMainShell自体はPreview対象外）
-- [ ] 2.5 MainShellの`Scaffold.innerPadding`をMainShell内destinationだけへ適用し、RootNavHostのconstraintsがNavigationBar表示状態で変わらないCompose testを追加する
+- [x] 2.5 MainShellの`Scaffold.innerPadding`をMainShell内destinationだけへ適用し、RootNavHostのconstraintsがNavigationBar表示状態で変わらないCompose testを追加する
 - [x] 2.6 Root startのMainShellにおけるNavigationBar切替を既存`launchSingleTop` / `saveState` / `restoreState`規則へ接続し、Tabs / Bookmark / BBSサービス切替でRoot stackが増えないNavigation testを追加する
 - [x] 2.7 `sourceRoute`を持つMainShellではTabsからBookmark / BBSサービスをinner stackへpushし、BackでTabsへ戻るNavigation testを追加する
-- [ ] 2.8 移動した各destinationの`hiltViewModel` ownerとsaved stateを確認し、MainShellからRootへ往復しても期待するViewModel stateが復元される統合テストを追加する
+- [x] 2.8 移動した各destinationの`hiltViewModel` ownerとsaved stateを確認し、MainShellからRootへ往復しても期待するViewModel stateが復元される統合テストを追加する
 
 ## 3. AppScaffoldとRoot overlay
 
@@ -23,8 +23,8 @@
 - [x] 3.2 `pendingRestoreSnackbarHostState`、`PendingRestoreResultSnackbar`、acknowledge callbackを`AppScaffold`のRoot overlayとして維持し、MainShellへ移動していないことをテストする
 - [x] 3.3 Root overlay専用のbottom chrome占有量モデルを追加し、MainShell NavigationBar、Board / Thread下部ツールバー、下部バーなし画面の値を同値更新抑止付きで供給する
 - [x] 3.4 Root `SnackbarHost`へbottom chromeとsafe drawingを反映し、そのpadding / offsetがRootNavHostのsizeまたはcontent paddingへ伝播しないCompose testを追加する
-- [ ] 3.5 MainShell / Board / Threadで復元結果Snackbarを表示し、Navigation中も同じhostで継続し、各下部バーとsystem navigation領域に重ならないbounds testを追加する
-- [ ] 3.6 `MoreMenuDialog`等の既存Root overlayの描画順、dismiss、Navigation callbackを新しいRoot containerへ再接続して既存動作を確認する
+- [x] 3.5 MainShell / Board / Threadで復元結果Snackbarを表示し、Navigation中も同じhostで継続し、各下部バーとsystem navigation領域に重ならないbounds testを追加する
+- [x] 3.6 `MoreMenuDialog`等の既存Root overlayの描画順、dismiss、Navigation callbackを新しいRoot containerへ再接続して既存動作を確認する
 
 ## 4. Root/MainShell間Navigation
 
@@ -47,18 +47,18 @@
 ## 6. Root transitionとShared Transition
 
 - [x] 6.1 `TransitionSpecs.kt`とRootNavGraphのenter / exit / popEnter / popExitを`BbsEntryTransition`ベースへ変更し、Tabs Shared Bounds、MainShell slide、Board↔Thread slide-only、Deep link、defaultを判定する
-- [ ] 6.2 `TransitionSpecsTest.kt`へ全遷移文脈のpush / pop、Board↔Thread優先、ImageViewerのnull transition、その他destinationの回帰ケースを追加する
+- [x] 6.2 `TransitionSpecsTest.kt`へ全遷移文脈のpush / pop、Board↔Thread優先、ImageViewerのnull transition、その他destinationの回帰ケースを追加する
 - [x] 6.3 Root MainShell destinationの`AnimatedVisibilityScope`を`MainShell.kt`からTabsカード描画経路へ伝播し、MainShellNavHostのinner scopeと型またはparameter名で明確に区別する
-- [ ] 6.4 Board / Thread側の`BbsPageSharedBounds`がRoot destination scopeを維持し、Tabsカードと同一`SharedTransitionScope` / Root transition上でmatchする実NavHost testを追加する
-- [ ] 6.5 Board↔Threadの`BbsControllerSharedBoundsKey`、ImageViewer Shared Element、Tabs Shared Bounds fallbackがgraph分割後も既存対象と描画順を維持する回帰テストを追加する
-- [ ] 6.6 MainShell→Board / ThreadとBackのCompose testでNavigationBarがMainShellより先に消えず、RootNavHost boundsとTabsカード始点boundsが遷移途中に変化しないことを測定する
+- [x] 6.4 Board / Thread側の`BbsPageSharedBounds`がRoot destination scopeを維持し、Tabsカードと同一`SharedTransitionScope` / Root transition上でmatchする実NavHost testを追加する
+- [x] 6.5 Board↔Threadの`BbsControllerSharedBoundsKey`、ImageViewer Shared Element、Tabs Shared Bounds fallbackがgraph分割後も既存対象と描画順を維持する回帰テストを追加する
+- [x] 6.6 MainShell→Board / ThreadとBackのCompose testでNavigationBarがMainShellより先に消えず、RootNavHost boundsとTabsカード始点boundsが遷移途中に変化しないことを測定する
 
 ## 7. Deep link・状態復元・Back
 
 - [x] 7.1 `DeepLinkHandler.kt`とMainActivityの初期NavigationをRoot/MainShell controllerへ振り分け、冷起動時はRoot startのMainShellを土台として目的Rootまたはinner destinationを表示する
-- [ ] 7.2 各MainShell entryが別々のinner controller stateを保持し、Root push / pop後に選択画面・nested list・スクロール状態を復元するActivity再生成テストを追加する
+- [x] 7.2 各MainShell entryが別々のinner controller stateを保持し、Root push / pop後に選択画面・nested list・スクロール状態を復元するActivity再生成テストを追加する
 - [x] 7.3 MainShell内にpop可能なinner entryがある場合はinner Backを優先し、start destinationではRoot Backへ委譲するBack dispatcherテストを追加する
-- [ ] 7.4 構成変更と可能なprocess recreation環境でRoot stack、各MainShell inner stack、`BbsEntryTransition`、pending restore通知候補を同時に復元する統合テストを追加する
+- [x] 7.4 構成変更と可能なprocess recreation環境でRoot stack、各MainShell inner stack、`BbsEntryTransition`、pending restore通知候補を同時に復元する統合テストを追加する
 
 ## 8. 既存計画の整合と検証
 
@@ -66,4 +66,4 @@
 - [x] 8.2 `replace-tabs-bottom-sheet-with-fullscreen-tabs`の単一stack、sourceRoute、top-level Tabsに関するdesign / tasksを二階層履歴へ更新してstrict validationする
 - [x] 8.3 新規・変更Composable、class、interface、enum、非自明関数についてリポジトリのKDoc、section header、guard / fallbackコメント規約を確認する
 - [x] 8.4 `openspec validate move-navigation-bar-into-main-shell --strict`を成功させ、CI上のbuildとunit testを成功させる
-- [ ] 8.5 対象CIで追加instrumented testを成功させ、ジェスチャーナビゲーション・3ボタン・縦横画面のNavigationBar、Shared Bounds、Snackbar、全Back順を実機確認する
+- [x] 8.5 対象CIで追加instrumented testを成功させ、ジェスチャーナビゲーション・3ボタン・縦横画面のNavigationBar、Shared Bounds、Snackbar、全Back順を実機確認する

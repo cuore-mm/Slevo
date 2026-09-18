@@ -171,7 +171,7 @@ Controllerはreorderを、タブEntity集合のfull replacementではなく`sort
 - **THEN** persisted resolved metadata は Repository merge により保持され、後続 canonical snapshot で presentation に再反映される
 
 ### Requirement: atomic presentation と deterministic selection repair
-システムは effective tabs と selection resolution を一つの `TabPresentationState` として公開し、有効選択、既知の一時不在、確定無効、空、初期／restore を既存 UI 挙動どおり決定論的に処理することを SHALL 要求する。
+システムは effective tabs と selection resolution を一つの `TabPresentationState` として公開し、有効選択、既知の一時不在、確定無効、空、初期／restore を決定論的に処理することを SHALL 要求する。初回canonical一覧と永続selected keyの読込が完了する前にloaded presentationを公開せず、有効な復元keyまたは末尾へ補正したkeyを最初のloaded emissionへ反映しなければならないMUST。
 
 #### Scenario: 有効選択
 - **WHEN** selected key が effective tabs に存在する
@@ -186,12 +186,16 @@ Controllerはreorderを、タブEntity集合のfull replacementではなく`sort
 - **THEN** 削除前 index の同位置、範囲外なら末尾を一度だけ選択する
 
 #### Scenario: その他の確定無効と restore
-- **WHEN** loaded non-empty state の selected key が null または pending cause なしで不在である
-- **THEN** Controller は先頭 key へ repair し、同じ emission で `Selected` を公開する
+- **WHEN** loaded non-empty state の復元selected keyがnullまたはpending causeなしで不在である
+- **THEN** Controllerは末尾keyへrepairし、同じemissionで`Selected`を公開する
+
+#### Scenario: 初回復元完了前
+- **WHEN** canonical一覧または永続selected keyの初回読込が完了していない
+- **THEN** Controllerはloaded selectionを公開せず初期読込状態を維持する
 
 #### Scenario: zero tabs
 - **WHEN** loaded effective tabs が 0 件になる
-- **THEN** selected key を null にし `Empty` を公開して tab content を表示しない
+- **THEN** selected keyをnullにし`Empty`を公開して tab content を表示しない
 
 ### Requirement: retained close ownership
 システムは画面または Composition から確認済み close を `TabSessionStore` の retained scope 経由で Controller command として受理し、caller の破棄後も canonical reconciliation まで継続することを SHALL 要求する。

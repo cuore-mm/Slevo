@@ -31,7 +31,7 @@
 
 - [x] 5.1 Bookmark相当の前段entryを含むNavigationテストで、同種選択、Board→Thread、背後Boardあり/なしのThread→Board後も前段履歴が維持され、破棄対象のTabs / ThreadだけがBackで再表示されないことを検証する。
 - [x] 5.2 ルートTabsのタブ選択、板・スレ一覧切替、検索、並び替え、詳細BottomSheet、URL入力、作成、スレッド更新が従来どおり利用できることを既存コードの責務維持とCI unit test通過で検証する。
-- [ ] 5.3 Board→Tabs、Thread→Tabs、Bookmark→Board→Tabs、Bookmark→Thread→Tabs、非同期正規化中のBack、画面再生成の各シナリオを手動確認し、初期ページ、back stack、遷移アニメーションにちらつきや履歴欠損がないことを記録する。
+- [x] 5.3 Board→Tabs、Thread→Tabs、Bookmark→Board→Tabs、Bookmark→Thread→Tabs、非同期正規化中のBack、画面再生成の各シナリオを手動確認し、初期ページ、back stack、遷移アニメーションにちらつきや履歴欠損がないことを記録する。
 - [x] 5.4 リポジトリ規約に従い、追加・変更したclass/interfaceと非自明関数のKDoc、長い関数のセクションコメント、guard/fallbackコメントを確認する。Compose Preview関数にはdoc commentを追加しない。
 - [x] 5.5 CI Run `34468900513` でbuildおよびunit testを実行し、全テスト成功を確認した。
 - [x] 5.6 `BbsRouteScaffold` のPager同期判定を、Composition再生成後に旧settledPageが先に通知されるケースで検証し、Tabsから別Threadを選択したstable keyが旧Threadへ戻らないことをunit testで固定する。

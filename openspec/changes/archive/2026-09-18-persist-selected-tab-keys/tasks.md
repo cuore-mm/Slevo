@@ -31,4 +31,4 @@
 - [x] 5.3 DataStore読込遅延と書込失敗をfakeで再現し、読込完了前はLoadingを維持すること、書込失敗でruntime selectionを失わないこと、後続selectionで最新keyの保存を再試行できることを検証する。
 - [x] 5.4 `BackupTabsJson.kt`、`BackupDataMapper.kt`、`PendingRestoreDataStoreWriter.kt`を変更していないことと、既存backup fixture・Room migrationテストがそのまま通ることを確認する。
 - [x] 5.5 追加・変更したclass/interfaceと非自明関数のKDoc、30行超関数のセクションコメント、復元guard、末尾fallback、stable key変換コメントをリポジトリ規約に合わせる。Compose Preview関数にはdoc commentを追加しない。
-- [ ] 5.6 CIで`./gradlew build`と`./gradlew test`を実行し、build、unit test、既存backup・migration回帰が全て成功するまで修正する。実機またはエミュレータで初回起動は末尾、板・スレッド選択後の再起動は各選択タブ復元、最後のタブ削除後は空状態になることを確認する。
+- [x] 5.6 CIで`./gradlew build`と`./gradlew test`を実行し、build、unit test、既存backup・migration回帰が全て成功するまで修正する。実機またはエミュレータで初回起動は末尾、板・スレッド選択後の再起動は各選択タブ復元、最後のタブ削除後は空状態になることを確認する。
