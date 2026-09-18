@@ -520,6 +520,10 @@ class BackupRestoreRepositoryTest {
     private class FakeTabsDataSource : TabsLocalDataSource {
         override fun observeLastSelectedTabsPage(): Flow<Int> = flowOf(0)
         override suspend fun setLastSelectedTabsPage(page: Int) {}
+        override fun observeSelectedBoardTabKey(): Flow<String?> = flowOf(null)
+        override suspend fun setSelectedBoardTabKey(key: String?) {}
+        override fun observeSelectedThreadTabKey(): Flow<String?> = flowOf(null)
+        override suspend fun setSelectedThreadTabKey(key: String?) {}
     }
 
     private class FakeCookieDataSource : CookieLocalDataSource {

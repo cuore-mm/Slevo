@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -27,6 +30,7 @@ import androidx.navigation.NavHostController
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TabPage
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.ui.bbsroute.isSharedTransitionCandidate
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListAnimationDefaults
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListLayoutDefaults
@@ -46,16 +50,29 @@ private enum class TabListDisplayState {
     SearchEmpty,
 }
 
+/** カードが表示中pageのtargetかつ操作中でない場合だけShared Bounds候補にする。 */
+internal fun isTabCardSharedTransitionEnabled(
+    pageSharedTransitionEnabled: Boolean,
+    isRemoving: Boolean,
+    isDragging: Boolean,
+    isSelectionMode: Boolean,
+    isInLongPressSelectionMode: Boolean,
+): Boolean = pageSharedTransitionEnabled &&
+    !isRemoving &&
+    !isDragging &&
+    !isSelectionMode &&
+    !isInLongPressSelectionMode
+
 /**
  * タブ一覧のページャーを提供し、板/スレ一覧を切り替えて表示する。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun TabsPagerContent(
     modifier: Modifier = Modifier,
     pagerState: PagerState,
     tabSessionStore: TabSessionStore,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     listContentPadding: PaddingValues = PaddingValues(0.dp),
     isShowingSearchResults: Boolean,
     isSearchMode: Boolean,
@@ -99,13 +116,23 @@ fun TabsPagerContent(
     onThreadTabReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean,
     onClearNewResCount: (ThreadId) -> Unit,
     isInLongPressSelectionMode: Boolean = false,
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String = "",
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
+    onThreadSelected: ((AppRoute.Thread) -> Unit)? = null,
 ) {
     HorizontalPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
         userScrollEnabled = false,
     ) { page ->
+        val isCurrentTabListPage = isSharedTransitionCandidate(
+            page = page,
+            settledPage = pagerState.settledPage,
+            isScrollInProgress = pagerState.isScrollInProgress,
+        )
         when (TabPage.fromIndex(page)) {
             TabPage.BOARD -> AnimatedListContent(
                 displayState = when {
@@ -113,13 +140,12 @@ fun TabsPagerContent(
                     filteredBoardTabs.isEmpty() -> TabListDisplayState.SearchEmpty
                     else -> TabListDisplayState.SearchResults
                 },
-                normalContent = {
+                normalContent = { isTarget ->
                     OpenBoardsList(
                         openTabs = openBoardTabs,
                         onCloseClick = onCloseBoardTab,
                         onSwipeDelete = onSwipeDeleteBoardTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = boardNormalListState,
                         selectedBoardTab = selectedBoardTab,
@@ -138,16 +164,20 @@ fun TabsPagerContent(
                         onReorderFinished = onBoardTabReorderFinished,
                         onReorderCancelled = onBoardTabReorderCancelled,
                         onReorderAccessibilityMove = onBoardTabReorderAccessibilityMove,
-                        currentScreenRoute = currentScreenRoute,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                          sharedTransitionScope = sharedTransitionScope,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onBoardSelected = onBoardSelected,
+                           pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
-                searchResultContent = {
+                searchResultContent = { isTarget ->
                     OpenBoardsList(
                         openTabs = filteredBoardTabs,
                         onCloseClick = onCloseBoardTab,
                         onSwipeDelete = onSwipeDeleteBoardTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = boardSearchListState,
                         selectedBoardTab = selectedBoardTab,
@@ -160,7 +190,13 @@ fun TabsPagerContent(
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                         isReorderEnabled = false,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                          sharedTransitionScope = sharedTransitionScope,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onBoardSelected = onBoardSelected,
+                            pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
                 searchEmptyContent = {
                     SearchResultEmptyState(contentPadding = listContentPadding)
@@ -173,13 +209,12 @@ fun TabsPagerContent(
                     filteredThreadTabs.isEmpty() -> TabListDisplayState.SearchEmpty
                     else -> TabListDisplayState.SearchResults
                 },
-                normalContent = {
+                normalContent = { isTarget ->
                     OpenThreadsList(
                         openTabs = openThreadTabs,
                         onCloseClick = onCloseThreadTab,
                         onSwipeDelete = onSwipeDeleteThreadTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = threadNormalListState,
                         newResCounts = newResCounts,
@@ -200,16 +235,20 @@ fun TabsPagerContent(
                         onReorderFinished = onThreadTabReorderFinished,
                         onReorderCancelled = onThreadTabReorderCancelled,
                         onReorderAccessibilityMove = onThreadTabReorderAccessibilityMove,
-                        currentScreenRoute = currentScreenRoute,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                          sharedTransitionScope = sharedTransitionScope,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onThreadSelected = onThreadSelected,
+                            pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
-                searchResultContent = {
+                searchResultContent = { isTarget ->
                     OpenThreadsList(
                         openTabs = filteredThreadTabs,
                         onCloseClick = onCloseThreadTab,
                         onSwipeDelete = onSwipeDeleteThreadTab,
                         navController = navController,
-                        closeDrawer = closeDrawer,
                         contentPadding = listContentPadding,
                         listState = threadSearchListState,
                         newResCounts = newResCounts,
@@ -224,7 +263,13 @@ fun TabsPagerContent(
                         tabSessionStore = tabSessionStore,
                         isInLongPressSelectionMode = isInLongPressSelectionMode,
                         isReorderEnabled = false,
-                    )
+                         sourceRoute = sourceRoute,
+                         tabsEntryId = tabsEntryId,
+                          sharedTransitionScope = sharedTransitionScope,
+                           animatedVisibilityScope = animatedVisibilityScope,
+                           onThreadSelected = onThreadSelected,
+                            pageSharedTransitionEnabled = isCurrentTabListPage && isTarget,
+                      )
                 },
                 searchEmptyContent = {
                     SearchResultEmptyState(contentPadding = listContentPadding)
@@ -270,8 +315,8 @@ private fun SearchResultEmptyState(
 @Composable
 private fun AnimatedListContent(
     displayState: TabListDisplayState,
-    normalContent: @Composable () -> Unit,
-    searchResultContent: @Composable () -> Unit,
+    normalContent: @Composable (isTarget: Boolean) -> Unit,
+    searchResultContent: @Composable (isTarget: Boolean) -> Unit,
     searchEmptyContent: @Composable () -> Unit,
 ) {
     AnimatedContent(
@@ -283,8 +328,8 @@ private fun AnimatedListContent(
         label = "TabListSearchTransition",
     ) { state ->
         when (state) {
-            TabListDisplayState.Normal -> normalContent()
-            TabListDisplayState.SearchResults -> searchResultContent()
+            TabListDisplayState.Normal -> normalContent(state == displayState)
+            TabListDisplayState.SearchResults -> searchResultContent(state == displayState)
             TabListDisplayState.SearchEmpty -> searchEmptyContent()
         }
     }

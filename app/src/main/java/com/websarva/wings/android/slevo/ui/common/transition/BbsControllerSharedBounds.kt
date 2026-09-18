@@ -46,8 +46,10 @@ fun Modifier.bbsControllerSharedBounds(
     if (!enabled) return this
 
     return with(sharedTransitionScope) {
+        val sharedContentState = rememberSharedContentState(key)
+
         sharedBounds(
-            sharedContentState = rememberSharedContentState(key),
+            sharedContentState = sharedContentState,
             animatedVisibilityScope = animatedVisibilityScope,
             resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
         )

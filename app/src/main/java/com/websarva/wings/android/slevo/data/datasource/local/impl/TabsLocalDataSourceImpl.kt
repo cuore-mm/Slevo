@@ -30,4 +30,34 @@ class TabsLocalDataSourceImpl @Inject constructor(
             prefs[SlevoPreferenceDataStores.LAST_PAGE_KEY] = page
         }
     }
+
+    /** 保存済み板selected keyを監視する。未保存時はnullを返す。 */
+    override fun observeSelectedBoardTabKey(): Flow<String?> =
+        dataStore.data.map { prefs -> prefs[SlevoPreferenceDataStores.SELECTED_BOARD_TAB_KEY] }
+
+    /** 板selected keyを保存し、null指定時は保存値を削除する。 */
+    override suspend fun setSelectedBoardTabKey(key: String?) {
+        dataStore.edit { prefs ->
+            if (key == null) {
+                prefs.remove(SlevoPreferenceDataStores.SELECTED_BOARD_TAB_KEY)
+            } else {
+                prefs[SlevoPreferenceDataStores.SELECTED_BOARD_TAB_KEY] = key
+            }
+        }
+    }
+
+    /** 保存済みスレッドselected keyを監視する。未保存時はnullを返す。 */
+    override fun observeSelectedThreadTabKey(): Flow<String?> =
+        dataStore.data.map { prefs -> prefs[SlevoPreferenceDataStores.SELECTED_THREAD_TAB_KEY] }
+
+    /** スレッドselected keyを保存し、null指定時は保存値を削除する。 */
+    override suspend fun setSelectedThreadTabKey(key: String?) {
+        dataStore.edit { prefs ->
+            if (key == null) {
+                prefs.remove(SlevoPreferenceDataStores.SELECTED_THREAD_TAB_KEY)
+            } else {
+                prefs[SlevoPreferenceDataStores.SELECTED_THREAD_TAB_KEY] = key
+            }
+        }
+    }
 }

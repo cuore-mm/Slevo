@@ -1,6 +1,8 @@
 package com.websarva.wings.android.slevo.ui.bbsroute
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -177,6 +179,72 @@ class BbsRouteScaffoldSelectionTest {
         assertEquals(
             false,
             isSharedTransitionCandidate(page = 1, settledPage = 1, isScrollInProgress = true),
+        )
+    }
+
+    /** routeの初期入力ではなくsettled indexのページ数とidle状態で候補を判定する。 */
+    @Test
+    fun pageSharedTransitionCandidate_usesSettledPageValidity() {
+        assertTrue(
+            isPageSharedTransitionCandidate(
+                page = 2,
+                pageCount = 3,
+                settledPage = 2,
+                isScrollInProgress = false,
+            ),
+        )
+        assertFalse(
+            isPageSharedTransitionCandidate(
+                page = 0,
+                pageCount = 3,
+                settledPage = 2,
+                isScrollInProgress = false,
+            ),
+        )
+        assertFalse(
+            isPageSharedTransitionCandidate(
+                page = 2,
+                pageCount = 3,
+                settledPage = 2,
+                isScrollInProgress = true,
+            ),
+        )
+        assertFalse(
+            isPageSharedTransitionCandidate(
+                page = 3,
+                pageCount = 3,
+                settledPage = 3,
+                isScrollInProgress = false,
+            ),
+        )
+        assertFalse(
+            isPageSharedTransitionCandidate(
+                page = 0,
+                pageCount = 0,
+                settledPage = 0,
+                isScrollInProgress = false,
+            ),
+        )
+    }
+
+    /** 復帰直後の旧settled pageを、stable keyの選択変更として通知しないことを確認する。 */
+    @Test
+    fun settledSelectionSync_ignoresRestoredPageUntilTargetIsSynchronized() {
+        assertFalse(
+            shouldReportSettledTabSelection(
+                selectedKey = "thread-b",
+                lastSynchronizedSelectedKey = null,
+                settledPage = 0,
+                selectedPage = 1,
+            ),
+        )
+        assertTrue(
+            shouldReportSettledTabSelection(
+                selectedKey = "thread-b",
+                lastSynchronizedSelectedKey = "thread-b",
+                settledPage = 0,
+                selectedPage = 1,
+            ),
         )
     }
 }

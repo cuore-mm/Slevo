@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,34 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 
-@Composable
-fun BookmarkSelectBottomBar(
-    modifier: Modifier = Modifier,
-    onEdit: () -> Unit,
-    onOpen: () -> Unit
-) {
-    BottomAppBar(
-        modifier = modifier,
-        actions = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-            ) {
-                BottomBarItem(
-                    icon = Icons.Default.Star,
-                    label = stringResource(R.string.edit),
-                    onClick = onEdit
-                )
-//                BottomBarItem(
-//                    icon = Icons.Default.OpenInBrowser,
-//                    label = "開く",
-//                    onClick = onOpen
-//                )
-            }
-        }
-    )
-}
-
+/** BBS一覧などの選択モードで削除操作を表示する画面固有の下部バー。 */
 @Composable
 fun BbsSelectBottomBar(
     modifier: Modifier = Modifier,
@@ -79,6 +51,7 @@ fun BbsSelectBottomBar(
     )
 }
 
+/** アイコンとラベルを縦に並べた画面固有の下部バー項目を表示する。 */
 @Composable
 fun BottomBarItem(
     icon: ImageVector,
@@ -102,15 +75,6 @@ fun BottomBarItem(
             maxLines = 1
         )
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BookmarkSelectBottomBarPreview() {
-    BookmarkSelectBottomBar(
-        onEdit = {},
-        onOpen = {}
-    )
 }
 
 @Preview(showBackground = true)

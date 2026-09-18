@@ -10,25 +10,37 @@ import androidx.compose.animation.slideOutHorizontally
 
 internal const val DefaultAnimDuration = 300
 
+/** TabsとBoard / ThreadページのShared Boundsを邪魔しないfade-only enterを返す。 */
+fun bbsPageEnterTransition(): EnterTransition =
+    EnterTransition.None
+
+/** TabsとBoard / ThreadページのShared Boundsを邪魔しないfade-only exitを返す。 */
+fun bbsPageExitTransition(): ExitTransition =
+    ExitTransition.None
+
 // --- 通常画面用トランジション ---
+/** 通常のpush遷移として右から入り、fade inするtransitionを返す。 */
 fun defaultEnterTransition(): EnterTransition =
     slideInHorizontally(
         initialOffsetX = { fullWidth -> fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeIn(animationSpec = tween(DefaultAnimDuration))
 
+/** 通常のpush遷移として左へ抜け、fade outするtransitionを返す。 */
 fun defaultExitTransition(): ExitTransition =
     slideOutHorizontally(
         targetOffsetX = { fullWidth -> -fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeOut(animationSpec = tween(DefaultAnimDuration))
 
+/** 通常のpop遷移として左から入り、fade inするtransitionを返す。 */
 fun defaultPopEnterTransition(): EnterTransition =
     slideInHorizontally(
         initialOffsetX = { fullWidth -> -fullWidth },
         animationSpec = tween(DefaultAnimDuration)
     ) + fadeIn(animationSpec = tween(DefaultAnimDuration))
 
+/** 通常のpop遷移として右へ抜け、fade outするtransitionを返す。 */
 fun defaultPopExitTransition(): ExitTransition =
     slideOutHorizontally(
         targetOffsetX = { fullWidth -> fullWidth },
@@ -88,6 +100,26 @@ fun isThreadToBoardTransition(
 ): Boolean {
     return initialRoute.isRouteNamed(AppRoute.RouteName.THREAD) &&
             targetRoute.isRouteNamed(AppRoute.RouteName.BOARD)
+}
+
+/** TabsからBoardまたはThreadへ進むrouteの組み合わせかを判定する。 */
+fun isTabsToBbsTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    return initialRoute.isRouteNamed(AppRoute.RouteName.TABS) &&
+        (targetRoute.isRouteNamed(AppRoute.RouteName.BOARD) ||
+            targetRoute.isRouteNamed(AppRoute.RouteName.THREAD))
+}
+
+/** BoardまたはThreadからTabsへ戻るrouteの組み合わせかを判定する。 */
+fun isBbsToTabsTransition(
+    initialRoute: String?,
+    targetRoute: String?,
+): Boolean {
+    return (initialRoute.isRouteNamed(AppRoute.RouteName.BOARD) ||
+        initialRoute.isRouteNamed(AppRoute.RouteName.THREAD)) &&
+        targetRoute.isRouteNamed(AppRoute.RouteName.TABS)
 }
 
 /** 2つのNav routeがBoardとThreadの組み合わせかを判定する。 */

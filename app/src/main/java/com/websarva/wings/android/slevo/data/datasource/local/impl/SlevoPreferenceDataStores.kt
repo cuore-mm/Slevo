@@ -125,6 +125,8 @@ object SlevoPreferenceDataStores {
     // --- Tabs keys ---
 
     internal val LAST_PAGE_KEY = intPreferencesKey("last_selected_page")
+    internal val SELECTED_BOARD_TAB_KEY = stringPreferencesKey("selected_board_tab_key")
+    internal val SELECTED_THREAD_TAB_KEY = stringPreferencesKey("selected_thread_tab_key")
 
     // --- Cookies keys ---
 

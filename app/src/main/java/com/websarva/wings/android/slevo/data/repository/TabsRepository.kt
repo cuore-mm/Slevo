@@ -508,6 +508,22 @@ class TabsRepository @Inject constructor(
     suspend fun setLastSelectedTabsPage(page: Int) =
         tabsLocalDataSource.setLastSelectedTabsPage(page)
 
+    /** 保存済み板selected keyを監視する。 */
+    fun observeSelectedBoardTabKey(): Flow<String?> =
+        tabsLocalDataSource.observeSelectedBoardTabKey()
+
+    /** 板selected keyを保存し、null指定時は保存値を削除する。 */
+    suspend fun setSelectedBoardTabKey(key: String?) =
+        tabsLocalDataSource.setSelectedBoardTabKey(key)
+
+    /** 保存済みスレッドselected keyを監視する。 */
+    fun observeSelectedThreadTabKey(): Flow<String?> =
+        tabsLocalDataSource.observeSelectedThreadTabKey()
+
+    /** スレッドselected keyを保存し、null指定時は保存値を削除する。 */
+    suspend fun setSelectedThreadTabKey(key: String?) =
+        tabsLocalDataSource.setSelectedThreadTabKey(key)
+
     /** ThreadTabInfo から共通状態更新の入力へ変換する。 */
     private fun ThreadTabInfo.toThreadStateUpdate(): ThreadStateRepository.ThreadStateUpdate =
         ThreadStateRepository.ThreadStateUpdate(

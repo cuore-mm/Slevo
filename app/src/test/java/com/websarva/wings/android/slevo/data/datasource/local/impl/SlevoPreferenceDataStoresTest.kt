@@ -11,6 +11,8 @@ import java.io.File
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 
 /**
  * [SlevoPreferenceDataStores] の初回生成同期と applicationContext 使用方針を検証する。
@@ -68,6 +70,36 @@ class SlevoPreferenceDataStoresTest {
 
         Assert.assertTrue(source.contains("synchronized(this)"))
         Assert.assertTrue(source.contains("applicationContext ?: context"))
+    }
+
+    /** 板・スレッドselected keyを独立して保存し、null指定で削除できることを確認する。 */
+    @Test
+    fun tabsSelectedKeys_areIndependentAndNullable() = runTest {
+        SlevoPreferenceDataStores.resetForTest()
+        val context = testContext(tempFolder.newFolder("tabs-selected-keys"))
+        val dataSource = TabsLocalDataSourceImpl(context)
+
+        Assert.assertNull(dataSource.observeSelectedBoardTabKey().first())
+        Assert.assertNull(dataSource.observeSelectedThreadTabKey().first())
+
+        dataSource.setSelectedBoardTabKey("https://example.com/board/")
+        dataSource.setSelectedThreadTabKey("example.com/board/123")
+        Assert.assertEquals(
+            "https://example.com/board/",
+            dataSource.observeSelectedBoardTabKey().first(),
+        )
+        Assert.assertEquals(
+            "example.com/board/123",
+            dataSource.observeSelectedThreadTabKey().first(),
+        )
+
+        dataSource.setSelectedBoardTabKey(null)
+        Assert.assertNull(dataSource.observeSelectedBoardTabKey().first())
+        Assert.assertEquals(
+            "example.com/board/123",
+            dataSource.observeSelectedThreadTabKey().first(),
+        )
+        SlevoPreferenceDataStores.resetForTest()
     }
 
     private fun testContext(filesDir: File): Context {

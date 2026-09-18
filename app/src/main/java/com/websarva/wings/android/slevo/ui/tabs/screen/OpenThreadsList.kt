@@ -1,5 +1,8 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
@@ -15,7 +18,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenFromTabs
+import com.websarva.wings.android.slevo.ui.common.transition.BbsPageSharedBoundsKey
+import com.websarva.wings.android.slevo.ui.common.transition.bbsPageSharedBounds
 import com.websarva.wings.android.slevo.ui.tabs.component.RemovableTabList
 import com.websarva.wings.android.slevo.ui.tabs.component.TabHeaderTrailingContent
 import com.websarva.wings.android.slevo.ui.tabs.component.TabListCard
@@ -28,6 +33,7 @@ import kotlinx.coroutines.launch
 /**
  * 開いているスレッドタブの一覧をカード表示し、選択されたタブへ遷移する。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun OpenThreadsList(
     modifier: Modifier = Modifier,
@@ -35,7 +41,6 @@ fun OpenThreadsList(
     onCloseClick: (ThreadTabInfo) -> Unit = {},
     onSwipeDelete: (ThreadTabInfo) -> Unit = onCloseClick,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     listState: LazyListState = rememberLazyListState(),
     newResCounts: Map<String, Int> = emptyMap(),
@@ -56,7 +61,12 @@ fun OpenThreadsList(
     onReorderFinished: (ThreadTabInfo) -> Unit = {},
     onReorderCancelled: (ThreadTabInfo) -> Unit = {},
     onReorderAccessibilityMove: (ThreadTabInfo, Int) -> Boolean = { _, _ -> false },
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String = "",
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    pageSharedTransitionEnabled: Boolean = true,
+    onThreadSelected: ((AppRoute.Thread) -> Unit)? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -79,9 +89,10 @@ fun OpenThreadsList(
         OpenThreadCard(
             tab = tab,
             newResCount = newResCounts[tab.id.value] ?: tab.newResCount,
-            isSelected = selectedThreadTab?.id == tab.id,
-            isSelectionMode = isSelectionMode,
-            isSelectedForSelectionMode = tab.id in selectedThreadTabIds,
+             isSelected = selectedThreadTab?.id == tab.id,
+             isSelectionMode = isSelectionMode,
+             isInLongPressSelectionMode = isInLongPressSelectionMode,
+             isSelectedForSelectionMode = tab.id in selectedThreadTabIds,
             onSelectionToggle = { onThreadTabSelectionToggle(tab.id) },
             onClick = {
                 if (isRemoving) return@OpenThreadCard
@@ -89,7 +100,6 @@ fun OpenThreadsList(
                     onThreadTabSelectionToggle(tab.id)
                     return@OpenThreadCard
                 }
-                closeDrawer()
                 onClearNewResCount(tab.id)
                 val route = AppRoute.Thread(
                     threadKey = tab.threadKey,
@@ -104,10 +114,15 @@ fun OpenThreadsList(
                         tabSessionStore?.normalizeThreadRouteForNavigation(route) ?: route
                     val index = tabSessionStore?.registerAndSelectThreadRoute(normalizedRoute) ?: -1
                     if (index >= 0) {
-                        navController.showThreadScreenForTabSelection(
-                            currentScreenRoute = currentScreenRoute,
-                            route = normalizedRoute,
-                        )
+                        if (onThreadSelected != null) {
+                            onThreadSelected(normalizedRoute)
+                        } else {
+                            navController.showThreadScreenFromTabs(
+                                sourceRoute = sourceRoute,
+                                tabsEntryId = tabsEntryId,
+                                route = normalizedRoute,
+                            )
+                        }
                     }
                 }
             },
@@ -126,8 +141,11 @@ fun OpenThreadsList(
             onMoveDown = if (isReorderEnabled) {
                 { onReorderAccessibilityMove(tab, 1) }
             } else null,
-            isDragging = isDragging,
-            isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
+             isDragging = isDragging,
+             sharedTransitionScope = sharedTransitionScope,
+             animatedVisibilityScope = animatedVisibilityScope,
+             pageSharedTransitionEnabled = pageSharedTransitionEnabled,
+             isSwipeDeleteEnabled = !isInLongPressSelectionMode && !isSelectionMode && !isRemoving,
             onSwipeDelete = {
                 if (isRemoving) return@OpenThreadCard
                 onSwipeDelete(tab)
@@ -144,12 +162,14 @@ fun OpenThreadsList(
 /**
  * スレッドタブをカード表示する。
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun OpenThreadCard(
     tab: ThreadTabInfo,
     newResCount: Int,
     isSelected: Boolean,
     isSelectionMode: Boolean = false,
+    isInLongPressSelectionMode: Boolean = false,
     isSelectedForSelectionMode: Boolean = false,
     onSelectionToggle: () -> Unit = {},
     onClick: () -> Unit,
@@ -161,6 +181,9 @@ private fun OpenThreadCard(
     isSwipeDeleteEnabled: Boolean = true,
     isRemoving: Boolean = false,
     isDragging: Boolean = false,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
+    pageSharedTransitionEnabled: Boolean,
     reorderHandle: ((sh.calvin.reorderable.DragGestureDetector) -> Modifier)? = null,
     onReorderFinished: () -> Unit = {},
     onReorderCancelled: () -> Unit = {},
@@ -170,8 +193,25 @@ private fun OpenThreadCard(
     // --- Card highlight ---
     val color = tab.bookmarkColorName?.let { bookmarkColor(it) }
 
+    val pageModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        Modifier.bbsPageSharedBounds(
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+            key = BbsPageSharedBoundsKey.Thread(tab.id.value),
+            enabled = isTabCardSharedTransitionEnabled(
+                pageSharedTransitionEnabled = pageSharedTransitionEnabled,
+                isRemoving = isRemoving,
+                isDragging = isDragging,
+                isSelectionMode = isSelectionMode,
+                isInLongPressSelectionMode = isInLongPressSelectionMode,
+            ),
+            )
+    } else {
+        Modifier
+    }
+
     TabListCard(
-        modifier = Modifier.padding(horizontal = 12.dp),
+        modifier = pageModifier.padding(horizontal = 12.dp),
         bookmarkColor = color,
         onClick = onClick,
         onLongPress = onLongPress,
@@ -240,7 +280,6 @@ fun OpenThreadsListPreview() {
         openTabs = sampleTabs,
         onCloseClick = {},
         navController = rememberNavController(),
-        closeDrawer = {},
         contentPadding = PaddingValues(0.dp),
         newResCounts = emptyMap(),
     )
