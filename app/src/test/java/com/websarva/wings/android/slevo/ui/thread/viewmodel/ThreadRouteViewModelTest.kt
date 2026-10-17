@@ -33,9 +33,11 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -431,6 +433,33 @@ class ThreadRouteViewModelTest {
         assertEquals(true, state.isTabSwipeEnabled)
     }
 
+    /** 同じ板の複数タブは名無し名を一度だけ取得し、各 UiState に保持する。 */
+    @Test
+    fun initializeTabs_fetchesBoardDefaultNameOncePerBoard() = runTest {
+        val firstId = ThreadId.of("example.com", "test", "111")
+        val secondId = ThreadId.of("example.com", "test", "222")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(firstId, "first"), threadTab(secondId, "second")),
+            selectedTabKey = firstId.value,
+        )
+        coEvery { dependencies.boardRepository.fetchBoardNoname(any()) } returns "名無し"
+        val viewModel = dependencies.createViewModel()
+        val firstState = viewModel.uiStateFor(firstId.value)
+        val secondState = viewModel.uiStateFor(secondId.value)
+        val firstJob = backgroundScope.launch { firstState.collect {} }
+        val secondJob = backgroundScope.launch { secondState.collect {} }
+
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            dependencies.boardRepository.fetchBoardNoname("https://example.com/test/SETTING.TXT")
+        }
+        assertEquals("名無し", firstState.value.boardInfo.noname)
+        assertEquals("名無し", secondState.value.boardInfo.noname)
+        firstJob.cancel()
+        secondJob.cancel()
+    }
+
     /** テスト用依存一式を構築する。 */
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
@@ -469,7 +498,7 @@ class ThreadRouteViewModelTest {
             runtimeStates.value = runtimeStates.value + (threadId to transform(runtimeStates.value[threadId] ?: ThreadSessionRuntimeState()))
         }
         coEvery { store.updateThreadResolvedBoardInfo(any(), any(), any()) } answers {
-            val threadId = firstArg<ThreadId>()
+            val threadId = ThreadId(firstArg())
             val boardId = secondArg<Long>()
             val boardName = thirdArg<String?>()
             openTabs.value = openTabs.value.map { tab ->

@@ -1,9 +1,12 @@
 <resources>
     <string name="reply_preview_target_label">返信先</string>
+    <string name="reply_preview_target_post_header">返信先：レス%1$d</string>
     <string name="reply_preview_source_label">返信</string>
-    <string name="reply_preview_open_post">レス%1$dを表示</string>
+    <string name="reply_preview_open_target_post">返信先のレス%1$dを表示</string>
+    <string name="reply_preview_open_source_post">返信元のレス%1$dを表示</string>
     <string name="reply_preview_open_target_list">返信先の一覧を表示（%1$d件）</string>
     <string name="reply_preview_open_source_list">返信の一覧を表示（%1$d件）</string>
     <string name="reply_preview_other_count">ほか%1$d件</string>
     <string name="reply_preview_image_description">レス%3$dの画像%1$d枚中1枚目、ほか%2$d枚を表示</string>
+    <string name="reply_preview_image_more">+%1$d</string>
 </resources>

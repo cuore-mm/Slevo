@@ -30,6 +30,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import coil3.compose.SubcomposeAsyncImage
@@ -44,7 +46,6 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressIndicatorStyle
 import com.websarva.wings.android.slevo.ui.util.toImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 
-/** 画像グリッドと返信プレビューで共有する一枚分の画像タイルを描画する。 */
 /** 画像グリッドと返信プレビューで共通利用する単一画像タイルを描画し、操作と読込状態を通知する。 */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -114,10 +115,13 @@ fun ImageThumbnail(
                         return@combinedClickable
                     }
                     // Coilの成功コールバック後だけ、既存ビューアへ遷移する。
-                    if (canNavigate) onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                    if (shouldNavigateToImage(canNavigate, failureType)) {
+                        onImageClick(url, imageUrls, imageIndex, transitionNamespace)
+                    }
                 },
                 onLongClick = onImageLongPress?.let { { it(url, imageUrls) } },
             )
+            .semantics { contentDescription = imageContentDescription }
             .then(sharedElementModifier)
 
         // --- Failure, loading, and success states ---
@@ -144,7 +148,7 @@ fun ImageThumbnail(
             key(imageIndex, retryNonce) {
                 SubcomposeAsyncImage(
                     model = imageRequest,
-                    contentDescription = imageContentDescription,
+                    contentDescription = null,
                     contentScale = ContentScale.Fit,
                     onSuccess = { state ->
                         canNavigate = true
@@ -190,6 +194,12 @@ fun ImageThumbnail(
         }
     }
 }
+
+/** 成功済みで失敗状態のない画像だけをビューアへ遷移可能にする。 */
+internal fun shouldNavigateToImage(
+    hasLoadedSuccessfully: Boolean,
+    failureType: ImageLoadFailureType?,
+): Boolean = hasLoadedSuccessfully && failureType == null
 
 /** 404/410の状態と説明を画像タイル中央に表示する。 */
 @Composable

@@ -62,6 +62,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 /**
@@ -101,6 +103,8 @@ class ThreadRouteViewModel @Inject constructor(
     private val uiStateCache = mutableMapOf<String, StateFlow<ThreadUiState>>()
     private val contentStates = MutableStateFlow<Map<String, ThreadRouteContentState>>(emptyMap())
     private val replyPreviewCache = mutableMapOf<String, ReplyPreviewCache>()
+    private val boardNonameCacheMutex = Mutex()
+    private val boardNonameBySettingUrl = mutableMapOf<String, String?>()
     private val initializationJobs = mutableMapOf<String, Job>()
     private val threadLoadJobs = mutableMapOf<String, Job>()
     private val postSuccessCollectJobs = mutableMapOf<String, Job>()
@@ -755,7 +759,7 @@ class ThreadRouteViewModel @Inject constructor(
                 initialUnreadBoundaryInitialized = true,
             )
         }
-        boardRepository.fetchBoardNoname("${tab.boardUrl}SETTING.TXT")?.let { noname ->
+        fetchBoardNonameForBoard("${tab.boardUrl}SETTING.TXT")?.let { noname ->
             updateContentState(tab.id.value) { state ->
                 state.copy(boardInfo = state.boardInfo.copy(noname = noname))
             }
@@ -766,6 +770,23 @@ class ThreadRouteViewModel @Inject constructor(
         tabSessionStore.threadPostDialogController(tab.id.value)
             .prepareIdentityHistory(boardInfo.boardId)
     }
+
+    /** 板ごとの名無し名を一度取得し、取得失敗時も投稿名を隠さない状態を保つ。 */
+    private suspend fun fetchBoardNonameForBoard(settingUrl: String): String? =
+        boardNonameCacheMutex.withLock {
+            if (boardNonameBySettingUrl.containsKey(settingUrl)) {
+                return@withLock boardNonameBySettingUrl[settingUrl]
+            }
+            val noname = try {
+                boardRepository.fetchBoardNoname(settingUrl)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                logger.e(message = "Failed to fetch board default name", throwable = error)
+                null
+            }
+            boardNonameBySettingUrl[settingUrl] = noname
+            noname
+        }
 
     /** 読み込み開始状態を SessionState に反映する。 */
     private fun startThreadLoad(tabKey: String, source: ThreadLoadingSource) {

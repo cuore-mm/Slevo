@@ -71,7 +71,15 @@ internal fun ReplyPreviewCard(
     // --- Accessibility labels and display scale ---
     val colors = MaterialTheme.colorScheme
     val progressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
-    val openPostDescription = stringResource(R.string.reply_preview_open_post, post.postNumber)
+    val openPostDescription = stringResource(
+        if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+            R.string.reply_preview_open_target_post
+        } else {
+            R.string.reply_preview_open_source_post
+        },
+        post.postNumber,
+    )
+    val targetPostHeader = stringResource(R.string.reply_preview_target_post_header, post.postNumber)
     val imageDescription = stringResource(
         R.string.reply_preview_image_description,
         post.imageUrls.size,
@@ -106,7 +114,13 @@ internal fun ReplyPreviewCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 val header = buildList {
-                    add(anchorLabel ?: "レス${post.postNumber}")
+                    add(
+                        anchorLabel ?: if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+                            targetPostHeader
+                        } else {
+                            "レス${post.postNumber}"
+                        },
+                    )
                     if (post.name.isNotBlank()) add(post.name)
                     if (post.id.isNotBlank()) add("ID:${post.id}")
                 }.joinToString("  ")
@@ -175,7 +189,10 @@ internal fun ReplyPreviewCard(
                                     shape = RoundedCornerShape(topStart = 6.dp),
                                 ) {
                                     Text(
-                                        text = "+${post.imageUrls.size - 1}",
+                                        text = stringResource(
+                                            R.string.reply_preview_image_more,
+                                            post.imageUrls.size - 1,
+                                        ),
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                                         color = colors.onPrimary,
                                         fontSize = 11.sp,
@@ -236,6 +253,83 @@ private fun ReplyPreviewCardPreview() {
                         id = "sample-id",
                         body = "返信内容のプレビューを表示します。",
                         imageUrls = emptyList(),
+                    ),
+                    hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    bodyTextScale = 1f,
+                    onOpenPost = {},
+                    onOpenOverflow = {},
+                    onImageClick = { _, _, _, _ -> },
+                    onImageLongPress = { _, _ -> },
+                    imageLoadFailureByUrl = emptyMap(),
+                    onImageLoadStart = {},
+                    onImageLoadError = { _, _ -> },
+                    onImageLoadSuccess = {},
+                    onImageRetry = {},
+                    enableSharedElement = true,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true, name = "Reply preview with images")
+@Composable
+private fun ReplyPreviewCardWithImagesPreview() {
+    SlevoTheme {
+        SharedTransitionLayout {
+            AnimatedVisibility(visible = true) {
+                ReplyPreviewCard(
+                    post = ReplyPreviewPostUiModel(
+                        postNumber = 12,
+                        name = "投稿者名",
+                        id = "sample-id",
+                        body = "画像の説明と本文を表示します。",
+                        imageUrls = listOf(
+                            "https://example.com/first.jpg",
+                            "https://example.com/second.jpg",
+                            "https://example.com/third.jpg",
+                        ),
+                    ),
+                    hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                    anchorLabel = ">>12",
+                    bodyTextScale = 1f,
+                    onOpenPost = {},
+                    onOpenOverflow = {},
+                    onImageClick = { _, _, _, _ -> },
+                    onImageLongPress = { _, _ -> },
+                    imageLoadFailureByUrl = emptyMap(),
+                    onImageLoadStart = {},
+                    onImageLoadError = { _, _ -> },
+                    onImageLoadSuccess = {},
+                    onImageRetry = {},
+                    enableSharedElement = true,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true, name = "Image-only reply preview")
+@Composable
+private fun ReplyPreviewCardImageOnlyPreview() {
+    SlevoTheme {
+        SharedTransitionLayout {
+            AnimatedVisibility(visible = true) {
+                ReplyPreviewCard(
+                    post = ReplyPreviewPostUiModel(
+                        postNumber = 13,
+                        name = "",
+                        id = "sample-id",
+                        body = "",
+                        imageUrls = listOf("https://example.com/only.jpg"),
                     ),
                     hostNamespace = "thread-post-20",
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
