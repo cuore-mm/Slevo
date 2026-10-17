@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.common.transition
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -165,25 +166,34 @@ private fun SharedBoundsHarness(
         ) { targetVisible ->
             val key = if (targetVisible) targetKey else sourceKey
             val sharedState = with(sharedScope) { rememberSharedContentState(key) }
-            SideEffect { onMatchReported { sharedState.isMatchFound } }
+            SideEffect {
+                onMatchReported {
+                    if (key == BbsControllerSharedBoundsKey.ActionsRow) {
+                        sharedScope.isTransitionActive
+                    } else {
+                        sharedState.isMatchFound
+                    }
+                }
+            }
             val animatedVisibilityScope = this
             val sharedModifier = if (key == BbsControllerSharedBoundsKey.ActionsRow) {
                 Modifier.bbsControllerActionsSharedBounds(
                     sharedTransitionScope = sharedScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                 )
+            } else if (enabled) {
+                with(sharedScope) {
+                    Modifier.sharedBounds(
+                        sharedContentState = sharedState,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                    )
+                }
             } else {
-                Modifier.bbsControllerSharedBounds(
-                    sharedTransitionScope = sharedScope,
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    key = key,
-                    enabled = enabled,
-                )
+                Modifier
             }
             Box(
-                modifier = Modifier
-                    .size(if (targetVisible) 160.dp else 64.dp)
-                    .then(sharedModifier),
+                modifier = sharedModifier.size(if (targetVisible) 160.dp else 64.dp),
             )
         }
     }

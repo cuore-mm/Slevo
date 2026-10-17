@@ -515,6 +515,7 @@ class TabBulkCloseMenuTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertExists()
         composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
+        composeRule.mainClock.advanceTimeBy(16)
 
         // 退出完了前に新しいメニューセッションを開始しても、固定状態を再同期する。
         composeRule.runOnIdle { expanded = true }
@@ -550,8 +551,14 @@ class TabBulkCloseMenuTest {
         }
 
         composeRule.waitForIdle()
-        val initialResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
-        val initialPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+        val initialResLeft = composeRule.onNodeWithText("120", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+        val initialPinLeft = composeRule.onNodeWithContentDescription(
+            "固定済み",
+            useUnmergedTree = true,
+        )
             .fetchSemanticsNode()
             .boundsInRoot
             .left
@@ -563,20 +570,38 @@ class TabBulkCloseMenuTest {
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(200)
         composeRule.waitForIdle()
-        val selectedResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
-        val selectedPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+        val selectedResLeft = composeRule.onNodeWithText("120", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+        val selectedPinLeft = composeRule.onNodeWithContentDescription(
+            "固定済み",
+            useUnmergedTree = true,
+        )
             .fetchSemanticsNode()
             .boundsInRoot
             .left
 
-        assertTrue(selectedResLeft < initialResLeft)
-        assertTrue(selectedPinLeft < initialPinLeft)
+        assertTrue(
+            "返信数の位置が選択モードで移動しない: $initialResLeft -> $selectedResLeft",
+            selectedResLeft < initialResLeft,
+        )
+        assertTrue(
+            "固定アイコンの位置が選択モードで移動しない: $initialPinLeft -> $selectedPinLeft",
+            selectedPinLeft < initialPinLeft,
+        )
 
         composeRule.runOnIdle { isSelectionMode = false }
         composeRule.mainClock.advanceTimeBy(100)
         composeRule.waitForIdle()
-        val returningResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
-        val returningPinLeft = composeRule.onNodeWithContentDescription("固定済み")
+        val returningResLeft = composeRule.onNodeWithText("120", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
+        val returningPinLeft = composeRule.onNodeWithContentDescription(
+            "固定済み",
+            useUnmergedTree = true,
+        )
             .fetchSemanticsNode()
             .boundsInRoot
             .left
