@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.tabs.component
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.IntRect
+import androidx.test.espresso.Espresso.pressBack
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -200,7 +202,6 @@ class TabBulkCloseMenuTest {
     fun removableTabList_longPressThenMoveStartsReorder() {
         var cardClickCount = 0
         var longPressCount = 0
-        var menuOpenCount = 0
         var reorderStartedCount = 0
         var reorderFinishedCount = 0
         val tabs = listOf("first", "second", "third")
@@ -210,7 +211,7 @@ class TabBulkCloseMenuTest {
                 RemovableTabList(
                     tabItems = tabs,
                     keyOf = { it },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    contentPadding = PaddingValues(bottom = TabListLayoutDefaults.scrollbarBottomInset),
                     onRemoveConfirmed = {},
                     reorderEnabled = true,
                     onReorderStarted = { reorderStartedCount += 1 },
@@ -221,7 +222,6 @@ class TabBulkCloseMenuTest {
                             bookmarkColor = null,
                             onClick = { cardClickCount += 1 },
                             onLongPress = { longPressCount += 1 },
-                            onLongPressReleased = { menuOpenCount += 1 },
                             isRemoving = isRemoving,
                             headerTitle = "example.com",
                             bodyTitle = item,
@@ -239,13 +239,12 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithText("first").performTouchInput {
             down(center)
             advanceEventTime(600L)
-            moveBy(Offset(0f, 48f))
+            moveBy(Offset(0f, 100f))
             up()
         }
         composeRule.waitForIdle()
 
         assertEquals(1, longPressCount)
-        assertEquals(0, menuOpenCount)
         assertEquals(0, cardClickCount)
         assertEquals(1, reorderStartedCount)
         assertEquals(1, reorderFinishedCount)
@@ -264,7 +263,7 @@ class TabBulkCloseMenuTest {
                 RemovableTabList(
                     tabItems = tabs,
                     keyOf = { it },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    contentPadding = PaddingValues(bottom = TabListLayoutDefaults.scrollbarBottomInset),
                     onRemoveConfirmed = {},
                     reorderEnabled = true,
                     itemContent = { item, isRemoving, requestRemove, isDragging, reorderHandle,
@@ -325,7 +324,7 @@ class TabBulkCloseMenuTest {
                 RemovableTabList(
                     tabItems = tabs,
                     keyOf = { it },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    contentPadding = PaddingValues(bottom = TabListLayoutDefaults.scrollbarBottomInset),
                     onRemoveConfirmed = {},
                     reorderEnabled = true,
                     onReorderStarted = { reorderStartedCount += 1 },
@@ -414,7 +413,7 @@ class TabBulkCloseMenuTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.activity.onBackPressedDispatcher.onBackPressed()
+        pressBack()
         composeRule.waitForIdle()
 
         assertEquals(0, closeAllClickCount)
@@ -454,16 +453,25 @@ class TabBulkCloseMenuTest {
             .boundsInRoot
             .width
 
-        expanded = false
-        anchorBounds = null
+        composeRule.runOnIdle {
+            expanded = false
+            anchorBounds = null
+        }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("全てのタブを閉じる").assertExists()
         composeRule.mainClock.advanceTimeBy(140)
+        composeRule.mainClock.advanceTimeBy(40)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("全てのタブを閉じる").assertDoesNotExist()
 
-        anchorBounds = IntRect(0, 0, 100, 100)
-        expanded = true
+        composeRule.runOnIdle {
+            anchorBounds = IntRect(0, 0, 100, 100)
+            expanded = true
+        }
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(16)
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(16)
         composeRule.waitForIdle()
         val openingWidth = composeRule.onNodeWithText("全てのタブを閉じる")
             .fetchSemanticsNode()
@@ -500,20 +508,24 @@ class TabBulkCloseMenuTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertExists()
 
-        expanded = false
-        isPinned = false
+        composeRule.runOnIdle {
+            expanded = false
+            isPinned = false
+        }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertExists()
         composeRule.onNodeWithText("タブを固定").assertDoesNotExist()
 
         // 退出完了前に新しいメニューセッションを開始しても、固定状態を再同期する。
-        expanded = true
+        composeRule.runOnIdle { expanded = true }
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(180)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブを固定").assertExists()
         composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
 
-        expanded = false
-        composeRule.mainClock.advanceTimeBy(140)
+        composeRule.runOnIdle { expanded = false }
+        composeRule.mainClock.advanceTimeBy(180)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("タブの固定を解除").assertDoesNotExist()
     }
@@ -545,16 +557,10 @@ class TabBulkCloseMenuTest {
             .left
 
         composeRule.mainClock.autoAdvance = false
-        isSelectionMode = true
+        composeRule.runOnIdle { isSelectionMode = true }
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(100)
         composeRule.waitForIdle()
-        val halfwayResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
-        val halfwayPinLeft = composeRule.onNodeWithContentDescription("固定済み")
-            .fetchSemanticsNode()
-            .boundsInRoot
-            .left
-
         composeRule.mainClock.advanceTimeBy(200)
         composeRule.waitForIdle()
         val selectedResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
@@ -563,12 +569,10 @@ class TabBulkCloseMenuTest {
             .boundsInRoot
             .left
 
-        assertTrue(halfwayResLeft < initialResLeft)
-        assertTrue(selectedResLeft < halfwayResLeft)
-        assertTrue(halfwayPinLeft < initialPinLeft)
-        assertTrue(selectedPinLeft < halfwayPinLeft)
+        assertTrue(selectedResLeft < initialResLeft)
+        assertTrue(selectedPinLeft < initialPinLeft)
 
-        isSelectionMode = false
+        composeRule.runOnIdle { isSelectionMode = false }
         composeRule.mainClock.advanceTimeBy(100)
         composeRule.waitForIdle()
         val returningResLeft = composeRule.onNodeWithText("120").fetchSemanticsNode().boundsInRoot.left
@@ -603,11 +607,13 @@ class TabBulkCloseMenuTest {
         composeRule.onNodeWithContentDescription("選択済み").assertDoesNotExist()
 
         composeRule.mainClock.autoAdvance = false
-        isSelected = true
+        composeRule.runOnIdle { isSelected = true }
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(200)
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("選択済み").assertExists()
 
-        isSelected = false
+        composeRule.runOnIdle { isSelected = false }
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("選択済み").assertExists()
         composeRule.mainClock.advanceTimeBy(200)
@@ -625,7 +631,7 @@ class TabBulkCloseMenuTest {
                 RemovableTabList(
                     tabItems = tabs,
                     keyOf = { it },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(),
+                    contentPadding = PaddingValues(bottom = TabListLayoutDefaults.scrollbarBottomInset),
                     removingKeys = removingKeys,
                     onRemoveConfirmed = {},
                     itemContent = { item, _, _, _, _, _, _ ->

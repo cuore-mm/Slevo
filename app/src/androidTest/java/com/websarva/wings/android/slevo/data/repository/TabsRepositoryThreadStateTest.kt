@@ -349,6 +349,8 @@ class TabsRepositoryThreadStateTest {
             id = ThreadId.of("example.com", "test", "second-existing"),
             title = "Second",
             isPinned = false,
+            firstVisibleItemIndex = 0,
+            firstVisibleItemScrollOffset = 0,
         )
 
         repository.ensureOpenThreadTab(first)
@@ -439,10 +441,9 @@ class TabsRepositoryThreadStateTest {
             firstVisibleItemScrollOffset = 30,
         )
 
-        val observed = repository.observeOpenThreadTabs().first()
-
-        val tab1 = observed.find { it.id == threadId1 }!!
-        val tab2 = observed.find { it.id == threadId2 }!!
+        val storedTabs = db.openThreadTabDao().getAll().associateBy { it.threadId }
+        val tab1 = storedTabs.getValue(threadId1)
+        val tab2 = storedTabs.getValue(threadId2)
 
         // threadId1 のスクロール位置だけが変化する
         assertEquals(7, tab1.firstVisibleItemIndex)
@@ -523,14 +524,16 @@ class TabsRepositoryThreadStateTest {
         )
         repository.setThreadTabPinned(addedId, true)
         val afterAdd = repository.observeOpenThreadTabs().first()
+        val storedAfterAdd = db.openThreadTabDao().getAll().associateBy { it.threadId }
 
         assertEquals(1_253, afterAdd.size)
         assertEquals(true, afterAdd.single { it.id == addedId }.isPinned)
         initialTabs.forEach { expected ->
             val actual = afterAdd.single { it.id == expected.id }
+            val stored = storedAfterAdd.getValue(expected.id)
             assertEquals(expected.isPinned, actual.isPinned)
-            assertEquals(expected.firstVisibleItemIndex, actual.firstVisibleItemIndex)
-            assertEquals(expected.firstVisibleItemScrollOffset, actual.firstVisibleItemScrollOffset)
+            assertEquals(expected.firstVisibleItemIndex, stored.firstVisibleItemIndex)
+            assertEquals(expected.firstVisibleItemScrollOffset, stored.firstVisibleItemScrollOffset)
             assertEquals(expected.title, actual.title)
         }
 
@@ -551,12 +554,13 @@ class TabsRepositoryThreadStateTest {
         )
         val afterTargetedUpdates = repository.observeOpenThreadTabs().first()
         val updatedTarget = afterTargetedUpdates.single { it.id == addedId }
+        val storedTarget = db.openThreadTabDao().getByThreadId(addedId)!!
         assertEquals("Updated title", updatedTarget.title)
         assertEquals("Updated board", updatedTarget.boardName)
         assertEquals(9L, updatedTarget.boardId)
         assertEquals(777, updatedTarget.resCount)
-        assertEquals(77, updatedTarget.firstVisibleItemIndex)
-        assertEquals(88, updatedTarget.firstVisibleItemScrollOffset)
+        assertEquals(77, storedTarget.firstVisibleItemIndex)
+        assertEquals(88, storedTarget.firstVisibleItemScrollOffset)
         assertEquals(true, updatedTarget.isPinned)
         afterAdd.filterNot { it.id == addedId }.forEach { expected ->
             assertEquals(expected, afterTargetedUpdates.single { actual -> actual.id == expected.id })

@@ -30,7 +30,7 @@ class BbsControllerSharedBoundsTest {
     /** 同じBoard identityを持つAnimatedContent間でShared Boundsのmatchが成立する。 */
     @Test
     fun sameBoardKey_isMatchedDuringAnimatedContentTransition() {
-        val matchReports = mutableListOf<Boolean>()
+        val matchReports = mutableListOf<() -> Boolean>()
         lateinit var showLargeCard: () -> Unit
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
@@ -47,13 +47,13 @@ class BbsControllerSharedBoundsTest {
         composeRule.mainClock.advanceTimeBy(150)
         composeRule.runOnIdle { }
 
-        assertTrue(matchReports.any { it })
+        assertTrue(matchReports.any { it() })
     }
 
     /** 同じThread identityを持つAnimatedContent間でもShared Boundsのmatchが成立する。 */
     @Test
     fun sameThreadKey_isMatchedDuringAnimatedContentTransition() {
-        val matchReports = mutableListOf<Boolean>()
+        val matchReports = mutableListOf<() -> Boolean>()
         lateinit var showLargeCard: () -> Unit
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
@@ -70,20 +70,19 @@ class BbsControllerSharedBoundsTest {
         composeRule.mainClock.advanceTimeBy(150)
         composeRule.runOnIdle { }
 
-        assertTrue(matchReports.any { it })
+        assertTrue(matchReports.any { it() })
     }
 
     /** Board/Threadで同じ固定ActionsRow keyを使う行全体がShared Boundsへ接続される。 */
     @Test
     fun actionsRowKey_isMatchedDuringAnimatedContentTransition() {
-        val matchReports = mutableListOf<Boolean>()
+        val matchReports = mutableListOf<() -> Boolean>()
         lateinit var showLargeRow: () -> Unit
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             SharedBoundsHarness(
                 sourceKey = BbsControllerSharedBoundsKey.ActionsRow,
                 targetKey = BbsControllerSharedBoundsKey.ActionsRow,
-                useActionsRowModifier = true,
                 onTargetRequested = { showLargeRow = it },
                 onMatchReported = { matchReports += it },
             )
@@ -94,15 +93,15 @@ class BbsControllerSharedBoundsTest {
         composeRule.mainClock.advanceTimeBy(150)
         composeRule.runOnIdle { }
 
-        assertTrue(matchReports.any { it })
+        assertTrue(matchReports.any { it() })
     }
 
     /** 異なる種別・identity・無効状態ではShared Boundsのmatchが成立しない。 */
     @Test
     fun mismatchedOrDisabledKey_doesNotMatch() {
-        val mismatchedReports = mutableListOf<Boolean>()
-        val differentIdentityReports = mutableListOf<Boolean>()
-        val disabledReports = mutableListOf<Boolean>()
+        val mismatchedReports = mutableListOf<() -> Boolean>()
+        val differentIdentityReports = mutableListOf<() -> Boolean>()
+        val disabledReports = mutableListOf<() -> Boolean>()
         lateinit var showMismatchedCard: () -> Unit
         lateinit var showDifferentIdentityCard: () -> Unit
         lateinit var showDisabledCard: () -> Unit
@@ -138,9 +137,9 @@ class BbsControllerSharedBoundsTest {
         composeRule.mainClock.advanceTimeBy(150)
         composeRule.runOnIdle { }
 
-        assertFalse(mismatchedReports.any { it })
-        assertFalse(differentIdentityReports.any { it })
-        assertFalse(disabledReports.any { it })
+        assertFalse(mismatchedReports.any { it() })
+        assertFalse(differentIdentityReports.any { it() })
+        assertFalse(disabledReports.any { it() })
     }
 }
 
@@ -153,9 +152,8 @@ private fun SharedBoundsHarness(
     sourceKey: BbsControllerSharedBoundsKey,
     targetKey: BbsControllerSharedBoundsKey,
     enabled: Boolean = true,
-    useActionsRowModifier: Boolean = false,
     onTargetRequested: (() -> Unit) -> Unit,
-    onMatchReported: (Boolean) -> Unit,
+    onMatchReported: (() -> Boolean) -> Unit,
 ) {
     var showTarget by remember { mutableStateOf(false) }
     onTargetRequested { showTarget = true }
@@ -167,16 +165,17 @@ private fun SharedBoundsHarness(
         ) { targetVisible ->
             val key = if (targetVisible) targetKey else sourceKey
             val sharedState = with(sharedScope) { rememberSharedContentState(key) }
-            SideEffect { onMatchReported(sharedState.isMatchFound) }
-            val sharedModifier = if (useActionsRowModifier) {
+            SideEffect { onMatchReported { sharedState.isMatchFound } }
+            val animatedVisibilityScope = this
+            val sharedModifier = if (key == BbsControllerSharedBoundsKey.ActionsRow) {
                 Modifier.bbsControllerActionsSharedBounds(
                     sharedTransitionScope = sharedScope,
-                    animatedVisibilityScope = this,
+                    animatedVisibilityScope = animatedVisibilityScope,
                 )
             } else {
                 Modifier.bbsControllerSharedBounds(
                     sharedTransitionScope = sharedScope,
-                    animatedVisibilityScope = this,
+                    animatedVisibilityScope = animatedVisibilityScope,
                     key = key,
                     enabled = enabled,
                 )

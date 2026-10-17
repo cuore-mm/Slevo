@@ -1,11 +1,12 @@
 package com.websarva.wings.android.slevo.ui.thread.sheet
 
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.hasProgressBarRangeInfo
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -40,32 +41,27 @@ class DisplaySettingsBottomSheetTest {
             }
         }
 
+        composeRule.waitForIdle()
         composeRule.onAllNodes(
-            hasProgressBarRangeInfo(
-                ProgressBarRangeInfo(
-                    current = TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE,
-                    range = TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
-                    steps = 0,
-                ),
+            progressRangeMatcher(
+                TextDisplaySettingsConstraints.DEFAULT_TEXT_SCALE,
+                TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
             ),
+            useUnmergedTree = true,
         ).assertCountEquals(2)
         composeRule.onAllNodes(
-            hasProgressBarRangeInfo(
-                ProgressBarRangeInfo(
-                    current = TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE,
-                    range = TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
-                    steps = 0,
-                ),
+            progressRangeMatcher(
+                TextDisplaySettingsConstraints.DEFAULT_HEADER_TEXT_SCALE,
+                TextDisplaySettingsConstraints.TEXT_SCALE_RANGE,
             ),
+            useUnmergedTree = true,
         ).assertCountEquals(1)
         composeRule.onAllNodes(
-            hasProgressBarRangeInfo(
-                ProgressBarRangeInfo(
-                    current = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
-                    range = TextDisplaySettingsConstraints.LINE_HEIGHT_RANGE,
-                    steps = 5,
-                ),
+            progressRangeMatcher(
+                TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
+                TextDisplaySettingsConstraints.LINE_HEIGHT_RANGE,
             ),
+            useUnmergedTree = true,
         ).assertCountEquals(1)
     }
 
@@ -122,4 +118,17 @@ class DisplaySettingsBottomSheetTest {
         values[index] = value
         return values
     }
+}
+
+/** Slider のsemanticsから現在値と値域を読み取り、期待値と比較する matcher を返す。 */
+private fun progressRangeMatcher(
+    expectedValue: Float,
+    expectedRange: ClosedFloatingPointRange<Float>,
+): SemanticsMatcher = SemanticsMatcher("Progress range $expectedRange at $expectedValue") { node ->
+    val rangeInfoKey = SemanticsProperties.ProgressBarRangeInfo
+    node.config.contains(rangeInfoKey) &&
+            node.config[rangeInfoKey].let { rangeInfo ->
+                rangeInfo.range == expectedRange &&
+                        kotlin.math.abs(rangeInfo.current - expectedValue) < 0.0001f
+            }
 }

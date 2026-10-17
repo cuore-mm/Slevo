@@ -112,7 +112,7 @@ class TabToolBarTest {
         composeRule.onNodeWithTag("actions-row").assertExists()
     }
 
-    /** 展開時は固定高108dpへタイトル行と下段アクション行を収めることを確認する。 */
+    /** 展開時は108dpの内容とnavigation bar insetを含む高さへ収まることを確認する。 */
     @Test
     fun expandedToolbar_displaysTitleAndActionRowsWithinHeight() {
         composeRule.setContent {
@@ -137,11 +137,11 @@ class TabToolBarTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag("tab-toolbar").assertHeightIsEqualTo(108.dp)
+        composeRule.onNodeWithTag("tab-toolbar").assertHeightIsEqualTo(132.dp)
         composeRule.onNodeWithContentDescription("タブ一覧を開く").assertDoesNotExist()
     }
 
-    /** 縮退時は下段アクションを構成せず、タイトル行を56dp内へ収めることを確認する。 */
+    /** 縮退時は56dpの内容とnavigation bar insetを含む高さへ収まることを確認する。 */
     @Test
     fun collapsedToolbar_fitsWithinHeight() {
         composeRule.setContent {
@@ -166,7 +166,7 @@ class TabToolBarTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag("tab-toolbar").assertHeightIsEqualTo(56.dp)
+        composeRule.onNodeWithTag("tab-toolbar").assertHeightIsEqualTo(80.dp)
         composeRule.onNodeWithContentDescription("タブ一覧を開く").assertDoesNotExist()
     }
 

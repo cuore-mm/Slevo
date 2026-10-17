@@ -65,23 +65,25 @@ class BackupSnackbarEffectTest {
     fun effectCancellation_keepsHeadForRecreation() {
         val result = BackupUiEvent.ExportSucceeded(21L)
         var acknowledgedId: Long? = null
+        var effectVisible by mutableStateOf(true)
 
         composeRule.setContent {
             val hostState = remember { SnackbarHostState() }
             Scaffold(snackbarHost = { SnackbarHost(hostState) }) {
-                BackupResultSnackbarEffect(result, hostState) { acknowledgedId = it }
+                if (effectVisible) {
+                    BackupResultSnackbarEffect(result, hostState) { acknowledgedId = it }
+                }
             }
         }
         composeRule.onNodeWithText("バックアップファイルを作成しました").assertIsDisplayed()
 
-        // Disposing the first composition cancels showSnackbar before its normal completion.
-        composeRule.setContent {
-            val hostState = remember { SnackbarHostState() }
-            Scaffold(snackbarHost = { SnackbarHost(hostState) }) {
-                BackupResultSnackbarEffect(result, hostState) { acknowledgedId = it }
-            }
-        }
+        // Removing the effect from the same host cancels showSnackbar before normal completion.
+        composeRule.runOnIdle { effectVisible = false }
+        composeRule.waitForIdle()
         assertNull(acknowledgedId)
+
+        composeRule.runOnIdle { effectVisible = true }
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("バックアップファイルを作成しました").assertIsDisplayed()
 
         composeRule.mainClock.advanceTimeBy(5_000)

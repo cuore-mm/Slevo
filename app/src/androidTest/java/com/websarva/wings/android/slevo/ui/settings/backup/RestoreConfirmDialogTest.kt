@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -62,7 +63,10 @@ class RestoreConfirmDialogTest {
         }
 
         composeRule.onNodeWithText("クッキーを復元する").assertDoesNotExist()
-        composeRule.onNodeWithText("キャンセル").performClick()
+        val cancelLabel = InstrumentationRegistry.getInstrumentation()
+            .targetContext
+            .getString(android.R.string.cancel)
+        composeRule.onNodeWithText(cancelLabel).performClick()
         assertTrue(cancelled)
 
         composeRule.onNodeWithText("復元").performClick()

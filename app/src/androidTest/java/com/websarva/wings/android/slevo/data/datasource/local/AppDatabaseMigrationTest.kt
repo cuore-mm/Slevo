@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.data.datasource.local
 
+import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
@@ -25,6 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** Room の migration 経路とスレッド状態の永続化を Android SQLite 上で検証する。 */
 @RunWith(AndroidJUnit4::class)
 class AppDatabaseMigrationTest {
 
@@ -96,6 +98,7 @@ class AppDatabaseMigrationTest {
 //        db.close()
 //    }
 
+    /** v2 の複数テーブルに含まれるスレッドキーを v3 の canonical ID へ置き換える。 */
     @Test
     fun migrate2To3_replacesThreadKey_everywhere() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -162,9 +165,7 @@ class AppDatabaseMigrationTest {
         )
 
         // 変換結果を確認
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_2_3)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         db.openHelper.writableDatabase.query("SELECT threadId FROM open_thread_tabs").use { c ->
             assertTrue(c.moveToFirst())
@@ -183,6 +184,7 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v4 へ投稿者識別情報履歴テーブルを追加し、制約を検証する。 */
     @Test
     fun migrate3To4_createsPostIdentityHistories() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -222,9 +224,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_3_4
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_3_4)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         val writable = db.openHelper.writableDatabase
         writable.execSQL("PRAGMA foreign_keys=ON")
@@ -259,6 +259,7 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v5 へ投稿者別の最終識別情報を追加する migration 結果を検証する。 */
     @Test
     fun migrate4To5_createsPostLastIdentities() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -310,9 +311,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_4_5
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         val writable = db.openHelper.writableDatabase
         writable.execSQL("PRAGMA foreign_keys=ON")
@@ -397,9 +396,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_5_6
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         db.openHelper.writableDatabase.query(
             "SELECT threadKey, title, latestResCount FROM thread_states WHERE threadId = 'example.com/test/123'"
@@ -460,7 +457,7 @@ class AppDatabaseMigrationTest {
         assertEquals("123", state?.threadKey)
         assertEquals("Renamed", state?.title)
         assertEquals(20, state?.latestResCount)
-        assertEquals(2000, state?.updatedAt)
+        assertEquals(2000L, state?.updatedAt)
 
         db.close()
     }
@@ -493,9 +490,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_6_7
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_6_7)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         // --- Validation ---
         db.openHelper.writableDatabase.query("PRAGMA table_info('open_thread_tabs')").use { cursor ->
@@ -509,6 +504,8 @@ class AppDatabaseMigrationTest {
                     "sortOrder",
                     "firstVisibleItemIndex",
                     "firstVisibleItemScrollOffset",
+                    // Room で current version まで開くため、後続 migration の列も含む。
+                    "isPinned",
                 ),
                 columns,
             )
@@ -551,9 +548,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_7_8
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_7_8)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         // --- Validation ---
         db.openHelper.writableDatabase.query("PRAGMA table_info('thread_summaries')").use { cursor ->
@@ -606,7 +601,7 @@ class AppDatabaseMigrationTest {
                 )
             )
         }
-        writable.execSQL("INSERT INTO open_thread_tabs (threadId, sortOrder, firstVisibleItemIndex, firstVisibleItemScrollOffset) VALUES ('example.com/test/tab', 0, 0, 0)")
+        writable.execSQL("INSERT INTO open_thread_tabs (threadId, sortOrder, isPinned, firstVisibleItemIndex, firstVisibleItemScrollOffset) VALUES ('example.com/test/tab', 0, 0, 0, 0)")
         writable.execSQL("INSERT INTO thread_histories (threadId, boardUrl, boardId, boardName, title, resCount, prevResCount, lastReadResNo, firstNewResNo) VALUES ('example.com/test/history', 'https://example.com/test/', 1, 'Test Board', 'history', 1, 0, 0, NULL)")
         writable.execSQL("INSERT INTO bookmark_threads (threadKey, boardUrl, boardId, groupId, title, boardName, resCount) VALUES ('bookmark', 'https://example.com/test/', 1, 1, 'bookmark', 'Test Board', 1)")
         writable.execSQL("INSERT INTO thread_summaries (boardId, threadId, title, resCount, firstSeenAt, subjectRank) VALUES (1, 'summary', 'summary', 1, 0, 0)")
@@ -624,6 +619,7 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /** v9 のタブ表へ固定状態カラムを加え、既存値と初期値を保持する。 */
     @Test
     fun migrate8To9_addsIsPinnedColumn_andPreservesData() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -672,9 +668,7 @@ class AppDatabaseMigrationTest {
         )
 
         // 実DBを Room で開いて isPinned の存在と初期値を確認
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_8_9)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
 
         db.openHelper.writableDatabase.query("PRAGMA table_info('open_board_tabs')").use { c ->
             val cols = mutableListOf<String>()
@@ -725,10 +719,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_9_10,
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_9_10)
-            .addMigrations(AppDatabase.MIGRATION_10_11)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
         val writable = db.openHelper.writableDatabase
         writable.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
             val columns = mutableListOf<String>()
@@ -780,9 +771,7 @@ class AppDatabaseMigrationTest {
             AppDatabase.MIGRATION_10_11,
         )
 
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
-            .addMigrations(AppDatabase.MIGRATION_10_11)
-            .build()
+        val db = buildDatabaseWithMigrations(context, TEST_DB)
         db.openHelper.writableDatabase.query("PRAGMA table_info('pending_own_posts')").use { cursor ->
             val columns = mutableListOf<String>()
             while (cursor.moveToNext()) {
@@ -911,9 +900,10 @@ class AppDatabaseMigrationTest {
                     throw IllegalStateException("intentional migration failure")
                 }
             }
-            migrationDatabase = Room.databaseBuilder(context, AppDatabase::class.java, databaseName)
-                .addMigrations(PendingRestoreMigrationWrapper(failingMigration, recorder))
-                .build()
+            val migrations = AppDatabase.ALL_REGISTERED_MIGRATIONS
+                .filterNot { it.startVersion == 8 && it.endVersion == 9 } +
+                PendingRestoreMigrationWrapper(failingMigration, recorder)
+            migrationDatabase = buildDatabaseWithMigrations(context, databaseName, migrations)
 
             try {
                 migrationDatabase.openHelper.writableDatabase
@@ -943,7 +933,17 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /** 順に実行する migration fixture が共有するデータベース名を定義する。 */
     companion object {
         private const val TEST_DB = "migration-test"
     }
+
+    /** 指定された完全な migration 経路で現在の AppDatabase を構築する。 */
+    private fun buildDatabaseWithMigrations(
+        context: Context,
+        databaseName: String,
+        migrations: List<Migration> = AppDatabase.ALL_REGISTERED_MIGRATIONS,
+    ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, databaseName)
+        .addMigrations(*migrations.toTypedArray())
+        .build()
 }
