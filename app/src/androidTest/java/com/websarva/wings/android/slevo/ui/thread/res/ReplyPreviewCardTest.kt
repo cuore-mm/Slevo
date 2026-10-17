@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -77,7 +78,7 @@ class ReplyPreviewCardTest {
         val imageBounds = image.fetchSemanticsNode().boundsInRoot
         assertTrue("The thumbnail must be below the full-width header", imageBounds.top >= headerBounds.bottom)
         composeRule.onNodeWithText("プレビュー本文").assertExists()
-        composeRule.onNodeWithText("+2").assertExists()
+        composeRule.onNodeWithText("+2", useUnmergedTree = true).assertExists()
 
         composeRule.onNodeWithText("プレビュー本文").performClick()
         composeRule.onNodeWithText("ほか2件").performClick()
@@ -161,7 +162,7 @@ class ReplyPreviewCardTest {
     @Test
     fun successfulThumbnailOpensFullImageListInItsOwnContext() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val firstUrl = "android.resource://${context.packageName}/drawable/ic_app_icon_about"
+        val firstUrl = "android.resource://${context.packageName}/${R.drawable.ic_app_icon_about}"
         val urls = listOf(
             firstUrl,
             "https://example.com/second.png",
