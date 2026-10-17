@@ -64,6 +64,54 @@ class ThreadDisplayTransformersTest {
     }
 
     @Test
+    fun deriveReplyMapsExpandsRangesAndCommaSeparatedReferences() {
+        val posts = listOf(
+            post(content = "root", id = "id1"),
+            post(content = "root", id = "id2"),
+            post(content = "root", id = "id3"),
+            post(content = ">>1-3,2", id = "id4"),
+        )
+
+        val replySourceMap = deriveReplyMaps(posts).third
+
+        assertEquals(mapOf(1 to listOf(4), 2 to listOf(4), 3 to listOf(4)), replySourceMap)
+    }
+
+    @Test
+    fun deriveTreeOrderKeepsFirstAnchorAsSingleParent() {
+        val posts = listOf(
+            post(content = "root", id = "id1"),
+            post(content = ">>1-2 child", id = "id2"),
+            post(content = ">>999 >>1 child with invalid first parent", id = "id3"),
+        )
+
+        val (order, depthMap) = deriveTreeOrder(posts)
+
+        assertEquals(listOf(1, 2, 3), order)
+        assertEquals(1, depthMap[2])
+        assertEquals(0, depthMap[3])
+    }
+
+    @Test
+    fun visibleReplySourceMapFiltersNgDuplicatesAndUnavailableNumbersWithoutRenumbering() {
+        val posts = (1..4).map { number -> post("post$number", "id$number") }
+        val replySourceMap = mapOf(
+            1 to listOf(4, 2, 3, 2, 9),
+            2 to listOf(3, 4),
+            8 to listOf(1),
+        )
+
+        assertEquals(
+            mapOf(1 to listOf(2, 4), 2 to listOf(4)),
+            deriveVisibleReplySourceMap(posts, replySourceMap, ngPostNumbers = setOf(3)),
+        )
+        assertEquals(
+            mapOf(1 to listOf(2, 3, 4), 2 to listOf(3, 4)),
+            deriveVisibleReplySourceMap(posts, replySourceMap, ngPostNumbers = emptySet()),
+        )
+    }
+
+    @Test
     fun buildOrderedPosts_handlesTreeAfterGrouping() {
         val posts = listOf(
             post(content = "root", id = "id1"),

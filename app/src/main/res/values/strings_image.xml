@@ -25,4 +25,5 @@
     <string name="no_app_to_share_image">画像を共有できるアプリが見つかりませんでした</string>
     <string name="image_not_found">画像が見つかりません</string>
     <string name="image_deleted">画像が削除されています</string>
+    <string name="image_thumbnail_open">画像をビューアで開く</string>
 </resources>

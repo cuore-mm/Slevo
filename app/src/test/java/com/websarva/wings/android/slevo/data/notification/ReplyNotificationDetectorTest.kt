@@ -67,6 +67,40 @@ class ReplyNotificationDetectorTest {
         assertEquals(listOf(1, 2), result.single().targetOwnResNumbers)
     }
 
+    @Test
+    fun detectsOwnPostReferencedByRangeAndCommaAnchor() {
+        val result = ReplyNotificationDetector.detect(
+            posts = listOf(
+                post("root"),
+                post("mine"),
+                post("root"),
+                post("root"),
+                post("root"),
+                post(">>1-5 and >>1,3 reply"),
+            ),
+            previousResCount = 5,
+            ownPostNumbers = setOf(3, 5),
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(listOf(3, 5), result.single().targetOwnResNumbers)
+    }
+
+    @Test
+    fun excludesIgnoredReplyByAbsolutePostNumberWithoutFilteringInputPosts() {
+        val posts = listOf(post("root"), post("mine"), post(">>2 reply"))
+
+        val result = ReplyNotificationDetector.detect(
+            posts = posts,
+            previousResCount = 2,
+            ownPostNumbers = setOf(2),
+            ignoredReplyResNumbers = setOf(3),
+        )
+
+        assertEquals(3, posts.size)
+        assertEquals(emptyList<ReplyNotificationCandidate>(), result)
+    }
+
     private fun post(content: String) = ReplyInfo(
         name = "name",
         email = "",

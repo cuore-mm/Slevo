@@ -28,7 +28,7 @@ class ThreadVisiblePostsUseCase @Inject constructor() {
         latestArrivalGroupIndex: Int?,
         searchQuery: String,
         ngPostNumbers: Set<Int>,
-        replySourceMap: Map<Int, List<Int>>,
+        visibleReplySourceMap: Map<Int, List<Int>>,
     ): ThreadVisiblePostsResult {
         // --- グループ反映 ---
         val groupedPosts = buildGroupedDisplayPosts(
@@ -56,7 +56,9 @@ class ThreadVisiblePostsUseCase @Inject constructor() {
 
         // --- 最終表示行に変換 ---
         val visiblePostRows = buildThreadListPostRows(visibleGroupedPosts)
-        val replyCounts = visiblePostRows.map { row -> replySourceMap[row.displayPost.num]?.size ?: 0 }
+        val replyCounts = visiblePostRows.map { row ->
+            visibleReplySourceMap[row.displayPost.num]?.size ?: 0
+        }
         val firstAfterIndex = visiblePostRows.indexOfFirst { it.displayPost.isAfter }
 
         return ThreadVisiblePostsResult(

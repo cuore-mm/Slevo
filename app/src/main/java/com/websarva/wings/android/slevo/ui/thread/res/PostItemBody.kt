@@ -1,9 +1,12 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,7 +31,13 @@ import coil3.compose.AsyncImage
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
+import com.websarva.wings.android.slevo.data.util.ReplyAnchorParser
+import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
+import com.websarva.wings.android.slevo.ui.thread.state.PostBodySegment
+import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.res.ReplyPreviewCard
+import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.rememberUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
@@ -68,6 +77,20 @@ internal fun PostItemBody(
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onReplyClick: ((Int) -> Unit)?,
+    onReplyNumbersClick: ((List<Int>) -> Unit)?,
+    maxPostNumber: Int,
+    replyPreviewState: PostReplyPreviewUiState?,
+    transitionNamespace: String,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
+    enableSharedElement: Boolean,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onBodyClick: (() -> Unit)? = null,
@@ -89,9 +112,6 @@ internal fun PostItemBody(
         highlightColor = highlightBackground
     )
 
-    // --- レイアウト参照 ---
-    var contentLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-
     Column(horizontalAlignment = Alignment.Start) {
         // --- BEアイコン ---
         if (post.header.beIconUrl.isNotBlank()) {
@@ -102,28 +122,111 @@ internal fun PostItemBody(
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            modifier = Modifier.postBodyGestures(
-                highlightedText = highlightedText,
-                layoutProvider = { contentLayout },
-                scope = scope,
-                haptic = haptic,
-                onPressedUrlChange = onPressedUrlChange,
-                onPressedReplyChange = onPressedReplyChange,
-                onContentPressedChange = onContentPressedChange,
-                onRequestMenu = onRequestMenu,
-                onReplyClick = onReplyClick,
-                onUrlClick = onUrlClick,
-                onThreadUrlClick = onThreadUrlClick,
-                onBodyClick = onBodyClick,
-            ),
-            // --- テキスト描画 ---
-            text = highlightedText,
-            style = bodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-            lineHeight = lineHeightEm.em,
-            onTextLayout = { contentLayout = it }
-        )
+        // --- Offset-preserving text and reply-preview segments ---
+        val bodySegments = replyPreviewState?.bodySegments?.takeIf { it.isNotEmpty() }
+            ?: listOf(PostBodySegment.TextRange(0, post.body.content.length))
+        bodySegments.forEach { segment ->
+            when (segment) {
+                is PostBodySegment.TextRange -> {
+                    val start = segment.startOffset.coerceIn(0, post.body.content.length)
+                    val end = segment.endOffset.coerceIn(start, post.body.content.length)
+                    if (start < end) {
+                        PostBodyTextSegment(
+                            text = highlightedText.subSequence(start, end),
+                            bodyTextStyle = bodyTextStyle,
+                            lineHeightEm = lineHeightEm,
+                            scope = scope,
+                            haptic = haptic,
+                            onPressedUrlChange = onPressedUrlChange,
+                            onPressedReplyChange = onPressedReplyChange,
+                            onContentPressedChange = onContentPressedChange,
+                            onRequestMenu = onRequestMenu,
+                            onReplyClick = onReplyClick,
+                            onReplyNumbersClick = onReplyNumbersClick,
+                            maxPostNumber = maxPostNumber,
+                            onUrlClick = onUrlClick,
+                            onThreadUrlClick = onThreadUrlClick,
+                            onBodyClick = onBodyClick,
+                        )
+                    }
+                }
+
+                is PostBodySegment.ReplyTarget -> {
+                    val target = segment.preview
+                    val targetState = replyPreviewState ?: return@forEach
+                    val transitionScope = sharedTransitionScope ?: return@forEach
+                    val visibilityScope = animatedVisibilityScope ?: return@forEach
+                    ReplyPreviewCard(
+                        post = target.post,
+                        hostNamespace = transitionNamespace,
+                        previewType = ImageReplyPreviewType.REPLY_TARGET,
+                        anchorLabel = target.anchorLine.trim().takeIf { target.isSingleAnchor },
+                        overflowCount = targetState.replyTargetOverflowCount,
+                        overflowNumbers = targetState.replyTargetNumbers,
+                        bodyTextScale = bodyTextStyle.fontSize.value / MaterialTheme.typography.bodyMedium.fontSize.value,
+                        onOpenPost = { onReplyClick?.invoke(target.post.postNumber) },
+                        onOpenOverflow = { numbers -> onReplyNumbersClick?.invoke(numbers) },
+                        onImageClick = onImageClick,
+                        onImageLongPress = onImageLongPress,
+                        imageLoadFailureByUrl = imageLoadFailureByUrl,
+                        onImageLoadStart = onImageLoadStart,
+                        onImageLoadError = onImageLoadError,
+                        onImageLoadSuccess = onImageLoadSuccess,
+                        onImageRetry = onImageRetry,
+                        enableSharedElement = enableSharedElement,
+                        sharedTransitionScope = transitionScope,
+                        animatedVisibilityScope = visibilityScope,
+                    )
+                }
+            }
+        }
     }
+}
+
+/** 本文の一範囲を元の注釈・タップ・長押し操作付きで描画する。 */
+@Composable
+private fun PostBodyTextSegment(
+    text: AnnotatedString,
+    bodyTextStyle: TextStyle,
+    lineHeightEm: Float,
+    scope: CoroutineScope,
+    haptic: HapticFeedback,
+    onPressedUrlChange: (String?) -> Unit,
+    onPressedReplyChange: (String?) -> Unit,
+    onContentPressedChange: (Boolean) -> Unit,
+    onRequestMenu: () -> Unit,
+    onReplyClick: ((Int) -> Unit)?,
+    onReplyNumbersClick: ((List<Int>) -> Unit)?,
+    maxPostNumber: Int,
+    onUrlClick: (String) -> Unit,
+    onThreadUrlClick: (AppRoute.Thread) -> Unit,
+    onBodyClick: (() -> Unit)?,
+) {
+    // --- Segment-local hit-test layout ---
+    var contentLayout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
+    // --- Existing annotated text interactions ---
+    Text(
+        modifier = Modifier.fillMaxWidth().postBodyGestures(
+            highlightedText = text,
+            layoutProvider = { contentLayout },
+            scope = scope,
+            haptic = haptic,
+            onPressedUrlChange = onPressedUrlChange,
+            onPressedReplyChange = onPressedReplyChange,
+            onContentPressedChange = onContentPressedChange,
+            onRequestMenu = onRequestMenu,
+            onReplyClick = onReplyClick,
+            onReplyNumbersClick = onReplyNumbersClick,
+            maxPostNumber = maxPostNumber,
+            onUrlClick = onUrlClick,
+            onThreadUrlClick = onThreadUrlClick,
+            onBodyClick = onBodyClick,
+        ),
+        text = text,
+        style = bodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+        lineHeight = lineHeightEm.em,
+        onTextLayout = { contentLayout = it },
+    )
 }
 
 /**
@@ -160,6 +263,8 @@ private fun Modifier.postBodyGestures(
     onContentPressedChange: (Boolean) -> Unit,
     onRequestMenu: () -> Unit,
     onReplyClick: ((Int) -> Unit)?,
+    onReplyNumbersClick: ((List<Int>) -> Unit)?,
+    maxPostNumber: Int,
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
     onBodyClick: (() -> Unit)?,
@@ -210,7 +315,16 @@ private fun Modifier.postBodyGestures(
                             onUrlClick(url)
                         }
                     }
-                    hit.reply?.toIntOrNull()?.let { onReplyClick?.invoke(it) }
+                    hit.reply?.let { anchor ->
+                        val numbers = ReplyAnchorParser.extractReferencedNumbers(
+                            content = if (anchor.startsWith(">>")) anchor else ">>$anchor",
+                            maxPostNumber = maxPostNumber,
+                        )
+                        when {
+                            numbers.size == 1 -> onReplyClick?.invoke(numbers.single())
+                            numbers.size > 1 -> onReplyNumbersClick?.invoke(numbers)
+                        }
+                    }
                     if (hit.url == null && hit.reply == null) {
                         onBodyClick?.invoke()
                     }
@@ -315,6 +429,20 @@ private fun PostItemBodyPreview() {
         onContentPressedChange = {},
         onRequestMenu = {},
         onReplyClick = {},
+        onReplyNumbersClick = {},
+        maxPostNumber = 1,
+        replyPreviewState = null,
+        transitionNamespace = "preview-post",
+        onImageClick = { _, _, _, _ -> },
+        onImageLongPress = { _, _ -> },
+        imageLoadFailureByUrl = emptyMap(),
+        onImageLoadStart = {},
+        onImageLoadError = { _, _ -> },
+        onImageLoadSuccess = {},
+        onImageRetry = {},
+        enableSharedElement = false,
+        sharedTransitionScope = null,
+        animatedVisibilityScope = null,
         onUrlClick = {},
         onThreadUrlClick = {},
     )

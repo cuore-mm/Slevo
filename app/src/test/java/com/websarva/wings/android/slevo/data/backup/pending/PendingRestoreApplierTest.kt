@@ -215,7 +215,7 @@ class PendingRestoreApplierTest {
         )
         val result = moshi.adapter<PendingRestoreResultFile>().fromJson(resultFile.readText())
         Assert.assertNotNull(result)
-        Assert.assertTrue(result!!.message.contains(incidents.single().canonicalPath))
+        Assert.assertTrue(result!!.message.contains(incidents.single().absolutePath))
 
         // A cold-start retry must not remove the independent recovery artifact.
         PendingRestoreApplier.createForTest(

@@ -17,7 +17,14 @@ import java.util.regex.Pattern
 
 private val urlRegex: Pattern =
     Pattern.compile("(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)")
-private val replyRegex: Pattern = Pattern.compile(ReplyAnchorParser.ANCHOR_PATTERN)
+
+/** URLまたは返信tokenの元本文範囲と注釈値を保持する。 */
+private data class TextLinkMatch(
+    val start: Int,
+    val end: Int,
+    val value: String,
+    val isReply: Boolean,
+)
 
 /**
  * 入力されたテキストからURLと返信アンカー（>>1など）を検出し、
@@ -33,61 +40,64 @@ fun buildUrlAnnotatedString(
     pressedReply: String? = null,
     pressedColor: Color,
 ): AnnotatedString {
-    return buildAnnotatedString {
-        // --- パターン準備 ---
-        var lastIndex = 0
-        val pattern = Pattern.compile("${urlRegex.pattern()}|${replyRegex.pattern()}")
-        val matcher = pattern.matcher(text)
-        // --- マッチ処理 ---
-        while (matcher.find()) {
-            val start = matcher.start()
-            val end = matcher.end()
-            if (start > lastIndex) {
-                append(text.substring(lastIndex, start))
-            }
-            val match = text.substring(start, end)
-            when {
-                urlRegex.matcher(match).matches() -> {
-                    val color = when {
-                        match == pressedUrl -> pressedColor
-                        imageExtensions.any { match.endsWith(it, ignoreCase = true) } -> imageColor
-                        parseThreadUrl(match) != null -> threadColor
-                        else -> urlColor
-                    }
-                    pushStringAnnotation(tag = "URL", annotation = match)
-                    addStyle(
-                        SpanStyle(color = color, textDecoration = TextDecoration.Underline),
-                        start = length,
-                        end = length + match.length
-                    )
-                    append(match)
-                    pop()
-                }
+    // --- 共通tokenとURLのspanを収集 ---
+    val matches = mutableListOf<TextLinkMatch>()
+    val urlMatcher = urlRegex.matcher(text)
+    while (urlMatcher.find()) {
+        val url = urlMatcher.group(1) ?: continue
+        matches += TextLinkMatch(urlMatcher.start(1), urlMatcher.end(1), url, false)
+    }
+    ReplyAnchorParser.parseAnchors(text).forEach { token ->
+        matches += TextLinkMatch(token.start, token.end, token.rawText, true)
+    }
+    matches.sortWith(compareBy<TextLinkMatch> { it.start }.thenByDescending { !it.isReply })
 
-                replyRegex.matcher(match).matches() -> {
-                    val number = replyRegex.matcher(match).run { if (find()) group(1) else null }
-                    val color = if (number == pressedReply) pressedColor else replyColor
-                    val decoration = if (number == pressedReply) TextDecoration.Underline else TextDecoration.None
-                    pushStringAnnotation(tag = "REPLY", annotation = number ?: "")
-                    addStyle(
-                        SpanStyle(color = color, textDecoration = decoration),
-                        start = length,
-                        end = length + match.length
-                    )
-                    append(match)
-                    pop()
+    // --- 順序付きの注釈と描画を構築 ---
+    return buildAnnotatedString {
+        var lastIndex = 0
+        matches.forEach { link ->
+            if (link.start < lastIndex) return@forEach
+            append(text.substring(lastIndex, link.start))
+            val color = if (link.isReply) {
+                if (link.value == pressedReply) pressedColor else replyColor
+            } else {
+                when {
+                    link.value == pressedUrl -> pressedColor
+                    imageExtensions.any { link.value.endsWith(it, ignoreCase = true) } -> imageColor
+                    parseThreadUrl(link.value) != null -> threadColor
+                    else -> urlColor
                 }
             }
-            lastIndex = end
+            val tag = if (link.isReply) "REPLY" else "URL"
+            pushStringAnnotation(tag = tag, annotation = link.value)
+            addStyle(
+                SpanStyle(
+                    color = color,
+                    textDecoration = if (link.isReply) {
+                        if (link.value == pressedReply) TextDecoration.Underline else TextDecoration.None
+                    } else {
+                        TextDecoration.Underline
+                    },
+                ),
+                start = length,
+                end = length + link.value.length,
+            )
+            append(link.value)
+            pop()
+            lastIndex = link.end
         }
-        // --- 末尾追加 ---
-        if (lastIndex < text.length) {
-            append(text.substring(lastIndex))
-        }
+        if (lastIndex < text.length) append(text.substring(lastIndex))
     }
 }
 
 private val imageExtensions = listOf("jpg", "jpeg", "png", "gif")
+
+/** 元本文内の認識済み画像URLのoffsetとURL文字列を表す。 */
+data class ImageUrlSpan(
+    val start: Int,
+    val end: Int,
+    val url: String,
+)
 
 /**
  * テーマ色と押下状態に応じて本文の AnnotatedString をメモ化して返す。
@@ -132,15 +142,29 @@ fun rememberUrlAnnotatedString(
  * テキスト中の画像URLを抽出します。
  */
 fun extractImageUrls(text: String): List<String> {
+    return extractImageUrlSpans(text).map { span -> span.url }
+}
+
+/** 本文中の画像URLを既存URL規則で認識し、元本文offset順で返す。 */
+fun extractImageUrlSpans(text: String): List<ImageUrlSpan> {
     val matcher = urlRegex.matcher(text)
-    val urls = mutableListOf<String>()
+    val spans = mutableListOf<ImageUrlSpan>()
     while (matcher.find()) {
         val url = matcher.group(1) ?: continue
         if (imageExtensions.any { url.endsWith(it, ignoreCase = true) }) {
-            urls.add(url)
+            spans += ImageUrlSpan(matcher.start(1), matcher.end(1), url)
         }
     }
-    return urls
+    return spans
+}
+
+/** 認識済み画像URLの範囲だけを本文から取り除き、その他の文字とoffset順を保つ。 */
+fun removeImageUrls(text: String): String {
+    val builder = StringBuilder(text)
+    extractImageUrlSpans(text).asReversed().forEach { span ->
+        builder.delete(span.start, span.end)
+    }
+    return builder.toString()
 }
 
 /**

@@ -378,7 +378,7 @@ fun ThreadScaffold(
                     .safeDrawingPadding(),
                 popupStack = uiState.popupStack,
                 posts = uiState.posts ?: emptyList(),
-                replySourceMap = uiState.replySourceMap,
+                replySourceMap = uiState.visibleReplySourceMap,
                 idCountMap = uiState.idCountMap,
                 idIndexList = uiState.idIndexList,
                 ngPostNumbers = uiState.ngPostNumbers,

@@ -6,17 +6,22 @@ import com.websarva.wings.android.slevo.data.datasource.local.entity.notificatio
 import com.websarva.wings.android.slevo.data.model.OwnPostThreadScope
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.data.model.ThreadId
+import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
+import com.websarva.wings.android.slevo.data.util.PostNgMatcher
+import com.websarva.wings.android.slevo.data.util.PostNgTarget
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationCandidate
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationDetector
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublishResult
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublisher
 import com.websarva.wings.android.slevo.data.repository.DatRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
+import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.ReplyNotificationRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadStateRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
@@ -32,6 +37,7 @@ class ThreadRefreshUseCase @Inject constructor(
     private val postHistoryRepository: PostHistoryRepository,
     private val ownPostReconciliationUseCase: OwnPostReconciliationUseCase,
     private val settingsRepository: SettingsRepository,
+    private val ngRepository: NgRepository,
     private val replyNotificationRepository: ReplyNotificationRepository,
     private val replyNotificationPublisher: ReplyNotificationPublisher,
     private val logger: AppLogger,
@@ -53,13 +59,18 @@ class ThreadRefreshUseCase @Inject constructor(
 
         // --- Reply detection and persistence ---
         val notificationsEnabled = settingsRepository.getIsReplyNotificationEnabled()
+        val detectionNgRules = if (notificationsEnabled) loadNgRules() else null
         if (notificationsEnabled) {
-            val candidates = ReplyNotificationDetector.detect(
-                posts = posts,
-                previousResCount = previousState?.latestResCount,
-                ownPostNumbers = ownPostNumbers,
-            )
-            persistCandidates(request, title, candidates)
+            if (detectionNgRules != null) {
+                val ignoredReplyResNumbers = deriveIgnoredReplyNumbers(posts, request.boardId, detectionNgRules)
+                val candidates = ReplyNotificationDetector.detect(
+                    posts = posts,
+                    previousResCount = previousState?.latestResCount,
+                    ownPostNumbers = ownPostNumbers,
+                    ignoredReplyResNumbers = ignoredReplyResNumbers,
+                )
+                persistCandidates(request, title, candidates)
+            }
         }
 
         // --- Objective state update ---
@@ -75,12 +86,36 @@ class ThreadRefreshUseCase @Inject constructor(
         )
 
         // --- Notification delivery ---
-        processDetectedNotifications(request.threadId, notificationsEnabled)
+        val deliveryNgRules = if (notificationsEnabled) loadNgRules() else null
+        processDetectedNotifications(request, notificationsEnabled, posts, deliveryNgRules)
 
         return ThreadRefreshResult(
             posts = posts,
             title = title,
             previousResCount = previousState?.latestResCount,
+        )
+    }
+
+    /** 現在のNGルールを取得し、失敗時は通知処理だけを保留する。 */
+    private suspend fun loadNgRules() = try {
+        ngRepository.observeNgs().first()
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        logger.e(message = "Failed to load NG rules for reply notifications", throwable = error)
+        null
+    }
+
+    /** 取得結果からNG判定対象となる絶対レス番号を作る。 */
+    private fun deriveIgnoredReplyNumbers(
+        posts: List<ReplyInfo>,
+        boardId: Long,
+        ngRules: List<NgEntity>,
+    ): Set<Int> {
+        val compiledRules = PostNgMatcher.compile(ngRules)
+        return PostNgMatcher.ignoredPostNumbers(
+            posts = posts.map { post -> PostNgTarget(id = post.id, name = post.name, content = post.content) },
+            boardId = boardId,
+            rules = compiledRules,
         )
     }
 
@@ -149,7 +184,15 @@ class ThreadRefreshUseCase @Inject constructor(
     }
 
     /** 未配信通知を設定とPublisherの結果に応じて終端させる。 */
-    private suspend fun processDetectedNotifications(threadId: ThreadId, enabled: Boolean) {
+    private suspend fun processDetectedNotifications(
+        request: ThreadRefreshRequest,
+        enabled: Boolean,
+        posts: List<ReplyInfo>,
+        ngRules: List<NgEntity>?,
+    ) {
+        if (enabled && ngRules == null) return
+        val threadId = request.threadId
+        // --- Pending candidates ---
         val detected = try {
             replyNotificationRepository.findDetected(threadId)
         } catch (error: Exception) {
@@ -158,11 +201,28 @@ class ThreadRefreshUseCase @Inject constructor(
             return
         }
 
+        val compiledNgRules = PostNgMatcher.compile(ngRules.orEmpty())
+        // --- Current source resolution and NG recheck ---
         detected.forEach { notification ->
             if (!enabled) {
                 updateNotificationStatus(notification, ReplyNotificationStatus.SUPPRESSED)
                 return@forEach
             }
+            val sourcePost = posts.getOrNull(notification.replyResNo - 1)
+            val isNg = sourcePost == null || PostNgMatcher.isIgnored(
+                post = PostNgTarget(
+                    id = sourcePost.id,
+                    name = sourcePost.name,
+                    content = sourcePost.content,
+                ),
+                boardId = request.boardId,
+                rules = compiledNgRules,
+            )
+            if (isNg) {
+                updateNotificationStatus(notification, ReplyNotificationStatus.SUPPRESSED)
+                return@forEach
+            }
+            // --- Publish and terminal status update ---
             val result = try {
                 replyNotificationPublisher.publish(notification)
             } catch (error: Exception) {

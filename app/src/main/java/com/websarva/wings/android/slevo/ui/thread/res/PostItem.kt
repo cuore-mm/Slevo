@@ -16,6 +16,8 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.res.PostReplyPreviews
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
@@ -32,6 +34,8 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
  * @param lineHeight 行間の倍率。
  * @param indentWidth インデントの実幅。
  * @param replyFromNumbers 返信元番号の一覧。
+ * @param replyPreviewState 本体番号順の返信先・返信元プレビューstate。
+ * @param maxPostNumber 安価参照を解決する取得済みレスの上限。
  * @param isMyPost 自分の投稿かどうか。
  * @param dimmed 文字を薄く表示するかどうか。
  * @param searchQuery ハイライト対象の検索文字列。
@@ -64,6 +68,8 @@ fun PostItem(
     lineHeight: Float,
     indentWidth: Dp = 0.dp,
     replyFromNumbers: List<Int> = emptyList(),
+    replyPreviewState: PostReplyPreviewUiState? = null,
+    maxPostNumber: Int = postNum,
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
     searchQuery: String = "",
@@ -140,6 +146,20 @@ fun PostItem(
             onContentPressedChange = { interactionState.isContentPressed = it },
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyClick = onReplyClick,
+            onReplyNumbersClick = onReplyFromClick,
+            maxPostNumber = maxPostNumber,
+            replyPreviewState = replyPreviewState,
+            transitionNamespace = transitionNamespace,
+            onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
+            onImageLoadStart = onImageLoadStart,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
+            enableSharedElement = enableSharedElement,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
             onUrlClick = onUrlClick,
             onThreadUrlClick = onThreadUrlClick,
             onBodyClick = onContentClick,
@@ -159,6 +179,25 @@ fun PostItem(
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope
         )
+        replyPreviewState?.let { previewState ->
+            PostReplyPreviews(
+                state = previewState,
+                hostNamespace = transitionNamespace,
+                bodyTextScale = bodyTextScale,
+                onReplyClick = { number -> onReplyClick?.invoke(number) },
+                onReplyNumbersClick = onReplyFromClick,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                enableSharedElement = enableSharedElement,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+        }
     }
 }
 

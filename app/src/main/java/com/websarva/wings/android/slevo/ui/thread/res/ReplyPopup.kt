@@ -606,6 +606,7 @@ private fun PopupPostLazyColumn(
                 postNum = postNum,
                 idIndex = idIndexList.getOrElse(postIndex) { 1 },
                 idTotal = if (row.post.header.id.isBlank()) 1 else idCountMap[row.post.header.id] ?: 1,
+                maxPostNumber = posts.size,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,

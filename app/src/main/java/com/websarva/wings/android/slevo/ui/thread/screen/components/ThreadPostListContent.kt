@@ -120,6 +120,12 @@ fun LazyListScope.threadPostListContent(
                 postNum = postNum,
                 idIndex = uiState.idIndexList.getOrElse(index) { 1 },
                 idTotal = if (post.header.id.isBlank()) 1 else uiState.idCountMap[post.header.id] ?: 1,
+                maxPostNumber = uiState.posts?.size ?: 0,
+                replyPreviewState = if (uiState.sortType == ThreadSortType.NUMBER) {
+                    uiState.replyPreviewByPostNumber[postNum]
+                } else {
+                    null
+                },
                 headerTextScale = if (uiState.isIndividualTextScale) {
                     uiState.headerTextScale
                 } else {
@@ -136,7 +142,7 @@ fun LazyListScope.threadPostListContent(
                     TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT
                 },
                 indentWidth = indent,
-                replyFromNumbers = uiState.replySourceMap[postNum] ?: emptyList(),
+                replyFromNumbers = uiState.visibleReplySourceMap[postNum] ?: emptyList(),
                 isMyPost = postNum in uiState.myPostNumbers,
                 dimmed = display.dimmed,
                 searchQuery = uiState.searchQuery,

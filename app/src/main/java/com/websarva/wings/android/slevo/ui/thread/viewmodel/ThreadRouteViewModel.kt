@@ -22,6 +22,8 @@ import com.websarva.wings.android.slevo.data.repository.TabsRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadBookmarkRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ThreadReadStateRepository
+import com.websarva.wings.android.slevo.data.util.PostNgMatcher
+import com.websarva.wings.android.slevo.data.util.PostNgTarget
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkBottomSheetStateHolder
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetUiState
 import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkStatusState
@@ -33,6 +35,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -97,6 +100,7 @@ class ThreadRouteViewModel @Inject constructor(
 
     private val uiStateCache = mutableMapOf<String, StateFlow<ThreadUiState>>()
     private val contentStates = MutableStateFlow<Map<String, ThreadRouteContentState>>(emptyMap())
+    private val replyPreviewCache = mutableMapOf<String, ReplyPreviewCache>()
     private val initializationJobs = mutableMapOf<String, Job>()
     private val threadLoadJobs = mutableMapOf<String, Job>()
     private val postSuccessCollectJobs = mutableMapOf<String, Job>()
@@ -430,10 +434,18 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** 返信元レス群をポップアップへ追加する。 */
     fun addPopupForReplyFrom(tabKey: String, baseOffset: IntOffset, replyNumbers: List<Int>) {
+        addPopupForReplyNumbers(tabKey, baseOffset, replyNumbers)
+    }
+
+    /** 複数安価または返信一覧から表示可能なレス群をポップアップへ追加する。 */
+    fun addPopupForReplyNumbers(tabKey: String, baseOffset: IntOffset, replyNumbers: List<Int>) {
         val state = uiStateFor(tabKey).value
         val posts = state.posts ?: return
-        val targetNumbers =
-            replyNumbers.filterNot { it in state.ngPostNumbers }.filter { it in 1..posts.size }
+        val targetNumbers = resolveRenderablePostNumbers(
+            postNumbers = replyNumbers,
+            postCount = posts.size,
+            ngPostNumbers = state.ngPostNumbers,
+        )
         if (targetNumbers.isEmpty()) {
             return
         }
@@ -450,20 +462,7 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** 単一レスをポップアップへ追加する。 */
     fun addPopupForReplyNumber(tabKey: String, baseOffset: IntOffset, postNumber: Int) {
-        val state = uiStateFor(tabKey).value
-        val posts = state.posts ?: return
-        if (postNumber !in 1..posts.size || postNumber in state.ngPostNumbers) {
-            return
-        }
-        appendPopup(
-            tabKey = tabKey,
-            info = PopupInfo(
-                popupId = nextPopupId(tabKey),
-                postNumbers = listOf(postNumber),
-                offset = baseOffset,
-                rootNumbers = listOf(postNumber),
-            ),
-        )
+        addPopupForReplyNumbers(tabKey, baseOffset, listOf(postNumber))
     }
 
     /** 指定 ID のレス群をポップアップへ追加する。 */
@@ -978,12 +977,42 @@ class ThreadRouteViewModel @Inject constructor(
         ngList: List<NgEntity>,
     ): ThreadUiState {
         val posts = content.posts
-        val compiledNg = compileNgs(ngList)
+        // --- Shared NG filtering and visible reply relations ---
+        val compiledNg = PostNgMatcher.compile(ngList)
         val ngPostNumbers = if (posts == null) {
             emptySet()
         } else {
-            deriveNgPostNumbers(posts, content.boardInfo.boardId, compiledNg)
+            PostNgMatcher.ignoredPostNumbers(
+                posts = posts.map { post ->
+                    PostNgTarget(
+                        id = post.header.id,
+                        name = post.header.name,
+                        content = post.body.content,
+                    )
+                },
+                boardId = content.boardInfo.boardId,
+                rules = compiledNg,
+            )
         }
+        val visibleReplySourceMap = if (posts == null) {
+            emptyMap()
+        } else {
+            deriveVisibleReplySourceMap(
+                posts = posts,
+                replySourceMap = content.replySourceMap,
+                ngPostNumbers = ngPostNumbers,
+            )
+        }
+        val replyPreviewByPostNumber = if (posts != null && session.sortType == ThreadSortType.NUMBER) {
+            replyPreviewsFor(
+                tabKey = tab.id.value,
+                posts = posts,
+                visibleReplySourceMap = visibleReplySourceMap,
+                ngPostNumbers = ngPostNumbers,
+                defaultName = content.boardInfo.noname,
+            )
+        } else emptyMap()
+        // --- Popup and list-row derivation ---
         val popupStack = if (posts == null) {
             session.popupStack
         } else {
@@ -1002,11 +1031,12 @@ class ThreadRouteViewModel @Inject constructor(
                 latestArrivalGroupIndex = content.latestArrivalGroupIndex,
                 searchQuery = session.searchQuery,
                 ngPostNumbers = ngPostNumbers,
-                replySourceMap = content.replySourceMap,
+                visibleReplySourceMap = visibleReplySourceMap,
             )
         }
         val boardInfo = content.boardInfo.takeIf { it.url.isNotBlank() }
             ?: BoardInfo(tab.boardId, tab.boardName, tab.boardUrl)
+        // --- Route-level state assembly ---
         val threadInfo = content.threadInfo.takeIf { it.key.isNotBlank() }
             ?: ThreadInfo(
                 key = tab.threadKey,
@@ -1037,6 +1067,8 @@ class ThreadRouteViewModel @Inject constructor(
             idCountMap = content.idCountMap,
             idIndexList = content.idIndexList,
             replySourceMap = content.replySourceMap,
+            visibleReplySourceMap = visibleReplySourceMap,
+            replyPreviewByPostNumber = replyPreviewByPostNumber,
             ngPostNumbers = ngPostNumbers,
             imageLoadFailureByUrl = content.imageLoadFailureByUrl,
             imageLoadingUrls = content.imageLoadingUrls,
@@ -1127,38 +1159,6 @@ class ThreadRouteViewModel @Inject constructor(
             .toSet()
     }
 
-    /** NG定義を boardId + regex 形式に変換する。 */
-    private fun compileNgs(ngList: List<NgEntity>): List<Triple<Long?, Regex, com.websarva.wings.android.slevo.data.model.NgType>> {
-        return ngList.mapNotNull { ng ->
-            runCatching {
-                val regex = if (ng.isRegex) Regex(ng.pattern) else Regex(Regex.escape(ng.pattern))
-                Triple(ng.boardId, regex, ng.type)
-            }.getOrNull()
-        }
-    }
-
-    /** 投稿一覧に NG を適用して非表示番号集合を返す。 */
-    private fun deriveNgPostNumbers(
-        posts: List<ThreadPostUiModel>,
-        boardId: Long,
-        compiledNg: List<Triple<Long?, Regex, com.websarva.wings.android.slevo.data.model.NgType>>,
-    ): Set<Int> {
-        return posts.mapIndexedNotNull { index, post ->
-            val isNg = compiledNg.any { (targetBoardId, regex, type) ->
-                (targetBoardId == null || targetBoardId == boardId) && runCatching {
-                    val target = when (type) {
-                        com.websarva.wings.android.slevo.data.model.NgType.USER_ID -> post.header.id
-                        com.websarva.wings.android.slevo.data.model.NgType.USER_NAME -> post.header.name
-                        com.websarva.wings.android.slevo.data.model.NgType.WORD -> post.body.content
-                        else -> ""
-                    }
-                    regex.containsMatchIn(target)
-                }.getOrDefault(false)
-            }
-            if (isNg) index + 1 else null
-        }.toSet()
-    }
-
     /** 新着グループを差分更新する。 */
     private fun updatePostGroups(
         previousGroups: List<ThreadPostGroup>,
@@ -1202,6 +1202,7 @@ class ThreadRouteViewModel @Inject constructor(
 
     /** 閉じたタブのキャッシュと監視ジョブを解放する。 */
     private fun evictClosedTabs(openKeys: Set<String>) {
+        val cachedPreviewKeys = synchronized(replyPreviewCache) { replyPreviewCache.keys.toSet() }
         val trackedKeys = buildSet {
             addAll(uiStateCache.keys)
             addAll(contentStates.value.keys)
@@ -1209,6 +1210,7 @@ class ThreadRouteViewModel @Inject constructor(
             addAll(threadLoadJobs.keys)
             addAll(postSuccessCollectJobs.keys)
             addAll(myPostCollectJobs.keys)
+            addAll(cachedPreviewKeys)
         }
         trackedKeys.filterNot(openKeys::contains).forEach { key ->
             uiStateCache.remove(key)
@@ -1216,15 +1218,67 @@ class ThreadRouteViewModel @Inject constructor(
             threadLoadJobs.remove(key)?.cancel()
             postSuccessCollectJobs.remove(key)?.cancel()
             myPostCollectJobs.remove(key)?.cancel()
+            synchronized(replyPreviewCache) { replyPreviewCache.remove(key) }
         }
         contentStates.update { states -> states.filterKeys { it in openKeys } }
     }
+
+    /** 入力が変わったときだけ返信プレビューを再解析し、無関係なUI更新では結果を再利用する。 */
+    private fun replyPreviewsFor(
+        tabKey: String,
+        posts: List<ThreadPostUiModel>,
+        visibleReplySourceMap: Map<Int, List<Int>>,
+        ngPostNumbers: Set<Int>,
+        defaultName: String,
+    ): Map<Int, PostReplyPreviewUiState> =
+        synchronized(replyPreviewCache) {
+            val cached = replyPreviewCache[tabKey]
+            if (cached != null && cached.posts === posts &&
+                cached.replySourceMap == visibleReplySourceMap &&
+                cached.ngPostNumbers == ngPostNumbers && cached.defaultName == defaultName
+            ) {
+                return@synchronized cached.previews
+            }
+            val previews = ThreadReplyPreviewTransformer.derive(
+                posts = posts,
+                visibleReplySourceMap = visibleReplySourceMap,
+                ngPostNumbers = ngPostNumbers,
+                defaultName = defaultName,
+            )
+            replyPreviewCache[tabKey] = ReplyPreviewCache(
+                posts = posts,
+                replySourceMap = visibleReplySourceMap,
+                ngPostNumbers = ngPostNumbers,
+                defaultName = defaultName,
+                previews = previews,
+            )
+            previews
+        }
 
     /** 指定 key のスレッドタブが現在も開いているかを返す。 */
     private fun isThreadTabOpen(tabKey: String): Boolean {
         return tabSessionStore.openThreadTabs.value.any { it.id.value == tabKey }
     }
 }
+
+/** レス番号候補から取得済みかつNGでない番号だけを順序維持・重複除去して返す。 */
+internal fun resolveRenderablePostNumbers(
+    postNumbers: List<Int>,
+    postCount: Int,
+    ngPostNumbers: Set<Int>,
+): List<Int> = postNumbers.asSequence()
+    .filter { it in 1..postCount && it !in ngPostNumbers }
+    .distinct()
+    .toList()
+
+/** 投稿版・返信逆引き・NG番号・板名無し設定に対応する導出済みプレビューを保持する。 */
+private data class ReplyPreviewCache(
+    val posts: List<ThreadPostUiModel>,
+    val replySourceMap: Map<Int, List<Int>>,
+    val ngPostNumbers: Set<Int>,
+    val defaultName: String,
+    val previews: Map<Int, PostReplyPreviewUiState>,
+)
 
 /** 投稿開始時にcaptureした境界を優先し、旧イベントには現在状態をfallbackとして使う。 */
 internal fun resolvePendingBaseResCount(

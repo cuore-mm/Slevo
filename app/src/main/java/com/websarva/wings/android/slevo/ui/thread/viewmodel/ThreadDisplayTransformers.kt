@@ -49,7 +49,7 @@ internal fun deriveReplyMaps(posts: List<ThreadPostUiModel>): Triple<Map<String,
     val replySourceMap = run {
         val map = mutableMapOf<Int, MutableList<Int>>()
         posts.forEachIndexed { idx, reply ->
-            ReplyAnchorParser.extractReferencedNumbers(reply.body.content).forEach { num ->
+            ReplyAnchorParser.extractReferencedNumbers(reply.body.content, posts.size).forEach { num ->
                 if (num in 1..posts.size) {
                     map.getOrPut(num) { mutableListOf() }.add(idx + 1)
                 }
@@ -59,6 +59,21 @@ internal fun deriveReplyMaps(posts: List<ThreadPostUiModel>): Triple<Map<String,
     }
     return Triple(idCountMap, idIndexList, replySourceMap)
 }
+
+/** 存在しNGでない返信レスだけを番号順に保持する表示用逆引きマップを作る。 */
+internal fun deriveVisibleReplySourceMap(
+    posts: List<ThreadPostUiModel>,
+    replySourceMap: Map<Int, List<Int>>,
+    ngPostNumbers: Set<Int>,
+): Map<Int, List<Int>> = replySourceMap.mapNotNull { (targetNumber, replyNumbers) ->
+    if (targetNumber !in 1..posts.size) return@mapNotNull null
+    val visibleReplyNumbers = replyNumbers.asSequence()
+        .filter { it in 1..posts.size && it !in ngPostNumbers }
+        .distinct()
+        .sorted()
+        .toList()
+    if (visibleReplyNumbers.isEmpty()) null else targetNumber to visibleReplyNumbers
+}.toMap()
 
 /**
  * 投稿一覧からツリー順と深さマップを生成する。
@@ -73,7 +88,11 @@ internal fun deriveTreeOrder(posts: List<ThreadPostUiModel>): Pair<List<Int>, Ma
     posts.forEachIndexed { idx, reply ->
         val current = idx + 1
         val p = if (reply.body.content.startsWith(">>")) {
-            ReplyAnchorParser.extractReferencedNumbers(reply.body.content).firstOrNull()
+            ReplyAnchorParser.parseAnchors(reply.body.content)
+                .firstOrNull()
+                ?.ranges
+                ?.firstOrNull()
+                ?.first
         } else {
             null
         }

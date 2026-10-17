@@ -22,6 +22,13 @@ object ImageSharedTransitionKeyFactory {
         return "popup-$popupId-post-$postNumber"
     }
 
+    /** 投稿行とプレビュー種別・対象番号から、通常投稿と衝突しない名前空間を返す。 */
+    fun replyPreviewNamespace(
+        hostNamespace: String,
+        previewType: ImageReplyPreviewType,
+        targetPostNumber: Int,
+    ): String = "$hostNamespace-${previewType.key}-reply-$targetPostNumber"
+
     /**
      * 投稿ダイアログ向け namespace を返す。
      */
@@ -35,4 +42,10 @@ object ImageSharedTransitionKeyFactory {
     fun buildKey(transitionNamespace: String, imageUrl: String, imageIndex: Int): String {
         return "$transitionNamespace$KEY_SEPARATOR$imageUrl$KEY_SEPARATOR$imageIndex"
     }
+}
+
+/** 返信プレビュー画像の表示位置を区別する種別。 */
+enum class ImageReplyPreviewType(val key: String) {
+    REPLY_TARGET("reply-target"),
+    REPLY_SOURCE("reply-source"),
 }

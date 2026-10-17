@@ -2,15 +2,18 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import com.websarva.wings.android.slevo.core.log.AppLogger
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
+import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.history.ThreadHistoryEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.notification.ReplyNotificationEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.notification.ReplyNotificationStatus
 import com.websarva.wings.android.slevo.data.datasource.local.entity.state.ThreadStateEntity
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublishResult
 import com.websarva.wings.android.slevo.data.notification.ReplyNotificationPublisher
 import com.websarva.wings.android.slevo.data.repository.DatRepository
+import com.websarva.wings.android.slevo.data.repository.NgRepository
 import com.websarva.wings.android.slevo.data.repository.PostHistoryRepository
 import com.websarva.wings.android.slevo.data.repository.ReplyNotificationRepository
 import com.websarva.wings.android.slevo.data.repository.SettingsRepository
@@ -25,12 +28,16 @@ import io.mockk.coVerifyOrder
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** [ThreadRefreshUseCase] の共通取得順序と通知境界を検証するテスト。 */
@@ -206,6 +213,123 @@ class ThreadRefreshUseCaseTest {
     }
 
     @Test
+    fun ngReplyIsNotPersistedOrPublished() = runTest {
+        val dependencies = dependencies()
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        every { dependencies.ngRepository.observeNgs() } returns flowOf(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.USER_ID)),
+        )
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (
+            listOf(post("root"), post("mine"), post(">>2 reply").copy(id = "blocked user")) to "Title"
+        )
+        dependencies.createUseCase().refresh(request())
+
+        coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
+    }
+
+    @Test
+    fun pendingReplyIsSuppressedWhenItNowMatchesNg() = runTest {
+        val dependencies = dependencies()
+        val notification = notification(replyResNo = 3)
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 3)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        every { dependencies.ngRepository.observeNgs() } returns flowOf(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post("blocked reply")) to "Title")
+        coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns listOf(notification)
+        coEvery { dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any()) } returns true
+
+        dependencies.createUseCase().refresh(request())
+
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
+        coVerify(exactly = 1) {
+            dependencies.replyNotificationRepository.updateStatus(
+                THREAD_ID,
+                3,
+                ReplyNotificationStatus.DETECTED,
+                ReplyNotificationStatus.SUPPRESSED,
+            )
+        }
+    }
+
+    @Test
+    fun ngReadFailureKeepsFetchSuccessfulButSkipsDetectionAndDelivery() = runTest {
+        val dependencies = dependencies()
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        every { dependencies.ngRepository.observeNgs() } returns flow {
+            throw IllegalStateException("NG storage unavailable")
+        }
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+
+        val result = dependencies.createUseCase().refresh(request())
+
+        assertEquals(3, result?.posts?.size)
+        coVerify(exactly = 1) { dependencies.threadStateRepository.saveThreadState(any()) }
+        coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
+        coVerify(exactly = 0) { dependencies.replyNotificationRepository.findDetected(any()) }
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
+        verify(exactly = 2) {
+            dependencies.logger.e(
+                message = "Failed to load NG rules for reply notifications",
+                throwable = any(),
+            )
+        }
+    }
+
+    @Test
+    fun cancellationWhileLoadingNgRulesPropagates() = runTest {
+        val dependencies = dependencies()
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        every { dependencies.ngRepository.observeNgs() } returns flow {
+            throw CancellationException("cancelled")
+        }
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+
+        var propagated = false
+        try {
+            dependencies.createUseCase().refresh(request())
+        } catch (_: CancellationException) {
+            propagated = true
+        }
+
+        assertTrue(propagated)
+        coVerify(exactly = 0) { dependencies.threadStateRepository.saveThreadState(any()) }
+    }
+
+    @Test
     fun retryPublisher_keepsDetectedStatusForNextRefresh() = runTest {
         val dependencies = dependencies()
         val notification = notification(replyResNo = 3)
@@ -269,8 +393,14 @@ class ThreadRefreshUseCaseTest {
         assertCrossPathRefreshOrder(threadFirst = false)
     }
 
+    @Test
+    fun threadAndTabRefreshesApplySameNgFilter() = runTest {
+        assertCrossPathRefreshOrder(threadFirst = true, ignoreReply = true)
+        assertCrossPathRefreshOrder(threadFirst = false, ignoreReply = true)
+    }
+
     /** 共通UseCaseを二つの画面経路から呼び、Repositoryの一意登録境界を検証する。 */
-    private suspend fun assertCrossPathRefreshOrder(threadFirst: Boolean) {
+    private suspend fun assertCrossPathRefreshOrder(threadFirst: Boolean, ignoreReply: Boolean = false) {
         // --- Dependencies ---
         val dependencies = dependencies()
         val insertedReplies = mutableSetOf<Pair<ThreadId, Int>>()
@@ -279,13 +409,20 @@ class ThreadRefreshUseCaseTest {
         coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
         coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
         coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        if (ignoreReply) {
+            every { dependencies.ngRepository.observeNgs() } returns flowOf(
+                listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = null, type = NgType.WORD)),
+            )
+        }
         coEvery {
             dependencies.datRepository.getThread(
                 boardUrl = any(),
                 threadKey = any(),
                 onProgress = any<(Float) -> Unit>(),
             )
-        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+        } returns (
+            listOf(post("root"), post("mine"), post(if (ignoreReply) ">>2 blocked reply" else ">>2 reply")) to "Title"
+        )
         coEvery { dependencies.replyNotificationRepository.insertNew(any()) } coAnswers {
             insertAttempts++
             @Suppress("UNCHECKED_CAST")
@@ -318,8 +455,8 @@ class ThreadRefreshUseCaseTest {
         }
 
         // stale stateを二経路へ返しても、複合主キー相当の登録境界では一件だけ残る。
-        assertEquals(2, insertAttempts)
-        assertEquals(setOf(THREAD_ID to 3), insertedReplies)
+        assertEquals(if (ignoreReply) 0 else 2, insertAttempts)
+        assertEquals(if (ignoreReply) emptySet() else setOf(THREAD_ID to 3), insertedReplies)
         coordinator.close()
     }
 
@@ -340,6 +477,9 @@ class ThreadRefreshUseCaseTest {
         postHistoryRepository = mockk(relaxed = true),
         ownPostReconciliationUseCase = mockk(relaxed = true),
         settingsRepository = mockk(relaxed = true),
+        ngRepository = mockk<NgRepository>(relaxed = true).also { repository ->
+            every { repository.observeNgs() } returns flowOf(emptyList<NgEntity>())
+        },
         replyNotificationRepository = mockk(relaxed = true),
         publisher = mockk(relaxed = true),
         logger = mockk(relaxed = true),
@@ -352,6 +492,7 @@ class ThreadRefreshUseCaseTest {
         val postHistoryRepository: PostHistoryRepository,
         val ownPostReconciliationUseCase: OwnPostReconciliationUseCase,
         val settingsRepository: SettingsRepository,
+        val ngRepository: NgRepository,
         val replyNotificationRepository: ReplyNotificationRepository,
         val publisher: ReplyNotificationPublisher,
         val logger: AppLogger,
@@ -363,6 +504,7 @@ class ThreadRefreshUseCaseTest {
             postHistoryRepository = postHistoryRepository,
             ownPostReconciliationUseCase = ownPostReconciliationUseCase,
             settingsRepository = settingsRepository,
+            ngRepository = ngRepository,
             replyNotificationRepository = replyNotificationRepository,
             replyNotificationPublisher = publisher,
             logger = logger,

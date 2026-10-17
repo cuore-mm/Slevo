@@ -19,13 +19,14 @@ data class ReplyNotificationCandidate(
  */
 object ReplyNotificationDetector {
     /**
-     * 取得前境界より後のレスから、他者による自レス参照だけを検出する。
-     * 初回取得またはレス数が減少した取得では過去レスを通知対象にしない。
+     * 取得前境界より後の他者レスから、自レス参照を検出する。
+     * 初回・レス数減少・自レス・指定NGレスは通知対象にしない。
      */
     fun detect(
         posts: List<ReplyInfo>,
         previousResCount: Int?,
         ownPostNumbers: Set<Int>,
+        ignoredReplyResNumbers: Set<Int> = emptySet(),
     ): List<ReplyNotificationCandidate> {
         val boundary = previousResCount ?: return emptyList()
         if (posts.size <= boundary || posts.size < previousResCount) {
@@ -39,11 +40,11 @@ object ReplyNotificationDetector {
             .drop(boundary)
             .mapIndexedNotNull { offset, post ->
                 val replyResNo = boundary + offset + 1
-                if (replyResNo in ownPostNumbers) {
+                if (replyResNo in ownPostNumbers || replyResNo in ignoredReplyResNumbers) {
                     return@mapIndexedNotNull null
                 }
                 val referencedOwnPosts = ReplyAnchorParser
-                    .extractReferencedNumbers(post.content)
+                    .extractReferencedNumbers(post.content, posts.size)
                     .filter { number -> number in ownPostNumbers }
                 if (referencedOwnPosts.isEmpty()) {
                     return@mapIndexedNotNull null

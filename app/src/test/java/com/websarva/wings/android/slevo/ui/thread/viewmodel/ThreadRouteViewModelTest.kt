@@ -64,6 +64,19 @@ class ThreadRouteViewModelTest {
     }
 
     @Test
+    fun resolveRenderablePostNumbersKeepsOrderAndRemovesNgDuplicatesAndMissingPosts() {
+        assertEquals(
+            listOf(3, 1),
+            resolveRenderablePostNumbers(
+                postNumbers = listOf(3, 2, 3, 0, 5, 1),
+                postCount = 4,
+                ngPostNumbers = setOf(2),
+            ),
+        )
+        assertEquals(emptyList<Int>(), resolveRenderablePostNumbers(listOf(1), 0, emptySet()))
+    }
+
+    @Test
     fun uiStateFor_sameKeyReusesCachedFlow() {
         val threadId = ThreadId.of("example.com", "test", "111")
         val dependencies = mockDependencies(listOf(threadTab(threadId, "title")), selectedTabKey = threadId.value)
@@ -208,7 +221,7 @@ class ThreadRouteViewModelTest {
             latestArrivalGroupIndex = state.latestArrivalGroupIndex,
             searchQuery = "",
             ngPostNumbers = emptySet(),
-            replySourceMap = emptyMap(),
+            visibleReplySourceMap = emptyMap(),
         )
         assertEquals(100, visible.firstAfterIndex)
     }
@@ -251,7 +264,7 @@ class ThreadRouteViewModelTest {
                 latestArrivalGroupIndex = state.latestArrivalGroupIndex,
                 searchQuery = "",
                 ngPostNumbers = emptySet(),
-                replySourceMap = emptyMap(),
+                visibleReplySourceMap = emptyMap(),
             )
             assertEquals(-1, visible.firstAfterIndex)
         }
@@ -641,7 +654,7 @@ class ThreadRouteViewModelTest {
             latestArrivalGroupIndex = state.latestArrivalGroupIndex,
             searchQuery = "",
             ngPostNumbers = emptySet(),
-            replySourceMap = emptyMap(),
+            visibleReplySourceMap = emptyMap(),
         ).firstAfterIndex
     }
 

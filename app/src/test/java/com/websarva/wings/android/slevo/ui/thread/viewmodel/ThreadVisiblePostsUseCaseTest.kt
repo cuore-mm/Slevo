@@ -35,12 +35,35 @@ class ThreadVisiblePostsUseCaseTest {
             latestArrivalGroupIndex = null,
             searchQuery = "target",
             ngPostNumbers = emptySet(),
-            replySourceMap = mapOf(1 to listOf(2)),
+            visibleReplySourceMap = mapOf(1 to listOf(2)),
         )
 
         assertEquals(listOf(2), result.visiblePostRows.map { it.displayPost.num })
         assertEquals(listOf(0), result.replyCounts)
         assertEquals(-1, result.firstAfterIndex)
+    }
+
+    @Test
+    fun buildVisibleRows_excludesNgRepliesFromHeaderCount() {
+        val result = ThreadVisiblePostsUseCase().buildVisibleRows(
+            posts = listOf(
+                post("root", "id1"),
+                post("reply 2", "id2"),
+                post("reply 3", "id3"),
+                post("reply 4", "id4"),
+            ),
+            groups = listOf(ThreadPostGroup(startResNo = 1, endResNo = 4, prevResCount = 0)),
+            sortType = ThreadSortType.NUMBER,
+            treeOrder = emptyList(),
+            treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
+            latestArrivalGroupIndex = null,
+            searchQuery = "",
+            ngPostNumbers = setOf(3),
+            visibleReplySourceMap = mapOf(1 to listOf(2, 4)),
+        )
+
+        assertEquals(2, result.replyCounts.first())
     }
 
     @Test
@@ -66,7 +89,7 @@ class ThreadVisiblePostsUseCaseTest {
             latestArrivalGroupIndex = 1,
             searchQuery = "new",
             ngPostNumbers = setOf(3),
-            replySourceMap = emptyMap(),
+            visibleReplySourceMap = emptyMap(),
         )
 
         assertEquals(listOf(4), result.visiblePostRows.map { it.displayPost.num })
@@ -99,7 +122,7 @@ class ThreadVisiblePostsUseCaseTest {
             latestArrivalGroupIndex = 1,
             searchQuery = "",
             ngPostNumbers = emptySet(),
-            replySourceMap = emptyMap(),
+            visibleReplySourceMap = emptyMap(),
         )
 
         assertEquals(3, result.firstAfterIndex)
