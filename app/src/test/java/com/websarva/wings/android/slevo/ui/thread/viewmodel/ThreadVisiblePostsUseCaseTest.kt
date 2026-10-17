@@ -66,6 +66,30 @@ class ThreadVisiblePostsUseCaseTest {
         assertEquals(2, result.replyCounts.first())
     }
 
+    /** 表示用返信マップの件数をそのまま利用し、0・2・5件を表示値へ反映する。 */
+    @Test
+    fun buildVisibleRowsUsesVisibleReplyCountForZeroTwoAndFiveReplies() {
+        val posts = (1..6).map { number -> post("post$number", "id$number") }
+        val group = listOf(ThreadPostGroup(startResNo = 1, endResNo = 6, prevResCount = 0))
+
+        fun replyCount(numbers: List<Int>): Int = ThreadVisiblePostsUseCase().buildVisibleRows(
+            posts = posts,
+            groups = group,
+            sortType = ThreadSortType.NUMBER,
+            treeOrder = emptyList(),
+            treeDepthMap = emptyMap(),
+            treeRootMap = emptyMap(),
+            latestArrivalGroupIndex = null,
+            searchQuery = "",
+            ngPostNumbers = emptySet(),
+            visibleReplySourceMap = if (numbers.isEmpty()) emptyMap() else mapOf(1 to numbers),
+        ).replyCounts.first()
+
+        assertEquals(0, replyCount(emptyList()))
+        assertEquals(2, replyCount(listOf(2, 4)))
+        assertEquals(5, replyCount(listOf(2, 3, 4, 5, 6)))
+    }
+
     @Test
     fun buildVisibleRows_keepsUnreadBoundaryAfterNumberSearchAndNgFiltering() {
         val useCase = ThreadVisiblePostsUseCase()

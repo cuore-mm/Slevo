@@ -92,6 +92,22 @@ class ThreadDisplayTransformersTest {
         assertEquals(0, depthMap[3])
     }
 
+    /** 本文途中の安価はツリー親にせず、本文先頭の安価だけを親として使う。 */
+    @Test
+    fun deriveTreeOrderIgnoresAnchorsAfterBodyText() {
+        val posts = listOf(
+            post(content = "root", id = "id1"),
+            post(content = "本文のあとに >>1", id = "id2"),
+            post(content = ">>1 leading anchor", id = "id3"),
+        )
+
+        val (order, depthMap) = deriveTreeOrder(posts)
+
+        assertEquals(listOf(1, 3, 2), order)
+        assertEquals(0, depthMap[2])
+        assertEquals(1, depthMap[3])
+    }
+
     @Test
     fun visibleReplySourceMapFiltersNgDuplicatesAndUnavailableNumbersWithoutRenumbering() {
         val posts = (1..4).map { number -> post("post$number", "id$number") }

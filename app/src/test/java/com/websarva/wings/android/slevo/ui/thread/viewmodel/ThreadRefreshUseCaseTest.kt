@@ -269,8 +269,58 @@ class ThreadRefreshUseCaseTest {
         }
     }
 
+    /** 検出後に追加されたNGは待機通知を抑止し、解除後も再配信しない。 */
+    @Test
+    fun ngAddedAfterDetectionSuppressesPendingReplyPermanently() = runTest {
+        // --- Fixture and staged NG snapshots ---
+        val dependencies = dependencies()
+        val notification = notification(replyResNo = 3)
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returnsMany listOf(
+            state(latestResCount = 2),
+            state(latestResCount = 3),
+        )
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        every { dependencies.ngRepository.observeNgs() } returnsMany listOf(
+            flowOf(emptyList()),
+            flowOf(listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD))),
+            flowOf(emptyList()),
+            flowOf(emptyList()),
+        )
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 blocked reply")) to "Title")
+        coEvery { dependencies.replyNotificationRepository.insertNew(any()) } returns listOf(notification)
+        coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returnsMany listOf(
+            listOf(notification),
+            emptyList(),
+        )
+        coEvery { dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any()) } returns true
+
+        val useCase = dependencies.createUseCase()
+        useCase.refresh(request())
+        useCase.refresh(request())
+
+        // --- Pending notification status and publisher ---
+        coVerify(exactly = 1) {
+            dependencies.replyNotificationRepository.updateStatus(
+                THREAD_ID,
+                3,
+                ReplyNotificationStatus.DETECTED,
+                ReplyNotificationStatus.SUPPRESSED,
+            )
+        }
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
+    }
+
     @Test
     fun ngReadFailureKeepsFetchSuccessfulButSkipsDetectionAndDelivery() = runTest {
+        // --- NG storage failure and successful thread fetch ---
         val dependencies = dependencies()
         coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
         coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
@@ -289,6 +339,7 @@ class ThreadRefreshUseCaseTest {
 
         val result = dependencies.createUseCase().refresh(request())
 
+        // --- Preserved fetch result and skipped notification work ---
         assertEquals(3, result?.posts?.size)
         coVerify(exactly = 1) { dependencies.threadStateRepository.saveThreadState(any()) }
         coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
@@ -300,6 +351,45 @@ class ThreadRefreshUseCaseTest {
                 throwable = any(),
             )
         }
+    }
+
+    /** NG保存障害中は最新件数を維持し、復旧後に同じ取得済み返信を遡及通知しない。 */
+    @Test
+    fun ngReadRecoveryDoesNotCreateRetroactiveReplyNotifications() = runTest {
+        // --- Failure and recovery snapshots ---
+        val dependencies = dependencies()
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returnsMany listOf(
+            state(latestResCount = 2),
+            state(latestResCount = 3),
+        )
+        coEvery { dependencies.threadHistoryRepository.getHistory(THREAD_ID) } returns history()
+        coEvery { dependencies.postHistoryRepository.getMyPostNumbers(7L) } returns setOf(2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        every { dependencies.ngRepository.observeNgs() } returnsMany listOf(
+            flow { throw IllegalStateException("NG storage unavailable") },
+            flow { throw IllegalStateException("NG storage unavailable") },
+            flowOf(emptyList()),
+            flowOf(emptyList()),
+        )
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine"), post(">>2 reply")) to "Title")
+
+        val useCase = dependencies.createUseCase()
+        val firstResult = useCase.refresh(request())
+        val recoveredResult = useCase.refresh(request())
+
+        // --- Fetch boundary and notification history ---
+        assertEquals(3, firstResult?.posts?.size)
+        assertEquals(3, recoveredResult?.posts?.size)
+        coVerify(exactly = 2) { dependencies.threadStateRepository.saveThreadState(any()) }
+        coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
+        coVerify(exactly = 1) { dependencies.replyNotificationRepository.findDetected(THREAD_ID) }
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
     }
 
     @Test

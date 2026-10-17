@@ -65,6 +65,30 @@ class ThreadReplyPreviewTransformerTest {
         assertNull(result.replyTarget?.post?.id?.takeIf(String::isBlank))
     }
 
+    /** HTML表記の名無しだけを省略し、独自名とトリップ付き名を保持する。 */
+    @Test
+    fun omitsOnlyNormalizedBoardDefaultName() {
+        val posts = listOf(
+            post("名無し", "id1", "target default"),
+            post("独自名", "id2", "target custom"),
+            post("名無し◆trip", "id3", "target trip"),
+            post("host", "id4", ">>1"),
+            post("host", "id5", ">>2"),
+            post("host", "id6", ">>3"),
+        )
+
+        val result = ThreadReplyPreviewTransformer.derive(
+            posts = posts,
+            visibleReplySourceMap = emptyMap(),
+            ngPostNumbers = emptySet(),
+            defaultName = "<b>名無し</b>",
+        )
+
+        assertEquals("", result.getValue(4).replyTarget?.post?.name)
+        assertEquals("独自名", result.getValue(5).replyTarget?.post?.name)
+        assertEquals("名無し◆trip", result.getValue(6).replyTarget?.post?.name)
+    }
+
     /** 安価だけの各形式から最初に表示可能な番号だけを選び、文中参照を候補から外す。 */
     @Test
     fun selectsFirstVisibleAnchorAcrossSupportedLineForms() {

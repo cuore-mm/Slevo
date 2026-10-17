@@ -2,6 +2,8 @@ package com.websarva.wings.android.slevo.data.util
 
 import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.model.NgType
+import com.websarva.wings.android.slevo.data.model.ReplyInfo
+import com.websarva.wings.android.slevo.ui.thread.viewmodel.toThreadPostUiModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -47,6 +49,38 @@ class PostNgMatcherTest {
                 boardId = 1,
                 rules = rules,
             ),
+        )
+    }
+
+    /** DATレスと画面モデルが同じID・名前・本文をmatcherへ渡すことを確認する。 */
+    @Test
+    fun replyInfoAndThreadPostUiModelProduceTheSameNgMatch() {
+        val replyInfo = ReplyInfo(
+            name = " 名無しの名前 &amp; trip",
+            email = "sage",
+            date = "2026/01/01 00:00:00",
+            id = " user-7 ",
+            content = "本文 &gt;&gt;2 blocked",
+        )
+        val uiPost = replyInfo.toThreadPostUiModel()
+        val replyTarget = PostNgTarget(replyInfo.id, replyInfo.name, replyInfo.content)
+        val uiTarget = PostNgTarget(uiPost.header.id, uiPost.header.name, uiPost.body.content)
+        val rules = PostNgMatcher.compile(
+            listOf(
+                NgEntity(pattern = "user-7", isRegex = false, boardId = null, type = NgType.USER_ID),
+                NgEntity(pattern = "名前 &amp;", isRegex = false, boardId = 5, type = NgType.USER_NAME),
+                NgEntity(pattern = "blocked$", isRegex = true, boardId = 5, type = NgType.WORD),
+            ),
+        )
+
+        assertEquals(replyTarget, uiTarget)
+        assertEquals(
+            PostNgMatcher.isIgnored(replyTarget, boardId = 5, rules = rules),
+            PostNgMatcher.isIgnored(uiTarget, boardId = 5, rules = rules),
+        )
+        assertEquals(
+            PostNgMatcher.isIgnored(replyTarget, boardId = 6, rules = rules),
+            PostNgMatcher.isIgnored(uiTarget, boardId = 6, rules = rules),
         )
     }
 }

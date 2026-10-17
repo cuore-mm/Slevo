@@ -2,10 +2,13 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.viewModelScope
 import com.websarva.wings.android.slevo.core.log.AppLogger
+import com.websarva.wings.android.slevo.data.datasource.local.entity.NgEntity
 import com.websarva.wings.android.slevo.data.datasource.local.entity.ThreadReadState
 import com.websarva.wings.android.slevo.data.model.BoardInfo
+import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.ThreadDate
 import com.websarva.wings.android.slevo.data.model.ThreadId
 import com.websarva.wings.android.slevo.data.repository.BoardRepository
@@ -42,10 +45,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * [ThreadRouteViewModel] の軽量回帰テスト。
@@ -53,6 +59,7 @@ import org.junit.Test
  * 直接合成化後の lazy load、reload、自動スクロールの委譲条件とレスグループ境界を検証する。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class ThreadRouteViewModelTest {
 
     @get:Rule
@@ -460,6 +467,149 @@ class ThreadRouteViewModelTest {
         secondJob.cancel()
     }
 
+    /** NG変更と投稿追加・減少で返信番号を詰めずに再計算し、NG変更では再取得しない。 */
+    @Test
+    fun replySourceStateTracksNgAndPostChangesWithoutRenumbering() = runTest {
+        // --- Fixture and initial state ---
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val ngRules = MutableStateFlow(emptyList<NgEntity>())
+        val initialPosts = listOf(
+            threadPost(1, "root"),
+            threadPost(2, ">>1 reply two"),
+            threadPost(3, "blocked >>1 reply three"),
+            threadPost(4, ">>1 reply four"),
+        )
+        val appendedPosts = initialPosts + threadPost(5, ">>1 reply five")
+        val shortenedPosts = initialPosts.take(2)
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(
+                contentLoadResult(initialPosts),
+                contentLoadResult(appendedPosts),
+                contentLoadResult(shortenedPosts),
+            ),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            dependencies.threadContentLoadUseCase.load(any(), "111", any(), any(), any(), any())
+        }
+        assertEquals(4, uiState.value.posts?.size)
+        assertEquals(mapOf(1 to listOf(2, 3, 4)), uiState.value.visibleReplySourceMap)
+        val initialPreviewMap = uiState.value.replyPreviewByPostNumber
+        assertTrue(initialPreviewMap.isNotEmpty())
+
+        // --- NG changes without reload ---
+        ngRules.value = listOf(
+            NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD),
+        )
+        advanceUntilIdle()
+        assertEquals(mapOf(1 to listOf(2, 4)), uiState.value.visibleReplySourceMap)
+        assertEquals(4, uiState.value.posts?.size)
+        assertEquals(2, uiState.value.replyCounts.first())
+        val ngPreviewMap = uiState.value.replyPreviewByPostNumber
+        assertNotSame(initialPreviewMap, ngPreviewMap)
+        coVerify(exactly = 1) {
+            dependencies.threadContentLoadUseCase.load(any(), "111", any(), any(), any(), any())
+        }
+
+        // --- Unrelated UI updates reuse derived previews ---
+        viewModel.updateSearchInput(threadId.value, TextFieldValue("root"))
+        advanceUntilIdle()
+        assertSame(ngPreviewMap, uiState.value.replyPreviewByPostNumber)
+        dependencies.openTabs.value = dependencies.openTabs.value.map { tab ->
+            tab.copy(firstVisibleItemIndex = 12, firstVisibleItemScrollOffset = 24)
+        }
+        advanceUntilIdle()
+        assertSame(ngPreviewMap, uiState.value.replyPreviewByPostNumber)
+        viewModel.updateSearchInput(threadId.value, TextFieldValue(""))
+        advanceUntilIdle()
+
+        ngRules.value = emptyList()
+        advanceUntilIdle()
+        assertEquals(mapOf(1 to listOf(2, 3, 4)), uiState.value.visibleReplySourceMap)
+        assertEquals(3, uiState.value.replyCounts.first())
+        assertNotSame(ngPreviewMap, uiState.value.replyPreviewByPostNumber)
+
+        // --- Added and shortened post sets ---
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        assertEquals(mapOf(1 to listOf(2, 3, 4, 5)), uiState.value.visibleReplySourceMap)
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        assertEquals(2, uiState.value.posts?.size)
+        assertEquals(mapOf(1 to listOf(2)), uiState.value.visibleReplySourceMap)
+        assertEquals(2, uiState.value.replyCounts.size)
+        coVerify(exactly = 3) {
+            dependencies.threadContentLoadUseCase.load(any(), "111", any(), any(), any(), any())
+        }
+    }
+
+    /** 複数参照ポップアップは表示可能番号だけを順序維持で開き、同一内容を連続追加しない。 */
+    @Test
+    fun addPopupForReplyNumbersResolvesVisiblePostsAndSuppressesDuplicates() = runTest {
+        // --- Fixture and NG state ---
+        val threadId = ThreadId.of("example.com", "test", "111")
+        val ngRules = MutableStateFlow(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        val posts = (1..5).map { number ->
+            threadPost(number, if (number == 3) "blocked post" else "post $number")
+        }
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(contentLoadResult(posts)),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+        assertEquals(5, uiState.value.posts?.size)
+        assertEquals(setOf(3), uiState.value.ngPostNumbers)
+
+        // --- Visible target resolution and duplicate suppression ---
+        val firstOffset = IntOffset(12, 24)
+        viewModel.addPopupForReplyNumbers(
+            tabKey = threadId.value,
+            baseOffset = firstOffset,
+            replyNumbers = listOf(5, 3, 4, 5, 0, 9),
+        )
+        val firstPopup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
+        assertEquals(listOf(5, 4), firstPopup.postNumbers)
+        assertEquals(firstOffset, firstPopup.offset)
+
+        viewModel.addPopupForReplyNumbers(
+            tabKey = threadId.value,
+            baseOffset = IntOffset(100, 200),
+            replyNumbers = listOf(5, 4),
+        )
+        viewModel.addPopupForReplyNumbers(
+            tabKey = threadId.value,
+            baseOffset = IntOffset.Zero,
+            replyNumbers = listOf(3, 0, 9),
+        )
+        viewModel.addPopupForReplyNumbers(
+            tabKey = threadId.value,
+            baseOffset = IntOffset.Zero,
+            replyNumbers = emptyList(),
+        )
+        assertEquals(1, dependencies.sessionStates.value.getValue(threadId.value).popupStack.size)
+
+        viewModel.addPopupForReplyNumber(threadId.value, IntOffset.Zero, 1)
+        assertEquals(
+            listOf(listOf(5, 4), listOf(1)),
+            dependencies.sessionStates.value.getValue(threadId.value).popupStack.map { it.postNumbers },
+        )
+    }
+
     /** テスト用依存一式を構築する。 */
     private fun mockDependencies(
         tabs: List<ThreadTabInfo>,
@@ -467,6 +617,8 @@ class ThreadRouteViewModelTest {
         initialSessionStates: Map<String, ThreadSessionState> = tabs.associate { it.id.value to ThreadSessionState() },
         suspendLoad: Boolean = false,
         loadReturnsNull: Boolean = false,
+        ngRules: MutableStateFlow<List<NgEntity>> = MutableStateFlow(emptyList()),
+        loadResults: List<ThreadContentLoadResult>? = null,
     ): RouteDependencies {
         val openTabs = MutableStateFlow(tabs)
         val selectedKey = MutableStateFlow(selectedTabKey)
@@ -529,7 +681,7 @@ class ThreadRouteViewModelTest {
         every { bookmarkRepository.getBookmarkWithGroup(any(), any()) } returns flowOf(null)
 
         val ngRepository = mockk<NgRepository>()
-        every { ngRepository.observeNgs() } returns flowOf(emptyList())
+        every { ngRepository.observeNgs() } returns ngRules
 
         val settingsRepository = mockk<SettingsRepository>(relaxed = true)
         every { settingsRepository.observeTextScale() } returns flowOf(1f)
@@ -548,6 +700,7 @@ class ThreadRouteViewModelTest {
 
         val threadContentLoadUseCase = mockk<ThreadContentLoadUseCase>()
         val threadLoadCancelled = MutableStateFlow(false)
+        val remainingLoadResults = loadResults?.toMutableList()
         tabs.forEach { tab ->
             coEvery {
                 threadContentLoadUseCase.load(
@@ -565,6 +718,8 @@ class ThreadRouteViewModelTest {
                     }
                 } else if (loadReturnsNull) {
                     null
+                } else if (remainingLoadResults != null) {
+                    remainingLoadResults.removeAt(0)
                 } else {
                     ThreadContentLoadResult(
                         uiPosts = emptyList(),
@@ -656,16 +811,38 @@ class ThreadRouteViewModelTest {
     /** 指定件数の投稿を作り、初回・追加ロードのレス範囲を再現する。 */
     private fun posts(count: Int): List<ThreadPostUiModel> {
         return (1..count).map { number ->
-            ThreadPostUiModel(
-                header = ThreadPostUiModel.Header(
-                    name = "name",
-                    email = "",
-                    date = "2024/01/01 00:00:00",
-                    id = "id$number",
-                ),
-                body = ThreadPostUiModel.Body(content = "post $number"),
-            )
+            threadPost(number, "post $number")
         }
+    }
+
+    /** 指定番号と本文から route テスト用投稿を作る。 */
+    private fun threadPost(number: Int, content: String): ThreadPostUiModel = ThreadPostUiModel(
+        header = ThreadPostUiModel.Header(
+            name = "name$number",
+            email = "",
+            date = "2024/01/01 00:00:00",
+            id = "id$number",
+        ),
+        body = ThreadPostUiModel.Body(content = content),
+    )
+
+    /** 投稿から実際の取得ユースケースと同じ返信・ツリー派生結果を作る。 */
+    private fun contentLoadResult(posts: List<ThreadPostUiModel>): ThreadContentLoadResult {
+        val (idCountMap, idIndexList, replySourceMap) = deriveReplyMaps(posts)
+        val (treeOrder, treeDepthMap) = deriveTreeOrder(posts)
+        return ThreadContentLoadResult(
+            uiPosts = posts,
+            threadTitle = "title",
+            resCount = posts.size,
+            threadDate = ThreadDate(2024, 1, 1, 0, 0, "月"),
+            momentum = 0.0,
+            idCountMap = idCountMap,
+            idIndexList = idIndexList,
+            replySourceMap = replySourceMap,
+            treeOrder = treeOrder,
+            treeDepthMap = treeDepthMap,
+            treeRootMap = deriveTreeRoots(treeOrder, treeDepthMap),
+        )
     }
 
     /** グループ結果を表示変換へ渡し、新着バー挿入位置を返す。 */

@@ -14,6 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.geometry.Offset
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -36,6 +38,7 @@ class PostItemBodyReplyPreviewTest {
     /** 単一安価を重ねず一体化し、前後本文の順序と対象レス操作を維持する。 */
     @Test
     fun singleAnchorIsReplacedByOneInlineTargetCard() {
+        // --- Fixture ---
         val posts = listOf(
             post(1, "target preview"),
             post(2, "before\n  >>1  \nafter"),
@@ -43,6 +46,7 @@ class PostItemBodyReplyPreviewTest {
         val previewState = derivePreview(posts)
         val openedPosts = mutableListOf<Int>()
 
+        // --- Compose content ---
         composeRule.setContent {
             SlevoTheme {
                 SharedTransitionLayout {
@@ -60,6 +64,7 @@ class PostItemBodyReplyPreviewTest {
             }
         }
 
+        // --- Layout and target action ---
         composeRule.onAllNodesWithText(">>1", substring = true, useUnmergedTree = true).assertCountEquals(1)
         val before = composeRule.onNodeWithText("before").fetchSemanticsNode().boundsInRoot
         val target = composeRule.onNodeWithText("target preview").fetchSemanticsNode().boundsInRoot
@@ -74,6 +79,7 @@ class PostItemBodyReplyPreviewTest {
     /** 複数安価の元リンクを残した直後に枠を挿入し、省略操作から全候補を返す。 */
     @Test
     fun multipleAnchorLineRemainsOperableBeforeSeparateTargetCard() {
+        // --- Fixture ---
         val posts = listOf(
             post(1, "target one"),
             post(2, "target two"),
@@ -83,6 +89,7 @@ class PostItemBodyReplyPreviewTest {
         val openedNumbers = mutableListOf<List<Int>>()
         val openedTargets = mutableListOf<Int>()
 
+        // --- Compose content ---
         composeRule.setContent {
             SlevoTheme {
                 SharedTransitionLayout {
@@ -101,12 +108,88 @@ class PostItemBodyReplyPreviewTest {
             }
         }
 
+        // --- Original anchor and overflow actions ---
         composeRule.onAllNodesWithText(">>1,2", substring = true, useUnmergedTree = true).assertCountEquals(1)
-        composeRule.onNodeWithText(">>1,2", useUnmergedTree = true).performTouchInput { click() }
+        val anchor = composeRule.onNodeWithText(">>1,2", useUnmergedTree = true)
+        val anchorHeight = anchor.fetchSemanticsNode().boundsInRoot.height
+        anchor.performTouchInput {
+            click(Offset(composeRule.density.density * 28f, anchorHeight / 2f))
+        }
+        assertEquals(listOf(listOf(1, 2)), openedNumbers)
         composeRule.onNodeWithText("ほか1件").performClick()
 
-        assertEquals(listOf(listOf(1, 2)), openedNumbers)
+        assertEquals(listOf(listOf(1, 2), listOf(1, 2)), openedNumbers)
         assertTrue(openedTargets.isEmpty())
+    }
+
+    /** 本文分割前後のURL・安価と通常本文の長押しを維持する。 */
+    @Test
+    fun keepsLinksAndLongPressAroundInsertedPreview() {
+        // --- Fixture ---
+        val beforeUrl = "https://example.com/before"
+        val afterUrl = "https://example.com/after"
+        val posts = listOf(
+            post(1, "target one"),
+            post(2, "target two"),
+            post(3, "$beforeUrl\n>>1 inline\n>>2\n$afterUrl\n>>3 inline after\nplain tail"),
+        )
+        val urlClicks = mutableListOf<String>()
+        val replyClicks = mutableListOf<Int>()
+        var longPressCount = 0
+
+        // --- Compose content ---
+        composeRule.setContent {
+            SlevoTheme {
+                SharedTransitionLayout {
+                    val sharedScope = this
+                    AnimatedVisibility(visible = true) {
+                        PostBodyHarness(
+                            post = posts[2],
+                            previewState = derivePreview(posts),
+                            sharedTransitionScope = sharedScope,
+                            animatedVisibilityScope = this,
+                            onReplyClick = { replyClicks += it },
+                            onUrlClick = { urlClicks += it },
+                            onRequestMenu = { longPressCount++ },
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- Links before the inserted preview ---
+        val beforeText = composeRule.onNodeWithText(beforeUrl, substring = true, useUnmergedTree = true)
+        val beforeBounds = beforeText.fetchSemanticsNode().boundsInRoot
+        beforeText.performTouchInput {
+            click(Offset(composeRule.density.density * 20f, beforeBounds.height * 0.25f))
+        }
+        val beforeAnchor = composeRule.onNodeWithText(">>1 inline", substring = true, useUnmergedTree = true)
+        val beforeAnchorBounds = beforeAnchor.fetchSemanticsNode().boundsInRoot
+        beforeAnchor.performTouchInput {
+            click(Offset(composeRule.density.density * 10f, beforeAnchorBounds.height * 0.75f))
+        }
+
+        // --- Links and long press after the inserted preview ---
+        val afterText = composeRule.onNodeWithText(afterUrl, substring = true, useUnmergedTree = true)
+        val afterBounds = afterText.fetchSemanticsNode().boundsInRoot
+        afterText.performTouchInput {
+            click(Offset(composeRule.density.density * 20f, afterBounds.height * 0.25f))
+        }
+        val afterAnchor = composeRule.onNodeWithText(">>3 inline after", substring = true, useUnmergedTree = true)
+        val afterAnchorBounds = afterAnchor.fetchSemanticsNode().boundsInRoot
+        afterAnchor.performTouchInput {
+            click(Offset(composeRule.density.density * 10f, afterAnchorBounds.height * 0.5f))
+        }
+        val plainText = composeRule.onNodeWithText("plain tail", substring = true, useUnmergedTree = true)
+        val plainBounds = plainText.fetchSemanticsNode().boundsInRoot
+        plainText.performTouchInput {
+            longClick(Offset(composeRule.density.density * 8f, plainBounds.height * 0.85f))
+        }
+
+        // --- Expected callbacks ---
+        assertEquals(listOf(beforeUrl, afterUrl), urlClicks)
+        assertEquals(listOf(1, 3), replyClicks)
+        assertEquals(1, longPressCount)
     }
 }
 
@@ -120,8 +203,13 @@ private fun PostBodyHarness(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onReplyClick: (Int) -> Unit,
     onReplyNumbersClick: (List<Int>) -> Unit = {},
+    onRequestMenu: () -> Unit = {},
+    onUrlClick: (String) -> Unit = {},
 ) {
+    // --- Component inputs and event callbacks ---
     val scope = rememberCoroutineScope()
+
+    // --- Post body composition ---
     PostItemBody(
         post = post,
         bodyTextStyle = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
@@ -133,7 +221,7 @@ private fun PostBodyHarness(
         onPressedUrlChange = {},
         onPressedReplyChange = {},
         onContentPressedChange = {},
-        onRequestMenu = {},
+        onRequestMenu = onRequestMenu,
         onReplyClick = onReplyClick,
         onReplyNumbersClick = onReplyNumbersClick,
         maxPostNumber = 3,
@@ -149,7 +237,7 @@ private fun PostBodyHarness(
         enableSharedElement = false,
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
-        onUrlClick = {},
+        onUrlClick = onUrlClick,
         onThreadUrlClick = {},
         onBodyClick = {},
     )

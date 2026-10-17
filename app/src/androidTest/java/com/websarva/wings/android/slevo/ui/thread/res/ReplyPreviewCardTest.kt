@@ -37,12 +37,14 @@ class ReplyPreviewCardTest {
     /** ヘッダーを画像の上に保ち、レス・画像・省略を別操作として扱う。 */
     @Test
     fun cardSeparatesHeaderImageAndOverflowActions() {
+        // --- Fixture ---
         val imageUrl = "https://example.com/first.jpg"
         val failures = mutableStateOf(mapOf(imageUrl to ImageLoadFailureType.UNKNOWN))
         val openedPosts = mutableListOf<Int>()
         val openedLists = mutableListOf<List<Int>>()
         val retriedImages = mutableListOf<String>()
 
+        // --- Composition and semantics geometry ---
         composeRule.setContent {
             PreviewCardHarness(
                 post = ReplyPreviewPostUiModel(
@@ -66,20 +68,27 @@ class ReplyPreviewCardTest {
             )
         }
 
-        val header = composeRule.onNodeWithText(
+        val headerText = composeRule.onNodeWithText(
             "返信先：レス12  投稿者名  ID:sample-id",
             useUnmergedTree = true,
         )
+        val headerAction = composeRule.onNodeWithText("返信先：レス12  投稿者名  ID:sample-id")
         val image = composeRule.onNodeWithContentDescription(
             "レス12の画像3枚中1枚目、ほか2枚を表示",
             useUnmergedTree = true,
         )
-        val headerBounds = header.fetchSemanticsNode().boundsInRoot
+        val headerBounds = headerText.fetchSemanticsNode().boundsInRoot
+        val headerActionBounds = headerAction.fetchSemanticsNode().boundsInRoot
         val imageBounds = image.fetchSemanticsNode().boundsInRoot
+        val overflowBounds = composeRule.onNodeWithText("ほか2件").fetchSemanticsNode().boundsInRoot
         assertTrue("The thumbnail must be below the full-width header", imageBounds.top >= headerBounds.bottom)
+        val minimumActionHeight = with(composeRule.density) { 48.dp.toPx() }
+        assertTrue(headerActionBounds.height >= minimumActionHeight)
+        assertTrue(overflowBounds.height >= minimumActionHeight)
         composeRule.onNodeWithText("プレビュー本文").assertExists()
         composeRule.onNodeWithText("+2", useUnmergedTree = true).assertExists()
 
+        // --- Independent post, overflow, and image actions ---
         composeRule.onNodeWithText("プレビュー本文").performClick()
         composeRule.onNodeWithText("ほか2件").performClick()
         image.performClick()
@@ -94,6 +103,7 @@ class ReplyPreviewCardTest {
         composeRule.waitForIdle()
         image.performClick()
 
+        // --- Expected callbacks ---
         assertEquals(listOf(12), openedPosts)
         assertEquals(listOf(listOf(2, 4, 6, 8, 10)), openedLists)
         assertEquals(listOf(imageUrl), retriedImages)
@@ -161,6 +171,7 @@ class ReplyPreviewCardTest {
     /** 成功した先頭画像だけが全画像一覧・先頭index・プレビューnamespaceで開く。 */
     @Test
     fun successfulThumbnailOpensFullImageListInItsOwnContext() {
+        // --- Fixture ---
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val firstUrl = "android.resource://${context.packageName}/${R.drawable.ic_app_icon_about}"
         val urls = listOf(
@@ -172,6 +183,7 @@ class ReplyPreviewCardTest {
         var openedPost = false
         var imageClick: List<Any>? = null
 
+        // --- Composition and image load ---
         composeRule.setContent {
             PreviewCardHarness(
                 post = ReplyPreviewPostUiModel(13, "", "sample-id", "画像付き本文", urls),
@@ -190,6 +202,7 @@ class ReplyPreviewCardTest {
             useUnmergedTree = true,
         ).performClick()
 
+        // --- Route callback values ---
         assertEquals(
             listOf(firstUrl, urls, 0, "thread-post-20-reply-source-reply-13"),
             imageClick,
@@ -213,12 +226,14 @@ private fun PreviewCardHarness(
     onImageClick: (String, List<String>, Int, String) -> Unit = { _, _, _, _ -> },
     onImageLoadSuccess: (String) -> Unit = {},
 ) {
+    // --- Shared transition and preview card ---
     SlevoTheme {
         SharedTransitionLayout {
             val sharedScope = this
             AnimatedVisibility(visible = true) {
                 val visibilityScope = this
                 Box(modifier = Modifier.width(320.dp)) {
+                    // --- Preview card parameters ---
                     ReplyPreviewCard(
                         post = post,
                         hostNamespace = "thread-post-20",
