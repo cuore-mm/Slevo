@@ -18,13 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.waitForIdle
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.data.model.BoardInfo
 import com.websarva.wings.android.slevo.ui.board.state.BoardUiState
@@ -136,8 +133,8 @@ class BbsRouteScaffoldTest {
         composeRule.onNodeWithTag("pager").performTouchInput {
             val start = center
             down(start)
-            moveTo(start + Offset(-size.width * 0.35f, 0f), durationMillis = 500)
-            moveTo(start, durationMillis = 500)
+            moveTo(start + Offset(-width * 0.35f, 0f), delayMillis = 500)
+            moveTo(start, delayMillis = 500)
             up()
         }
         composeRule.waitForIdle()
@@ -320,6 +317,7 @@ class BbsRouteScaffoldTest {
                         Text(uiState.boardInfo.name)
                     }
                 },
+                openTabListSheet = {},
             )
         }
         composeRule.waitForIdle()
@@ -370,6 +368,7 @@ class BbsRouteScaffoldTest {
                             .testTag("${tab.boardName}-${if (isCandidate) "shared" else "normal"}"),
                     )
                 },
+                openTabListSheet = {},
             )
         }
 

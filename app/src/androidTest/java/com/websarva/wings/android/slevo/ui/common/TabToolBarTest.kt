@@ -8,14 +8,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertHeightIsEqualTo
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performLongClick
-import androidx.compose.ui.test.fetchSemanticsNode
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
@@ -252,7 +251,7 @@ class TabToolBarTest {
         }
 
         composeRule.onNodeWithTag("title-card").performClick()
-        composeRule.onNodeWithTag("title-card").performLongClick()
+        composeRule.onNodeWithTag("title-card").performTouchInput { longClick() }
         composeRule.onNodeWithContentDescription("ブックマーク").performClick()
         composeRule.onNodeWithContentDescription("更新").performClick()
 

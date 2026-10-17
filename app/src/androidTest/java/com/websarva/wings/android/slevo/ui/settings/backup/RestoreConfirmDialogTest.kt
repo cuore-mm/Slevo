@@ -1,9 +1,8 @@
 package com.websarva.wings.android.slevo.ui.settings.backup
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.createComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -29,7 +28,6 @@ class RestoreConfirmDialogTest {
                     containsCookies = true,
                     createdAt = "not-an-iso-date",
                     appVersionName = "1.5.2",
-                    appVersionCode = 14,
                     onCookiesToggle = {},
                     onCancel = {},
                     onRestore = {},
@@ -37,12 +35,11 @@ class RestoreConfirmDialogTest {
             }
         }
 
-        composeRule.onNodeWithText("作成日時: not-an-iso-date").assertIsDisplayed()
-        composeRule.onNodeWithText(
-            "作成元アプリのバージョン: 1.5.2（バージョンコード 14）",
-        ).assertIsDisplayed()
+        composeRule.onNodeWithText("作成日時").assertIsDisplayed()
+        composeRule.onNodeWithText("作成元バージョン").assertIsDisplayed()
+        composeRule.onNodeWithText("1.5.2").assertIsDisplayed()
+        composeRule.onNodeWithText("not-an-iso-date").assertIsDisplayed()
         composeRule.onNodeWithText("クッキーを復元する").assertIsDisplayed()
-        composeRule.onNodeWithText("db v", substring = true).assertDoesNotExist()
     }
 
     /** Cookie 無しでは checkbox を省略し、キャンセルと復元 callback を維持する。 */
@@ -57,7 +54,6 @@ class RestoreConfirmDialogTest {
                     containsCookies = false,
                     createdAt = "not-an-iso-date",
                     appVersionName = "1.5.2",
-                    appVersionCode = 14,
                     onCookiesToggle = {},
                     onCancel = { cancelled = true },
                     onRestore = { restored = true },

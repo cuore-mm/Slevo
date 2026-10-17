@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasRole
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.R
@@ -48,8 +48,10 @@ class SettingsGeneralScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithText(context.getString(R.string.reply_notification_setting_description))
             .assertIsDisplayed()
-        composeRule.onAllNodes(hasRole(Role.Switch))[0].assertIsOn()
-        composeRule.onAllNodes(hasRole(Role.Switch))[1].assertIsOff()
+        composeRule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch))[0]
+            .assertIsOn()
+        composeRule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch))[1]
+            .assertIsOff()
         assertEquals(null, selectedValue)
     }
 
@@ -74,6 +76,7 @@ class SettingsGeneralScreenTest {
 
         composeRule.onNodeWithText(context.getString(R.string.reply_notification_permission_warning))
             .assertIsDisplayed()
-        composeRule.onAllNodes(hasRole(Role.Switch))[0].assertIsOn()
+        composeRule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch))[0]
+            .assertIsOn()
     }
 }

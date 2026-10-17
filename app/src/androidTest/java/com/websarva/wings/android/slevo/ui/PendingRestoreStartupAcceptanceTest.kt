@@ -1,7 +1,7 @@
 package com.websarva.wings.android.slevo.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.room.Room
 import androidx.test.core.app.ActivityScenario
