@@ -2,7 +2,7 @@
 aboutlibrariesComposeM3 = "13.2.1"
 agp = "9.0.1"
 coilComposeVersion = "3.3.0"
-datastorePreferences = "1.2.0"
+datastorePreferences = "1.2.1"
 hazeMaterials = "1.7.2"
 lazyColumnScrollbar = "2.2.0"
 hiltAndroid = "2.59.1"
