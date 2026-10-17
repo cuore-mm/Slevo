@@ -70,6 +70,19 @@ class ReplyNotificationRepositoryTest {
         )
     }
 
+    /** 配信済みレコードは未処理通知一覧に含まれず、再配信対象にならない。 */
+    @Test
+    fun findDetected_excludesDeliveredNotifications() = runTest {
+        val dao = InMemoryReplyNotificationDao()
+        val repository = ReplyNotificationRepository(dao, DatabaseWriteGate())
+        val detected = notification(replyResNo = 6)
+        val delivered = notification(replyResNo = 7).copy(status = ReplyNotificationStatus.DELIVERED.name)
+        repository.insertNew(listOf(detected, delivered))
+
+        assertEquals(listOf(detected), repository.findDetected(THREAD_ID))
+        assertEquals(ReplyNotificationStatus.DELIVERED.name, dao.rows[THREAD_ID to 7]?.status)
+    }
+
     private fun notification(replyResNo: Int) = ReplyNotificationEntity(
         threadId = THREAD_ID,
         replyResNo = replyResNo,

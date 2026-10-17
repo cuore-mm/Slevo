@@ -269,6 +269,41 @@ class ThreadRefreshUseCaseTest {
         }
     }
 
+    /** 投稿集合内に元レスを解決できない待機通知は、配信せず抑止状態へ遷移する。 */
+    @Test
+    fun pendingReplyWithMissingSourceIsSuppressed() = runTest {
+        // --- Pending notification and shorter refreshed post list ---
+        val dependencies = dependencies()
+        val notification = notification(replyResNo = 3)
+        coEvery { dependencies.threadStateRepository.getThreadState(THREAD_ID) } returns state(latestResCount = 2)
+        coEvery { dependencies.settingsRepository.getIsReplyNotificationEnabled() } returns true
+        coEvery {
+            dependencies.datRepository.getThread(
+                boardUrl = any(),
+                threadKey = any(),
+                onProgress = any<(Float) -> Unit>(),
+            )
+        } returns (listOf(post("root"), post("mine")) to "Title")
+        coEvery { dependencies.replyNotificationRepository.findDetected(THREAD_ID) } returns listOf(notification)
+        coEvery { dependencies.replyNotificationRepository.updateStatus(any(), any(), any(), any()) } returns true
+
+        dependencies.createUseCase().refresh(request())
+
+        // --- Suppressed status and preserved thread state ---
+        coVerify(exactly = 0) { dependencies.publisher.publish(any()) }
+        coVerify(exactly = 1) {
+            dependencies.replyNotificationRepository.updateStatus(
+                THREAD_ID,
+                3,
+                ReplyNotificationStatus.DETECTED,
+                ReplyNotificationStatus.SUPPRESSED,
+            )
+        }
+        coVerify(exactly = 1) {
+            dependencies.threadStateRepository.saveThreadState(match { it.latestResCount == 2 })
+        }
+    }
+
     /** 検出後に追加されたNGは待機通知を抑止し、解除後も再配信しない。 */
     @Test
     fun ngAddedAfterDetectionSuppressesPendingReplyPermanently() = runTest {
@@ -341,7 +376,9 @@ class ThreadRefreshUseCaseTest {
 
         // --- Preserved fetch result and skipped notification work ---
         assertEquals(3, result?.posts?.size)
-        coVerify(exactly = 1) { dependencies.threadStateRepository.saveThreadState(any()) }
+        coVerify(exactly = 1) {
+            dependencies.threadStateRepository.saveThreadState(match { it.latestResCount == 3 })
+        }
         coVerify(exactly = 0) { dependencies.replyNotificationRepository.insertNew(any()) }
         coVerify(exactly = 0) { dependencies.replyNotificationRepository.findDetected(any()) }
         coVerify(exactly = 0) { dependencies.publisher.publish(any()) }

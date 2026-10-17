@@ -182,6 +182,7 @@ class ReplyPreviewCardTest {
         var imageLoaded = false
         var openedPost = false
         var imageClick: List<Any>? = null
+        val requestedUrls = mutableListOf<String>()
 
         // --- Composition and image load ---
         composeRule.setContent {
@@ -192,11 +193,13 @@ class ReplyPreviewCardTest {
                 onImageClick = { url, imageUrls, index, namespace ->
                     imageClick = listOf(url, imageUrls, index, namespace)
                 },
+                onImageLoadStart = { requestedUrls += it },
                 onImageLoadSuccess = { imageLoaded = true },
             )
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) { imageLoaded }
+        assertTrue(requestedUrls.all { url -> url == firstUrl })
         composeRule.onNodeWithContentDescription(
             "レス13の画像3枚中1枚目、ほか2枚を表示",
             useUnmergedTree = true,
@@ -224,6 +227,7 @@ private fun PreviewCardHarness(
     onOpenOverflow: (List<Int>) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
     onImageClick: (String, List<String>, Int, String) -> Unit = { _, _, _, _ -> },
+    onImageLoadStart: (String) -> Unit = {},
     onImageLoadSuccess: (String) -> Unit = {},
 ) {
     // --- Shared transition and preview card ---
@@ -246,7 +250,7 @@ private fun PreviewCardHarness(
                         onImageClick = onImageClick,
                         onImageLongPress = { _, _ -> },
                         imageLoadFailureByUrl = imageFailures,
-                        onImageLoadStart = {},
+                        onImageLoadStart = onImageLoadStart,
                         onImageLoadError = { _, _ -> },
                         onImageLoadSuccess = onImageLoadSuccess,
                         onImageRetry = onImageRetry,

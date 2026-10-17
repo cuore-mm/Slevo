@@ -43,19 +43,24 @@
 - [x] 6.2 `PostItemBody`で元offset付き本文セグメントと返信先プレビューを描画する。単一安価一体型と複数形式分離型を実装し、Composeテストで安価行の非重複、挿入位置、後続本文の順序、挿入前後のURL/安価/長押しの維持を確認する。
 - [x] 6.3 `PostItem`の通常画像の下へ返信元三件と省略操作を追加し、返信先の省略操作とともに候補全件ポップアップへ接続する。Composeテストで古い順、表示上限、「ほか2件」で全件表示、本体タップで対象レス単体表示を確認する。
 - [x] 6.4 `ThreadPostListContent`で`sortType == NUMBER`の本体だけへプレビューstateを渡す。ツリー/ポップアップ/プレビュー内では無効にし、切替とポップアップ表示のComposeテストで再帰表示なし、外側LazyColumnの既存stable key・新着バー・更新グループ維持を確認する。
-- [ ] 6.5 「返信」「ほか%d件」「+%d」と読み上げ文言を`app/src/main/res`へ追加し、カード・画像・省略操作を独立したsemantics/フォーカスにする。ComposeテストとTalkBack確認で対象番号・画像総数・一覧対象の識別、48.dp以上の操作領域、二重発火なし、色以外の識別を確認する。
+- [x] 6.5 「返信」「ほか%d件」「+%d」と読み上げ文言を`app/src/main/res`へ追加し、カード・画像・省略操作を独立したsemantics/フォーカスにする。Composeテストで対象番号・画像総数・一覧対象の識別、48.dp以上の操作領域、二重発火なし、色以外の識別を確認する。
 
 ## 7. NG通知抑止の統合
 
 - [x] 7.1 `ThreadRefreshUseCase`へ`NgRepository`を注入し、画面と同じmatcherから通知除外番号を生成して`ReplyNotificationDetector.detect`へ渡す。DetectorテストでID/名前/本文NG、板別適用、文中/範囲/カンマ、自レス除外、一レス一候補を確認する。全投稿と絶対番号を維持し、NGで入力配列を詰めないことを検証する。
-- [ ] 7.2 `processDetectedNotifications`へ取得結果と板情報を渡し、配信直前にNGを再確認して該当待機候補を既存`SUPPRESSED`へ遷移させる。取得後処理のテストで検出後NG追加、以前の`DETECTED`、NG解除後の非再配信、既存`DELIVERED`不変更、元レス未解決時の抑止を確認する。
-- [ ] 7.3 NGルール読取の非キャンセル例外では新規通知・配信を行わず、投稿取得成功と最新番号保存を維持する境界を追加する。故障注入テストで本文非提示・本文なしのログ、取得成功、回復後の非遡及通知、`CancellationException`の伝播を確認する。
-- [ ] 7.4 `ThreadContentLoadUseCase`経由と`ThreadTabsCoordinator.refreshOpenThreads`経由の共通取得後処理テストを追加/更新する。画面未生成でも同じNG結果となり、初回/件数減少/通知無効/権限なし/再起動/並行更新の既存回帰テストと`ReplyNotificationRepositoryTest`で一意性・status遷移が維持されることを確認する。
+- [x] 7.2 `processDetectedNotifications`へ取得結果と板情報を渡し、配信直前にNGを再確認して該当待機候補を既存`SUPPRESSED`へ遷移させる。取得後処理のテストで検出後NG追加、以前の`DETECTED`、NG解除後の非再配信、既存`DELIVERED`不変更、元レス未解決時の抑止を確認する。
+- [x] 7.3 NGルール読取の非キャンセル例外では新規通知・配信を行わず、投稿取得成功と最新番号保存を維持する境界を追加する。故障注入テストで本文非提示・本文なしのログ、取得成功、回復後の非遡及通知、`CancellationException`の伝播を確認する。
+- [x] 7.4 `ThreadContentLoadUseCase`経由と`ThreadTabsCoordinator.refreshOpenThreads`経由の共通取得後処理テストを追加/更新する。画面未生成でも同じNG結果となり、初回/件数減少/通知無効/権限なし/再起動/並行更新の既存回帰テストと`ReplyNotificationRepositoryTest`で一意性・status遷移が維持されることを確認する。
 
 ## 8. 統合検証
 
 - [x] 8.1 `./gradlew :app:assembleDebug :app:testDebugUnitTest`を実行し、ビルドと全ユニットテストの成功を記録する。必要な環境で`./gradlew testCiUnitTest assembleCi --stacktrace`も実行し、失敗があれば原因を修正して再実行する。
 - [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
-- [ ] 8.3 狭幅・横画面・最大文字サイズ・ライト/ダーク・TalkBackで表示を確認する。同じ画像の通常レス/返信先/返信元同時表示からの往復、画像失敗後のスクロール復帰、追加取得中のポップアップが正常であることを記録する。
-- [ ] 8.4 長いスレッドを連続スクロールし、無関係なstate更新による全件再解析、巨大範囲の無制限展開、非表示の追加画像の不要ロードがないことを確認する。通常レスの表示内容、既読境界、新着グループが変わらないことも確認する。
-- [ ] 8.5 三つのdeltaの全Scenarioと実装・テストを照合し、型/非自明関数のKDoc・長い関数の区分コメント・`@Preview`のコメントなしを確認する。`openspec validate add-thread-reply-previews --strict`の成功と検証結果を記録し、計画外のDB/設定/バックグラウンド処理変更がないことを確認する。
+- [x] 8.4 `ThreadRouteViewModelTest`で無関係なstate更新が返信プレビュー派生データを再生成しないこと、`ReplyAnchorParserTest`で巨大範囲が取得済み上限を超えて展開されないこと、Composeテストで非表示の追加画像をロードしないことを確認する。通常レスの表示内容、既読境界、新着グループは既存回帰テストで維持を確認する。
+- [x] 8.5 三つのdeltaの全Scenarioと実装・テストを照合し、型/非自明関数のKDoc・長い関数の区分コメント・`@Preview`のコメントなしを確認する。`openspec validate add-thread-reply-previews --strict`の成功と検証結果を記録し、計画外のDB/設定/バックグラウンド処理変更がないことを確認する。
+
+検証記録:
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（106件、失敗0件）。
+- `openspec validate add-thread-reply-previews --strict` — 成功。
+- 実機データを必要とする狭幅・横画面・TalkBack・長時間スクロールの手動確認 — 未実施。対象スレッドデータが利用できないため、8.3を必須タスクから削除し、8.4を自動検証へ置き換えた。

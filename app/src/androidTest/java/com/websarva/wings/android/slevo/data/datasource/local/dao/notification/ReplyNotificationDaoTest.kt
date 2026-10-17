@@ -33,6 +33,7 @@ class ReplyNotificationDaoTest {
     @After
     fun tearDown() {
         database.close()
+        ApplicationProvider.getApplicationContext<Context>().deleteDatabase(RESTART_DATABASE_NAME)
     }
 
     /** insert-ignoreと条件付きstatus更新が再実行可能なDAO契約であることを確認する。 */
@@ -74,5 +75,63 @@ class ReplyNotificationDaoTest {
                 ReplyNotificationStatus.SUPPRESSED.name,
             ),
         )
+        assertEquals(
+            emptyList<ReplyNotificationEntity>(),
+            dao.findByThreadAndStatus(entity.threadId, ReplyNotificationStatus.DETECTED.name),
+        )
+    }
+
+    /** データベースを開き直した後も配信済み状態を保ち、同じ通知を再登録しない。 */
+    @Test
+    fun deliveredStatusPersistsAcrossDatabaseReopen() = runBlocking {
+        // --- File-backed database and delivered notification ---
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase(RESTART_DATABASE_NAME)
+        database.close()
+        database = Room.databaseBuilder(context, AppDatabase::class.java, RESTART_DATABASE_NAME)
+            .allowMainThreadQueries()
+            .build()
+        val entity = ReplyNotificationEntity(
+            threadId = ThreadId.of("example.com", "test", "123"),
+            replyResNo = 3,
+            targetOwnResNumbers = "2",
+            boardUrl = "https://example.com/test/",
+            threadKey = "123",
+            threadTitle = "Thread",
+            messagePreview = ">>2 reply",
+            detectedAt = 100L,
+        )
+        val dao = database.replyNotificationDao()
+
+        assertEquals(1L, dao.insertIgnore(entity))
+        assertEquals(
+            1,
+            dao.updateStatus(
+                entity.threadId,
+                entity.replyResNo,
+                ReplyNotificationStatus.DETECTED.name,
+                ReplyNotificationStatus.DELIVERED.name,
+            ),
+        )
+        // --- Reopen the database to verify the terminal status ---
+        database.close()
+        database = Room.databaseBuilder(context, AppDatabase::class.java, RESTART_DATABASE_NAME)
+            .allowMainThreadQueries()
+            .build()
+        val reopenedDao = database.replyNotificationDao()
+
+        assertEquals(
+            emptyList<ReplyNotificationEntity>(),
+            reopenedDao.findByThreadAndStatus(entity.threadId, ReplyNotificationStatus.DETECTED.name),
+        )
+        assertEquals(
+            listOf(entity.copy(status = ReplyNotificationStatus.DELIVERED.name)),
+            reopenedDao.findByThreadAndStatus(entity.threadId, ReplyNotificationStatus.DELIVERED.name),
+        )
+        assertEquals(-1L, reopenedDao.insertIgnore(entity))
+    }
+
+    private companion object {
+        const val RESTART_DATABASE_NAME = "reply-notification-restart-test"
     }
 }
