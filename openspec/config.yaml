@@ -3,8 +3,8 @@ schema: spec-driven
 context: |
   Language: Japanese.
   All generated artifacts, including proposal.md, design.md, tasks.md, and spec.md, must be written in Japanese.
-  The implementation may be performed by a weaker coding model, so design.md and tasks.md must be concrete, procedural, and verifiable.
-  Avoid vague instructions. Mention existing file names, function names, modules, and commands whenever possible.
+  The implementation may be performed by a weaker coding model, so design.md must be concrete, procedural, and verifiable.
+  In design.md, avoid vague instructions. Mention existing file names, function names, modules, and commands whenever possible.
 
 rules:
   design:
@@ -18,7 +18,4 @@ rules:
 
   tasks:
     - tasks.md must be written in Japanese.
-    - tasks.md must split work into small, ordered, verifiable steps.
-    - Each task should mention the target file, module, function, or command whenever possible.
-    - Do not combine multiple large changes into a single task.
-    - Each task must include a completion condition or verification method.
+    - Every task must be executable and verifiable by the agent alone using available tools and permissions, without requiring human decisions or manual actions.
