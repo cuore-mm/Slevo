@@ -136,6 +136,7 @@ fun PostItem(
         PostItemBody(
             post = post,
             bodyTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = bodyFontSize),
+            headerTextScale = headerTextScale,
             lineHeightEm = lineHeight,
             searchQuery = searchQuery,
             pressedUrl = interactionState.pressedUrl,
@@ -183,6 +184,7 @@ fun PostItem(
             PostReplyPreviews(
                 state = previewState,
                 hostNamespace = transitionNamespace,
+                headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 onReplyClick = { number -> onReplyClick?.invoke(number) },
                 onReplyNumbersClick = onReplyFromClick,

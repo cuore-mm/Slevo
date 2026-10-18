@@ -54,6 +54,7 @@ internal fun ReplyPreviewCard(
     anchorLabel: String? = null,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
+    headerTextScale: Float,
     bodyTextScale: Float,
     onOpenPost: () -> Unit,
     onOpenOverflow: (List<Int>) -> Unit,
@@ -91,7 +92,8 @@ internal fun ReplyPreviewCard(
         previewType = previewType,
         targetPostNumber = post.postNumber,
     )
-    val smallTextSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f
+    val previewHeaderTextSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f
+    val previewBodyTextSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f
 
     // --- Full-width header and body ---
     Surface(
@@ -127,15 +129,15 @@ internal fun ReplyPreviewCard(
                 Text(
                     text = header,
                     modifier = Modifier.fillMaxWidth(),
-                    fontSize = smallTextSize,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = previewHeaderTextSize,
+                    fontWeight = FontWeight.Normal,
                     color = colors.onSurfaceVariant,
                 )
                 if (post.imageUrls.isEmpty()) {
                     if (post.body.isNotBlank()) {
                         Text(
                             text = post.body,
-                            fontSize = smallTextSize,
+                            fontSize = previewBodyTextSize,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             color = colors.onSurface,
@@ -151,7 +153,7 @@ internal fun ReplyPreviewCard(
                             Text(
                                 text = post.body,
                                 modifier = Modifier.weight(1f),
-                                fontSize = smallTextSize,
+                                fontSize = previewBodyTextSize,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
                                 color = colors.onSurface,
@@ -230,7 +232,7 @@ internal fun ReplyPreviewCard(
                     Text(
                         text = stringResource(R.string.reply_preview_other_count, overflowCount),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-                        fontSize = smallTextSize,
+                        fontSize = previewBodyTextSize,
                         color = colors.primary,
                     )
                 }
@@ -256,6 +258,7 @@ private fun ReplyPreviewCardPreview() {
                     ),
                     hostNamespace = "thread-post-20",
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    headerTextScale = 1f,
                     bodyTextScale = 1f,
                     onOpenPost = {},
                     onOpenOverflow = {},
@@ -297,6 +300,7 @@ private fun ReplyPreviewCardWithImagesPreview() {
                     hostNamespace = "thread-post-20",
                     previewType = ImageReplyPreviewType.REPLY_TARGET,
                     anchorLabel = ">>12",
+                    headerTextScale = 1f,
                     bodyTextScale = 1f,
                     onOpenPost = {},
                     onOpenOverflow = {},
@@ -333,6 +337,7 @@ private fun ReplyPreviewCardImageOnlyPreview() {
                     ),
                     hostNamespace = "thread-post-20",
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    headerTextScale = 1f,
                     bodyTextScale = 1f,
                     onOpenPost = {},
                     onOpenOverflow = {},

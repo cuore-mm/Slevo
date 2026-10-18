@@ -5,14 +5,20 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -121,6 +127,7 @@ class ReplyPreviewCardTest {
                             post = ReplyPreviewPostUiModel(1, "", "", "本文全幅", emptyList()),
                             hostNamespace = "thread-post-2",
                             previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                            headerTextScale = 1f,
                             bodyTextScale = 1f,
                             onOpenPost = {},
                             onOpenOverflow = {},
@@ -144,6 +151,32 @@ class ReplyPreviewCardTest {
         assertTrue(bodyBounds.width >= 250f)
         composeRule.onNodeWithContentDescription("レス1の画像1枚中1枚目、ほか0枚を表示")
             .assertDoesNotExist()
+    }
+
+    /** ヘッダーと本文へ別々の文字設定を反映し、ヘッダーを通常の太さで描画する。 */
+    @Test
+    fun headerAndBodyUseIndependentTextScalesWithNormalHeaderWeight() {
+        val headerScale = 1.2f
+        val bodyScale = 0.8f
+        composeRule.setContent {
+            SlevoTheme {
+                Text("通常サイズ", style = MaterialTheme.typography.bodyMedium)
+                PreviewCardHarness(
+                    post = ReplyPreviewPostUiModel(17, "", "", "本文サイズ確認", emptyList()),
+                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    headerTextScale = headerScale,
+                    bodyTextScale = bodyScale,
+                    onOpenPost = {},
+                )
+            }
+        }
+
+        val baselineSize = textLayoutResult("通常サイズ").layoutInput.style.fontSize.value
+        val headerStyle = textLayoutResult("レス17").layoutInput.style
+        val bodyStyle = textLayoutResult("本文サイズ確認").layoutInput.style
+        assertEquals(baselineSize * headerScale * 0.9f, headerStyle.fontSize.value, 0.01f)
+        assertEquals(baselineSize * bodyScale * 0.9f, bodyStyle.fontSize.value, 0.01f)
+        assertEquals(FontWeight.Normal, headerStyle.fontWeight)
     }
 
     /** 画像のみのプレビューはヘッダーとサムネイルだけを配置する。 */
@@ -212,6 +245,16 @@ class ReplyPreviewCardTest {
         )
         assertEquals(false, openedPost)
     }
+
+    /** テキストノードから実際に適用されたComposeのレイアウト結果を取得する。 */
+    private fun textLayoutResult(text: String): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        composeRule.onNodeWithText(text, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action ->
+                assertTrue(action(results))
+            }
+        return results.single()
+    }
 }
 
 /** 実画面と同じ shared-transition scope で返信プレビューを表示する。 */
@@ -220,6 +263,8 @@ class ReplyPreviewCardTest {
 private fun PreviewCardHarness(
     post: ReplyPreviewPostUiModel,
     previewType: ImageReplyPreviewType,
+    headerTextScale: Float = 1f,
+    bodyTextScale: Float = 1f,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
     imageFailures: Map<String, ImageLoadFailureType> = emptyMap(),
@@ -244,7 +289,8 @@ private fun PreviewCardHarness(
                         previewType = previewType,
                         overflowCount = overflowCount,
                         overflowNumbers = overflowNumbers,
-                        bodyTextScale = 1f,
+                        headerTextScale = headerTextScale,
+                        bodyTextScale = bodyTextScale,
                         onOpenPost = onOpenPost,
                         onOpenOverflow = onOpenOverflow,
                         onImageClick = onImageClick,

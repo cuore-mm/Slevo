@@ -213,6 +213,7 @@ private fun PostBodyHarness(
     PostItemBody(
         post = post,
         bodyTextStyle = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+        headerTextScale = 1f,
         lineHeightEm = 1.25f,
         searchQuery = "",
         pressedUrl = null,

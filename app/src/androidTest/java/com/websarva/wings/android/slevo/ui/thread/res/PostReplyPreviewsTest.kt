@@ -46,6 +46,7 @@ class PostReplyPreviewsTest {
                         PostReplyPreviews(
                             state = state,
                             hostNamespace = "thread-post-12",
+                            headerTextScale = 1f,
                             bodyTextScale = 1f,
                             onReplyClick = { openedPosts += it },
                             onReplyNumbersClick = { openedLists += it },

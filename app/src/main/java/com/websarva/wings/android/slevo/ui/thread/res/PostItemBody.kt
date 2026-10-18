@@ -67,6 +67,7 @@ private data class BodyHit(
 internal fun PostItemBody(
     post: ThreadPostUiModel,
     bodyTextStyle: TextStyle,
+    headerTextScale: Float,
     lineHeightEm: Float,
     searchQuery: String,
     pressedUrl: String?,
@@ -163,6 +164,7 @@ internal fun PostItemBody(
                         anchorLabel = target.anchorLine.trim().takeIf { target.isSingleAnchor },
                         overflowCount = targetState.replyTargetOverflowCount,
                         overflowNumbers = targetState.replyTargetNumbers,
+                        headerTextScale = headerTextScale,
                         bodyTextScale = bodyTextStyle.fontSize.value / MaterialTheme.typography.bodyMedium.fontSize.value,
                         onOpenPost = { onReplyClick?.invoke(target.post.postNumber) },
                         onOpenOverflow = { numbers -> onReplyNumbersClick?.invoke(numbers) },
@@ -419,6 +421,7 @@ private fun PostItemBodyPreview() {
             ),
         ),
         bodyTextStyle = MaterialTheme.typography.bodyMedium,
+        headerTextScale = 1f,
         lineHeightEm = 1.4f,
         searchQuery = "本文",
         pressedUrl = pressedUrl,

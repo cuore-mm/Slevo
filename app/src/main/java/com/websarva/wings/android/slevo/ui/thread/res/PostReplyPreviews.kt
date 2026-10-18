@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 internal fun PostReplyPreviews(
     state: PostReplyPreviewUiState,
     hostNamespace: String,
+    headerTextScale: Float,
     bodyTextScale: Float,
     onReplyClick: (Int) -> Unit,
     onReplyNumbersClick: (List<Int>) -> Unit,
@@ -66,6 +67,7 @@ internal fun PostReplyPreviews(
                 previewType = ImageReplyPreviewType.REPLY_SOURCE,
                 overflowCount = overflowCount,
                 overflowNumbers = state.replySourceNumbers,
+                headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 onOpenPost = { onReplyClick(preview.postNumber) },
                 onOpenOverflow = onReplyNumbersClick,
@@ -99,6 +101,7 @@ private fun PostReplyPreviewsPreview() {
                         replySourceNumbers = listOf(2, 4, 6, 8, 10),
                     ),
                     hostNamespace = "thread-post-12",
+                    headerTextScale = 1f,
                     bodyTextScale = 1f,
                     onReplyClick = {},
                     onReplyNumbersClick = {},
