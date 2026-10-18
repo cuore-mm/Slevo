@@ -1,21 +1,16 @@
 schema: spec-driven
 
 context: |
-  Language: Japanese.
-  All generated artifacts, including proposal.md, design.md, tasks.md, and spec.md, must be written in Japanese.
-  The implementation may be performed by a weaker coding model, so design.md must be concrete, procedural, and verifiable.
-  In design.md, avoid vague instructions. Mention existing file names, function names, modules, and commands whenever possible.
+  All generated artifacts must be written in Japanese.
+  Describe UI appearance and layout through intent, relative relationships, and shared components or styles, without specifying numeric tuning values such as spacing, dimensions, font sizes, corner radii, or animation durations.
+  This restriction does not exclude numeric constraints required by external standards, accessibility requirements, or functional contracts.
 
 rules:
   design:
-    - design.md must be written in Japanese.
-    - design.md must include concrete affected files, functions, modules, and data flow.
-    - design.md must describe current behavior before proposed behavior.
-    - design.md must include an "Implementation Contract" section for coding agents.
-    - design.md must include error cases, compatibility concerns, and testing strategy.
-    - design.md must not end with vague instructions such as "fix appropriately", "handle as needed", or "improve the logic" without concrete steps.
-    - If file names or function names are unknown, do not invent them. Add an investigation step that requires inspecting the existing code.
+    - Make the current and proposed behavior clear.
+    - Explain relevant structure, processing, and data flow to the extent needed to understand design decisions.
+    - Describe error handling, compatibility concerns, and verification strategy when relevant to the change.
+    - Do not invent unverified file or function names; identify them as unresolved questions instead.
 
   tasks:
-    - tasks.md must be written in Japanese.
     - Every task must be executable and verifiable by the agent alone using available tools and permissions, without requiring human decisions or manual actions.
