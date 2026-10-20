@@ -23,6 +23,7 @@ import com.websarva.wings.android.slevo.ui.util.parseServiceName
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,6 +88,7 @@ class BoardTabsCoordinator @Inject constructor(
     }
 
     private val commandIds = AtomicLong(0)
+    private val selectedKeyWrites = Channel<String?>(Channel.UNLIMITED)
     private val controllerScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined)
     private val _state = MutableStateFlow(
         TabControllerState<BoardTabInfo, String, BoardPendingOperation>(
@@ -129,6 +131,9 @@ class BoardTabsCoordinator @Inject constructor(
     private val _boardPageAnimation = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     val boardPageAnimation: SharedFlow<Int> = _boardPageAnimation.asSharedFlow()
     private var boundScope: CoroutineScope? = null
+    private var selectionWriterStarted = false
+    private var selectionRequestedBeforeLoad: String? = null
+    private var hasSelectionRequestedBeforeLoad = false
 
     /**
      * Activity retained scopeへ bindし、Room canonical Flowを一度だけ購読する。
@@ -137,7 +142,10 @@ class BoardTabsCoordinator @Inject constructor(
     fun bind(scope: CoroutineScope) {
         if (boundScope != null) return
         boundScope = scope
+        startSelectionWriter(scope)
         scope.launch {
+            val restoredSelection = readPersistedSelection()
+            var isInitialCanonical = true
             combine(
                 tabsRepository.observeOpenBoardTabs(),
                 bookmarkBoardRepository.observeGroupsWithBoards(),
@@ -149,7 +157,12 @@ class BoardTabsCoordinator @Inject constructor(
                 }
                 tabs.map { tab -> tab.copy(bookmarkColorName = colors[tab.boardId]) }
             }.collect { canonical ->
-                reconcileCanonical(canonical)
+                reconcileCanonical(
+                    canonicalTabs = canonical,
+                    restoredSelection = restoredSelection,
+                    restoreSelection = isInitialCanonical,
+                )
+                isInitialCanonical = false
             }
         }
     }
@@ -180,7 +193,12 @@ class BoardTabsCoordinator @Inject constructor(
 
     /** Board selection を state event として適用する。 */
     fun selectBoardTab(boardUrl: String?) {
+        if (_state.value.loadPhase != TabLoadPhase.Loaded) {
+            selectionRequestedBeforeLoad = boardUrl
+            hasSelectionRequestedBeforeLoad = true
+        }
         _state.update { state -> state.copy(selectedKey = boardUrl).rebuildPresentation() }
+        persistSelectedKeyIfStable()
     }
 
     /** Board selection を明示 command result として返す。 */
@@ -442,11 +460,39 @@ class BoardTabsCoordinator @Inject constructor(
             is Operation.BulkDelete -> _boardSessionStates.update { it - operation.boardUrls.toSet() }
             else -> Unit
         }
+        if (result is TabCommandResult.Success) {
+            persistSelectedKeyIfStable()
+        }
     }
 
     /** Room snapshot を一度だけ state に取り込み、matching pending だけを terminal にする。 */
-    private fun reconcileCanonical(canonicalTabs: List<BoardTabInfo>) {
-        _state.update { it.copy(loadPhase = TabLoadPhase.Loaded, canonicalTabs = canonicalTabs).rebuildPresentation() }
+    /** canonical一覧と復元または現在のselectionを同じloaded stateへ投影する。 */
+    private fun reconcileCanonical(
+        canonicalTabs: List<BoardTabInfo>,
+        restoredSelection: String? = null,
+        restoreSelection: Boolean = false,
+    ) {
+        // --- Resolve bootstrap selection ---
+        val requestedSelection = if (restoreSelection && hasSelectionRequestedBeforeLoad) {
+            hasSelectionRequestedBeforeLoad = false
+            selectionRequestedBeforeLoad
+        } else if (restoreSelection) {
+            restoredSelection
+        } else {
+            null
+        }
+
+        // --- Publish canonical and selection atomically ---
+        _state.update {
+            it.copy(
+                loadPhase = TabLoadPhase.Loaded,
+                canonicalTabs = canonicalTabs,
+                selectedKey = if (restoreSelection) requestedSelection else it.selectedKey,
+            ).rebuildPresentation()
+        }
+        persistSelectedKeyIfStable()
+
+        // --- Complete canonical-confirmed commands ---
         val pending = _state.value.pendingCommands
         pending.forEach { operation ->
             if (operation.lifecycle == TabCommandLifecycle.CommittedAwaitingCanonical && isConfirmed(canonicalTabs, operation.operation)) {
@@ -546,6 +592,46 @@ class BoardTabsCoordinator @Inject constructor(
                     if (it.boardUrl == tab.boardUrl) mergeBoardTabMetadata(it, tab) else it
                 },
             ).rebuildPresentation()
+        }
+    }
+
+    /** 起動時にDataStoreのselected keyを一度だけ読み込む。読込失敗時は未保存として扱う。 */
+    private suspend fun readPersistedSelection(): String? {
+        return try {
+            tabsRepository.observeSelectedBoardTabKey().first()
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** selected keyの永続化writerを1本だけ起動し、書込順序を維持する。 */
+    private fun startSelectionWriter(scope: CoroutineScope) {
+        if (selectionWriterStarted) return
+        selectionWriterStarted = true
+        scope.launch {
+            for (key in selectedKeyWrites) {
+                try {
+                    tabsRepository.setSelectedBoardTabKey(key)
+                } catch (cancellationException: CancellationException) {
+                    throw cancellationException
+                } catch (_: Throwable) {
+                    // 保存失敗はruntime selectionへ影響させず、次回の確定変更で再試行する。
+                }
+            }
+        }
+    }
+
+    /** pending operationがない確定selectionだけを永続化キューへ送る。 */
+    private fun persistSelectedKeyIfStable() {
+        val state = _state.value
+        if (
+            selectionWriterStarted &&
+            state.loadPhase == TabLoadPhase.Loaded &&
+            state.pendingCommands.isEmpty()
+        ) {
+            selectedKeyWrites.trySend(state.selectedKey)
         }
     }
 

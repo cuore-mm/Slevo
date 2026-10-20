@@ -703,5 +703,13 @@ class TabsRepositoryThreadStateTest {
         override fun observeLastSelectedTabsPage(): Flow<Int> = flowOf(0)
 
         override suspend fun setLastSelectedTabsPage(page: Int) = Unit
+
+        override fun observeSelectedBoardTabKey(): Flow<String?> = flowOf(null)
+
+        override suspend fun setSelectedBoardTabKey(key: String?) = Unit
+
+        override fun observeSelectedThreadTabKey(): Flow<String?> = flowOf(null)
+
+        override suspend fun setSelectedThreadTabKey(key: String?) = Unit
     }
 }

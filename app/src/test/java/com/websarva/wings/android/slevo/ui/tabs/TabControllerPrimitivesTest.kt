@@ -101,6 +101,14 @@ class TabControllerPrimitivesTest {
             TabSelectionResolution.Selected("a"),
             resolveTabPresentation(listOf("a"), true, null, null) { it }.selection,
         )
+        assertEquals(
+            TabSelectionResolution.Selected("c"),
+            resolveTabPresentation(listOf("a", "b", "c"), true, null, null) { it }.selection,
+        )
+        assertEquals(
+            TabSelectionResolution.Selected("c"),
+            resolveTabPresentation(listOf("a", "b", "c"), true, "missing", null) { it }.selection,
+        )
     }
 
     /** 選択中 tab close 後の隣接、末尾、空一覧の repair 規則を確認する。 */

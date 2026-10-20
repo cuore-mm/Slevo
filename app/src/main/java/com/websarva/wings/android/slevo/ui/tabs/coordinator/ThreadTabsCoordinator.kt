@@ -114,7 +114,9 @@ class ThreadTabsCoordinator @Inject constructor(
     private var snapshotVersion = 0L
     private val snapshotVersionFlow = MutableStateFlow(0L)
     private val commandQueue = Channel<ThreadTabMutationIntent>(Channel.UNLIMITED)
+    private val selectedKeyWrites = Channel<String?>(Channel.UNLIMITED)
     private var commandDispatcherJob: Job? = null
+    private var selectionWriterStarted = false
 
     /** 保留中の操作と、その操作だけを一度終端させる supersession 通知を保持する。 */
     private class ThreadTabPendingEntry(
@@ -144,7 +146,13 @@ class ThreadTabsCoordinator @Inject constructor(
         if (this.scope != null) return
         this.scope = scope
         commandDispatcherJob = scope.launch { processMutationIntents() }
+        startSelectionWriter(scope)
         scope.launch {
+            // --- Bootstrap persisted selection ---
+            val restoredSelection = readPersistedSelection()
+            var isInitialCanonical = true
+
+            // --- Canonical subscription and initial presentation ---
             combine(
                 tabsRepository.observeOpenThreadTabs(),
                 threadBookmarkRepository.observeSortedGroupsWithThreadBookmarks()
@@ -165,7 +173,10 @@ class ThreadTabsCoordinator @Inject constructor(
                 snapshotVersion += 1
                 snapshotVersionFlow.value = snapshotVersion
                 setThreadTabState(ThreadTabsLoadState.Loaded(threads))
-                publishProjectedTabs()
+                publishProjectedTabs(
+                    requestedSelection = if (isInitialCanonical) restoredSelection else _selectedThreadTabKey.value,
+                )
+                isInitialCanonical = false
             }
         }
     }
@@ -938,13 +949,16 @@ class ThreadTabsCoordinator @Inject constructor(
 
     /**
      * projected tabs と選択 key を同じ snapshot に解決して公開する。
-     * 不在 key は pending operation が説明できる間だけ保持し、それ以外は先頭へ補正する。
+     * 不在 key は pending operation が説明できる間だけ保持し、それ以外は末尾へ補正する。
      */
     private fun publishThreadPresentation(
         tabs: List<ThreadTabInfo> = _openThreadTabs.value,
         requestedSelection: String? = _selectedThreadTabKey.value,
     ) {
+        // --- Project effective tabs ---
         _openThreadTabs.value = tabs
+
+        // --- Loading guard ---
         if (_threadTabState.value is ThreadTabsLoadState.Loading) {
             _threadPresentationState.value = TabPresentationState(
                 emptyList(),
@@ -953,6 +967,8 @@ class ThreadTabsCoordinator @Inject constructor(
             _threadCurrentPage.value = -1
             return
         }
+
+        // --- Resolve selected key ---
         when {
             requestedSelection != null &&
                 tabs.none { it.id.value == requestedSelection } &&
@@ -975,7 +991,8 @@ class ThreadTabsCoordinator @Inject constructor(
                 )
             }
             else -> {
-                val repairedKey = tabs.first().id.value
+                // 確定無効または未保存の選択は、並び順の末尾タブへ補正する。
+                val repairedKey = tabs.last().id.value
                 _selectedThreadTabKey.value = repairedKey
                 _threadPresentationState.value = TabPresentationState(
                     tabs,
@@ -983,7 +1000,10 @@ class ThreadTabsCoordinator @Inject constructor(
                 )
             }
         }
+
+        // --- Synchronize page and persistence ---
         syncThreadCurrentPageFromSelectedKey(tabs)
+        persistSelectedKeyIfStable()
     }
 
     /** pending operation が説明できる選択 key を返す。 */
@@ -1009,6 +1029,45 @@ class ThreadTabsCoordinator @Inject constructor(
             is ThreadTabPendingOperation.Info -> setOf(tab.id)
             is ThreadTabPendingOperation.Reorder -> threadIds.toSet()
         }
+
+    /** 起動時にDataStoreのselected keyを一度だけ読み込む。読込失敗時は未保存として扱う。 */
+    private suspend fun readPersistedSelection(): String? {
+        return try {
+            tabsRepository.observeSelectedThreadTabKey().first()
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** selected keyの永続化writerを1本だけ起動し、書込順序を維持する。 */
+    private fun startSelectionWriter(scope: CoroutineScope) {
+        if (selectionWriterStarted) return
+        selectionWriterStarted = true
+        scope.launch {
+            for (key in selectedKeyWrites) {
+                try {
+                    tabsRepository.setSelectedThreadTabKey(key)
+                } catch (cancellationException: CancellationException) {
+                    throw cancellationException
+                } catch (_: Throwable) {
+                    // 保存失敗はruntime selectionへ影響させず、次回の確定変更で再試行する。
+                }
+            }
+        }
+    }
+
+    /** pending operationがない確定selectionだけを永続化キューへ送る。 */
+    private fun persistSelectedKeyIfStable() {
+        if (
+            selectionWriterStarted &&
+            _threadTabState.value is ThreadTabsLoadState.Loaded &&
+            pendingOperations.isEmpty()
+        ) {
+            selectedKeyWrites.trySend(_selectedThreadTabKey.value)
+        }
+    }
 
     /** 投影したメタデータを Repository 共通の ThreadState 更新入力へ変換する。 */
     private fun ThreadTabInfo.toThreadStateUpdate(): ThreadStateRepository.ThreadStateUpdate =

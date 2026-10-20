@@ -44,6 +44,8 @@ import com.websarva.wings.android.slevo.ui.common.InfoBottomSheetContent
 import com.websarva.wings.android.slevo.ui.common.SlevoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.BbsEntryTransition
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenFromTabs
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.dialog.NgDialogRoute
 import com.websarva.wings.android.slevo.ui.util.ExternalBrowserUtil
@@ -54,8 +56,8 @@ import java.text.DecimalFormat
 /**
  * スレッド情報を表示するボトムシートを制御する。
  *
- * showBoardAction が false の場合は板遷移ボタンを表示しない。板遷移時は
- * currentScreenRoute に応じて共通のpop、replace、push判定を使用する。
+ * showBoardAction が false の場合は板遷移ボタンを表示しない。板遷移時は通常画面の
+ * currentScreenRoute、またはTabs画面のtabsEntryIdに応じて共通の履歴判定を使用する。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +69,9 @@ fun ThreadInfoBottomSheet(
     navController: NavHostController,
     tabSessionStore: TabSessionStore? = null,
     currentScreenRoute: AppRoute? = null,
+    tabsEntryId: String? = null,
     showBoardAction: Boolean = true,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
 ) {
     // --- Sheet state ---
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -105,11 +109,25 @@ fun ThreadInfoBottomSheet(
                             boardName = boardInfo.name,
                             boardUrl = boardInfo.url
                         )
-                        tabSessionStore?.registerAndSelectBoardRoute(route)
-                        navController.showBoardScreenForTabSelection(
-                            currentScreenRoute = currentScreenRoute,
-                            route = route,
-                        )
+                        val registrationIndex =
+                            tabSessionStore?.registerAndSelectBoardRoute(route) ?: 0
+                        if (tabsEntryId != null && registrationIndex < 0) {
+                            return@launch
+                        }
+                        if (onBoardSelected != null) {
+                            onBoardSelected(route.copy(entryTransition = BbsEntryTransition.MainShellSlide))
+                        } else if (tabsEntryId != null) {
+                            navController.showBoardScreenFromTabs(
+                                sourceRoute = currentScreenRoute,
+                                tabsEntryId = tabsEntryId,
+                                route = route,
+                            )
+                        } else {
+                            navController.showBoardScreenForTabSelection(
+                                currentScreenRoute = currentScreenRoute,
+                                route = route,
+                            )
+                        }
                         onDismissRequest()
                     }
                 },

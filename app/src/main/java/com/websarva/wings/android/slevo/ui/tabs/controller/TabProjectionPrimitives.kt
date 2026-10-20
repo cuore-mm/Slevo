@@ -145,7 +145,8 @@ fun <Tab : Any, Key : Any> resolveTabPresentation(
         return TabPresentationState(tabs, TabSelectionResolution.PendingMissing(requestedKey))
     }
     if (tabs.isEmpty()) return TabPresentationState(tabs, TabSelectionResolution.Empty)
-    val selectedKey = requestedKey?.takeIf { key -> tabs.any { keyOf(it) == key } } ?: keyOf(tabs.first())
+    // 確定無効または未保存の選択は、並び順の末尾タブへ補正する。
+    val selectedKey = requestedKey?.takeIf { key -> tabs.any { keyOf(it) == key } } ?: keyOf(tabs.last())
     return TabPresentationState(tabs, TabSelectionResolution.Selected(selectedKey))
 }
 

@@ -117,6 +117,24 @@ class TabSessionStoreTest {
         verify { boardHolder.dispose() }
     }
 
+    /** BoardとThreadのselected keyを別々のStateFlowとして公開することを確認する。 */
+    @Test
+    fun selectedTabKeys_areExposedIndependently() {
+        val boardKey = MutableStateFlow<String?>("board-key")
+        val threadKey = MutableStateFlow<String?>("thread-key")
+        every { boardCoordinator.selectedBoardTabKey } returns boardKey
+        every { threadCoordinator.selectedThreadTabKey } returns threadKey
+
+        val testStore = createStore()
+
+        assertEquals("board-key", testStore.selectedBoardTabKey.value)
+        assertEquals("thread-key", testStore.selectedThreadTabKey.value)
+        boardKey.value = "next-board-key"
+        assertEquals("next-board-key", testStore.selectedBoardTabKey.value)
+        assertEquals("thread-key", testStore.selectedThreadTabKey.value)
+        testStore.close()
+    }
+
     /**
      * スレッドタブ削除時に対象 holder だけが破棄されることを確認する。
      */

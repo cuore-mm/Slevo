@@ -25,26 +25,50 @@ TBD - created by archiving change refactor-separated-board-thread-tab-navigation
 - **THEN** システムは route 引数の板情報ではなく TabSessionStore の選択中板タブ key に基づいて表示タブを維持する
 
 ### Requirement: 同種別タブ切り替えと別種別遷移の履歴を区別する
-システムはタブ一覧シート、フルスクリーンタブ一覧、横スワイプによる同種別タブの切り替えで、不要な navigation back stack を積んではならないMUST NOT。別種別タブの選択は画面種別の遷移として扱い、現在の画面種別と直前のback stack entryに応じたpush、pop、replaceを行わなければならないMUST。
+システムは全画面タブ一覧または横スワイプによる同種別タブの切り替えで、不要な navigation back stack を積んではならないMUST NOT。BoardまたはThreadから全画面タブ一覧を開いた場合、タブ選択完了時に全画面タブ一覧をback stackから除去し、別種別タブの選択は元の画面種別とその直前のback stack entryに応じたpush、pop、replaceを行わなければならないMUST。タブ選択より前に存在したBookmarkなどのdestinationを破棄してはならないMUST NOT。選択対象の登録または解決に失敗した場合は、全画面タブ一覧を維持しなければならないMUST。
 
 #### Scenario: タブ一覧シートで同種別タブを選ぶ
-- **WHEN** ユーザーが板画面内のタブ一覧シートで別の板タブを選択する
-- **THEN** システムは板画面 route を追加で積まず、選択中の板タブだけを更新してシートを閉じる
+- **WHEN** ユーザーがBoard画面から全画面タブ一覧を開いて板タブを選択する
+- **THEN** システムは選択中の板タブを更新し、全画面タブ一覧をback stackから除去して元のBoard destinationへ戻る
+- **AND** Board destinationを追加で積まない
 
 #### Scenario: Board画面のタブ一覧シートでThreadタブを選ぶ
-- **WHEN** ユーザーが板画面内のタブ一覧シートでスレッドタブを選択する
-- **THEN** システムは選択中のスレッドタブを更新し、現在の板画面をback stackに残してスレッド画面 routeをpushする
-- **AND** 戻る操作で元の板画面へ戻る
+- **WHEN** ユーザーがBoard画面から全画面タブ一覧を開いてスレッドタブを選択する
+- **THEN** システムは選択中のスレッドタブを更新し、全画面タブ一覧をback stackから除去する
+- **AND** 元のBoard destinationをback stackに残してThread destinationをpushする
+- **AND** 戻る操作で元のBoard画面へ戻る
+
+#### Scenario: Threadから開いた全画面タブ一覧でThreadタブを選ぶ
+- **WHEN** ユーザーがThread画面から全画面タブ一覧を開いてスレッドタブを選択する
+- **THEN** システムは選択中のスレッドタブを更新し、全画面タブ一覧をback stackから除去して元のThread destinationへ戻る
+- **AND** Thread destinationを追加で積まない
 
 #### Scenario: Thread画面のタブ一覧シートでBoardタブを選ぶ
-- **WHEN** ユーザーがスレッド画面内のタブ一覧シートで板タブを選択する
-- **THEN** システムは選択中の板タブを更新する
-- **AND** 直前のback stack entryが板画面なら現在のスレッド画面をpopしてその板画面へ戻り、そうでなければ現在のスレッド画面を選択済みBoard routeへreplaceする
-- **AND** 破棄したスレッド画面をBackで再表示しない
+- **WHEN** ユーザーが直前のback stack entryにBoard destinationを持つThread画面から全画面タブ一覧を開いて板タブを選択する
+- **THEN** システムは選択中の板タブを更新し、全画面タブ一覧とThread destinationをpopして既存のBoard destinationへ戻る
+- **AND** 背後のBoard destinationを新しいrouteで置き換えない
+
+#### Scenario: 背後にBoardがないThreadから全画面タブ一覧を経由してBoardタブを選ぶ
+- **WHEN** ユーザーが直前のback stack entryにBoard destinationを持たないThread画面から全画面タブ一覧を開いて板タブを選択する
+- **THEN** システムは選択中の板タブを更新し、全画面タブ一覧を除去してThread destinationを選択済みBoard destinationへreplaceする
+- **AND** 戻る操作で破棄したThread画面を再表示しない
+
+#### Scenario: タブ一覧より前の履歴を維持する
+- **WHEN** BookmarkなどのdestinationからBoardまたはThreadを開き、全画面タブ一覧で同種または別種タブを選択する
+- **THEN** システムは全画面タブ一覧と規則上除去すべきBoardまたはThreadだけをback stackから除去する
+- **AND** Bookmarkなどそれ以前のdestinationを維持する
+
+#### Scenario: ルートの全画面タブ一覧からタブを選ぶ
+- **WHEN** ユーザーがBoardまたはThreadを遷移元に持たないルートの全画面タブ一覧でタブを選択する
+- **THEN** システムは全画面タブ一覧をback stackに残して選択したBoardまたはThread destinationへ遷移する
+
+#### Scenario: タブ選択対象を解決できない
+- **WHEN** 全画面タブ一覧で選択したタブの登録、正規化、または解決が完了しない
+- **THEN** システムはBoardまたはThread destinationへ遷移せず、全画面タブ一覧を維持する
 
 #### Scenario: 横スワイプでタブを切り替える
-- **WHEN** ユーザーが板またはスレッド画面の Pager を横スワイプして別タブへ移動する
-- **THEN** システムは NavController の back stack を変更せず、対応する選択中タブだけを更新する
+- **WHEN** ユーザーがBoardまたはThread画面のPagerを横スワイプして別タブへ移動する
+- **THEN** システムはNavControllerのback stackを変更せず、対応する選択中タブだけを更新する
 
 ### Requirement: 入口ごとに履歴操作を区別する
 システムは板/スレッドを開く入口に応じて、タブ登録・タブ選択・画面遷移を区別して実行しなければならないMUST。BoardからThreadを開く操作は履歴に積み、同種別タブ切り替えは新規タブの登録を伴う場合も履歴に積んではならないMUST NOT。ThreadからBoardを選ぶ操作は、直前のBoard画面があればpopし、なければ現在ThreadをreplaceしなければならないMUST。
@@ -134,17 +158,56 @@ ThreadからBoardへの画面遷移は、popまたはreplaceの操作方式に�
 - **THEN** システムは既存の検索状態と展開・縮退状態の管理を変更せず、現在表示されている対象要素だけでShared Boundsの照合を行う
 
 ### Requirement: 既存Shared TransitionとNavigationを維持する
-システムはBoard/ThreadコントローラーのShared Boundsを既存の共通Shared Transition領域内で実行しなければならないMUST。BoardとThreadを別navigation destinationとして維持し、既存のpush、pop、replaceを変更してはならないMUST。Board↔Thread間のNavigationは既存の方向と時間を維持したslide-onlyとし、それ以外のdestination間NavigationおよびImageViewerのShared Transitionの照合・描画設定を変更してはならないMUST NOT。
+システムはBoard/ThreadコントローラーとTabs↔Board / Threadページ全体のShared Boundsを、既存の共通Shared Transition領域内で別の型付きkeyにより実行しなければならないMUST。Board、Thread、Tabsを別navigation destinationとして維持し、既存の最終back stack、contextual Tabs除去、およびTabs entry ID guardを変更してはならないMUST。Board↔Thread間のNavigationは既存の方向と時間を維持したslide-onlyとし、Tabs↔Board / Thread間では既存の横slideを使用せずページ全体のShared Boundsと短いfadeを使用しなければならないMUST。ImageViewerを含むそれ以外のdestination間NavigationおよびImageViewerのShared Transitionの照合・描画設定を変更してはならないMUST NOT。
 
 #### Scenario: BoardとThreadを切り替える
 - **WHEN** 下部コントローラーからBoard画面とThread画面を切り替える
-- **THEN** システムは既存のrouteとback stack操作を実行しながら、画面全体ではslide-onlyのNavigationを実行する
-- **AND** 対応するタイトルカード、画面種別ボタン、および下段ツール群のShared Boundsを実行する
+- **THEN** システムは既存のrouteとback stack結果を維持しながら、画面全体ではslide-onlyのNavigationを実行する
+- **AND** 対応するタイトルカード、画面種別ボタン、および下段ツール群の既存Shared Boundsを実行する
+
+#### Scenario: TabsとBoardまたはThreadを切り替える
+- **WHEN** 全画面TabsとBoardまたはThreadの間を遷移する
+- **THEN** システムはTabs↔BBS間の横slideを実行せず、対応カードと現在表示ページ全体のShared Boundsを実行する
+- **AND** Shared Boundsが成立しない場合は短いfadeで遷移を完了する
+
+#### Scenario: contextual Tabsで同種タブを選択する
+- **WHEN** BoardまたはThreadから開いたTabsで遷移元と同種のタブを選択する
+- **THEN** システムは選択先の新しい同種destinationを生成し、source destinationとTabsを`navigate` + `popUpTo(inclusive = true)`で1回に置換する
+- **AND** 選択先destinationは初期表示から選択済みタブをsettled pageとして構成し、選択カードとpage全体を1回のNavigation transitionで接続する
+
+#### Scenario: contextual Tabsで別種タブを選択する
+- **WHEN** BoardまたはThreadから開いたTabsで遷移元と異なる種別のタブを選択する
+- **THEN** システムは既存と同じ最終back stackを作り、選択カードと最終destinationの現在表示ページを1回のNavigation transitionで接続する
+
+#### Scenario: routeとsettle済みタブのidentityが異なる
+- **WHEN** 同じBoardまたはThread destination内のPager操作により、navigation routeのidentityとsettle済み現在タブのidentityが異なる
+- **THEN** システムはrouteではなくsettle済み現在タブのidentityをページ全体のShared Bounds照合に使用する
 
 #### Scenario: Board/Thread以外のdestinationへ遷移する
-- **WHEN** BoardまたはThreadからImageViewerを含むBoard/Thread以外のdestinationへ遷移する
-- **THEN** システムはBoard↔Thread専用のslide-onlyを適用せず、既存のdestination別Navigation transitionを使用する
+- **WHEN** BoardまたはThreadからImageViewerを含むBoard / Thread / Tabs以外のdestinationへ遷移する
+- **THEN** システムはBoard↔Thread専用slide-onlyとTabs↔BBS専用ページShared Boundsを適用せず、既存のdestination別Navigation transitionを使用する
 
 #### Scenario: ThreadからImageViewerを開いて戻る
 - **WHEN** ユーザーがThread画面の画像からImageViewerを開き、その後Thread画面へ戻る
 - **THEN** システムは既存の画像Shared Transitionのキー、対象判定、overlay設定、およびNavigation transitionを従来どおり使用する
+
+### Requirement: contextual Tabs内の移動有無で履歴統合を区別する
+システムはBoardまたはThreadから開いたcontextual TabsでBoardまたはThreadを直接選択した場合だけ、Tabsと遷移元詳細画面を選択先へ統合しなければならない（MUST）。contextual TabsからBookmarkまたはBBSサービス一覧へ移動した後にBoardまたはThreadを開く場合は、その中間履歴を保持しなければならない（MUST）。
+
+#### Scenario: Boardから開いたTabsでBoardを直接選ぶ
+- **WHEN** 履歴が`X → Board A → Tabs`で、ユーザーがTabsからBoard Bを直接選択する
+- **THEN** システムは最終履歴を`X → Board B`にする
+- **AND** BackでTabsまたはBoard Aを再表示しない
+
+#### Scenario: Boardから開いたTabsを経由してBookmarkからBoardを開く
+- **WHEN** 履歴が`X → Board A → Tabs → Bookmark`で、ユーザーがBookmarkからBoard Bを開く
+- **THEN** システムは最終履歴を`X → Board A → Tabs → Bookmark → Board B`として保持する
+- **AND** Backは`Board B → Bookmark → Tabs → Board A → X`の順で戻る
+
+#### Scenario: Threadから開いたTabsでThreadを直接選ぶ
+- **WHEN** 履歴が`X → Thread A → Tabs`で、ユーザーがTabsからThread Bを直接選択する
+- **THEN** システムは最終履歴を`X → Thread B`にする
+
+#### Scenario: contextual Tabsで別種別を直接選ぶ
+- **WHEN** BoardまたはThreadから開いたTabsでユーザーが反対種別のタブを直接選択する
+- **THEN** システムは既存のBoard / Thread間のpush、popまたはreplace規則を適用し、中間Tabsを最終履歴に残さない
