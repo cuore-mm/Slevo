@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
@@ -31,6 +32,7 @@ internal fun PostReplyPreviews(
     hostNamespace: String,
     headerTextScale: Float,
     bodyTextScale: Float,
+    lineHeightEm: Float,
     onReplyClick: (Int) -> Unit,
     onReplyNumbersClick: (List<Int>) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
@@ -69,6 +71,7 @@ internal fun PostReplyPreviews(
                 overflowNumbers = state.replySourceNumbers,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
+                lineHeightEm = lineHeightEm,
                 onOpenPost = { onReplyClick(preview.postNumber) },
                 onOpenOverflow = onReplyNumbersClick,
                 onImageClick = onImageClick,
@@ -103,6 +106,7 @@ private fun PostReplyPreviewsPreview() {
                     hostNamespace = "thread-post-12",
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                     onReplyClick = {},
                     onReplyNumbersClick = {},
                     onImageClick = { _, _, _, _ -> },

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -48,6 +49,7 @@ class PostReplyPreviewsTest {
                             hostNamespace = "thread-post-12",
                             headerTextScale = 1f,
                             bodyTextScale = 1f,
+                            lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                             onReplyClick = { openedPosts += it },
                             onReplyNumbersClick = { openedLists += it },
                             onImageClick = { _, _, _, _ -> },

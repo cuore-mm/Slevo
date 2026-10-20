@@ -20,9 +20,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -45,6 +47,7 @@ class ReplyPreviewCardTest {
     fun cardSeparatesHeaderImageAndOverflowActions() {
         // --- Fixture ---
         val imageUrl = "https://example.com/first.jpg"
+        val lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT
         val failures = mutableStateOf(mapOf(imageUrl to ImageLoadFailureType.UNKNOWN))
         val openedPosts = mutableListOf<Int>()
         val openedLists = mutableListOf<List<Int>>()
@@ -67,6 +70,7 @@ class ReplyPreviewCardTest {
                 previewType = ImageReplyPreviewType.REPLY_TARGET,
                 overflowCount = 2,
                 overflowNumbers = listOf(2, 4, 6, 8, 10),
+                lineHeightEm = lineHeightEm,
                 imageFailures = failures.value,
                 onOpenPost = { openedPosts += 12 },
                 onOpenOverflow = { openedLists += it },
@@ -75,10 +79,10 @@ class ReplyPreviewCardTest {
         }
 
         val headerText = composeRule.onNodeWithText(
-            "返信先：レス12  投稿者名  ID:sample-id",
+            "12  投稿者名  ID:sample-id",
             useUnmergedTree = true,
         )
-        val headerAction = composeRule.onNodeWithText("返信先：レス12  投稿者名  ID:sample-id")
+        val headerAction = composeRule.onNodeWithText("12  投稿者名  ID:sample-id")
         val image = composeRule.onNodeWithContentDescription(
             "レス12の画像3枚中1枚目、ほか2枚を表示",
             useUnmergedTree = true,
@@ -129,6 +133,7 @@ class ReplyPreviewCardTest {
                             previewType = ImageReplyPreviewType.REPLY_SOURCE,
                             headerTextScale = 1f,
                             bodyTextScale = 1f,
+                            lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                             onOpenPost = {},
                             onOpenOverflow = {},
                             onImageClick = { _, _, _, _ -> },
@@ -153,11 +158,12 @@ class ReplyPreviewCardTest {
             .assertDoesNotExist()
     }
 
-    /** ヘッダーと本文へ別々の文字設定を反映し、ヘッダーを通常の太さで描画する。 */
+    /** ヘッダーと本文へ別々の文字・行高設定を反映し、数字始まりの通常体ヘッダーを描画する。 */
     @Test
     fun headerAndBodyUseIndependentTextScalesWithNormalHeaderWeight() {
         val headerScale = 1.2f
         val bodyScale = 0.8f
+        val lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT
         composeRule.setContent {
             SlevoTheme {
                 Text("通常サイズ", style = MaterialTheme.typography.bodyMedium)
@@ -166,16 +172,19 @@ class ReplyPreviewCardTest {
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
                     headerTextScale = headerScale,
                     bodyTextScale = bodyScale,
+                    lineHeightEm = lineHeightEm,
                     onOpenPost = {},
                 )
             }
         }
 
         val baselineSize = textLayoutResult("通常サイズ").layoutInput.style.fontSize.value
-        val headerStyle = textLayoutResult("レス17").layoutInput.style
+        val headerStyle = textLayoutResult("17").layoutInput.style
         val bodyStyle = textLayoutResult("本文サイズ確認").layoutInput.style
         assertEquals(baselineSize * headerScale * 0.9f, headerStyle.fontSize.value, 0.01f)
         assertEquals(baselineSize * bodyScale * 0.9f, bodyStyle.fontSize.value, 0.01f)
+        assertEquals(lineHeightEm.em, headerStyle.lineHeight)
+        assertEquals(lineHeightEm.em, bodyStyle.lineHeight)
         assertEquals(FontWeight.Normal, headerStyle.fontWeight)
     }
 
@@ -197,7 +206,7 @@ class ReplyPreviewCardTest {
             )
         }
 
-        composeRule.onNodeWithText("レス13  ID:sample-id").assertExists()
+        composeRule.onNodeWithText("13  ID:sample-id").assertExists()
         composeRule.onNodeWithContentDescription("レス13の画像1枚中1枚目、ほか0枚を表示").assertExists()
     }
 
@@ -265,6 +274,7 @@ private fun PreviewCardHarness(
     previewType: ImageReplyPreviewType,
     headerTextScale: Float = 1f,
     bodyTextScale: Float = 1f,
+    lineHeightEm: Float = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
     imageFailures: Map<String, ImageLoadFailureType> = emptyMap(),
@@ -291,6 +301,7 @@ private fun PreviewCardHarness(
                         overflowNumbers = overflowNumbers,
                         headerTextScale = headerTextScale,
                         bodyTextScale = bodyTextScale,
+                        lineHeightEm = lineHeightEm,
                         onOpenPost = onOpenPost,
                         onOpenOverflow = onOpenOverflow,
                         onImageClick = onImageClick,

@@ -1,6 +1,5 @@
 <resources>
     <string name="reply_preview_target_label">返信先</string>
-    <string name="reply_preview_target_post_header">返信先：レス%1$d</string>
     <string name="reply_preview_source_label">返信</string>
     <string name="reply_preview_open_target_post">返信先のレス%1$dを表示</string>
     <string name="reply_preview_open_source_post">返信元のレス%1$dを表示</string>

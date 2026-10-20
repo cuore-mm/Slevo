@@ -186,6 +186,7 @@ fun PostItem(
                 hostNamespace = transitionNamespace,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
+                lineHeightEm = lineHeight,
                 onReplyClick = { number -> onReplyClick?.invoke(number) },
                 onReplyNumbersClick = onReplyFromClick,
                 onImageClick = onImageClick,

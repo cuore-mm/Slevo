@@ -33,9 +33,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
+import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnail
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
@@ -51,11 +53,11 @@ internal fun ReplyPreviewCard(
     post: ReplyPreviewPostUiModel,
     hostNamespace: String,
     previewType: ImageReplyPreviewType,
-    anchorLabel: String? = null,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
     headerTextScale: Float,
     bodyTextScale: Float,
+    lineHeightEm: Float,
     onOpenPost: () -> Unit,
     onOpenOverflow: (List<Int>) -> Unit,
     onImageClick: (String, List<String>, Int, String) -> Unit,
@@ -80,7 +82,6 @@ internal fun ReplyPreviewCard(
         },
         post.postNumber,
     )
-    val targetPostHeader = stringResource(R.string.reply_preview_target_post_header, post.postNumber)
     val imageDescription = stringResource(
         R.string.reply_preview_image_description,
         post.imageUrls.size,
@@ -116,13 +117,7 @@ internal fun ReplyPreviewCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 val header = buildList {
-                    add(
-                        anchorLabel ?: if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
-                            targetPostHeader
-                        } else {
-                            "レス${post.postNumber}"
-                        },
-                    )
+                    add(post.postNumber.toString())
                     if (post.name.isNotBlank()) add(post.name)
                     if (post.id.isNotBlank()) add("ID:${post.id}")
                 }.joinToString("  ")
@@ -131,6 +126,7 @@ internal fun ReplyPreviewCard(
                     modifier = Modifier.fillMaxWidth(),
                     fontSize = previewHeaderTextSize,
                     fontWeight = FontWeight.Normal,
+                    lineHeight = lineHeightEm.em,
                     color = colors.onSurfaceVariant,
                 )
                 if (post.imageUrls.isEmpty()) {
@@ -138,6 +134,7 @@ internal fun ReplyPreviewCard(
                         Text(
                             text = post.body,
                             fontSize = previewBodyTextSize,
+                            lineHeight = lineHeightEm.em,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             color = colors.onSurface,
@@ -154,6 +151,7 @@ internal fun ReplyPreviewCard(
                                 text = post.body,
                                 modifier = Modifier.weight(1f),
                                 fontSize = previewBodyTextSize,
+                                lineHeight = lineHeightEm.em,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
                                 color = colors.onSurface,
@@ -233,6 +231,7 @@ internal fun ReplyPreviewCard(
                         text = stringResource(R.string.reply_preview_other_count, overflowCount),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                         fontSize = previewBodyTextSize,
+                        lineHeight = lineHeightEm.em,
                         color = colors.primary,
                     )
                 }
@@ -260,6 +259,7 @@ private fun ReplyPreviewCardPreview() {
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                     onOpenPost = {},
                     onOpenOverflow = {},
                     onImageClick = { _, _, _, _ -> },
@@ -299,9 +299,9 @@ private fun ReplyPreviewCardWithImagesPreview() {
                     ),
                     hostNamespace = "thread-post-20",
                     previewType = ImageReplyPreviewType.REPLY_TARGET,
-                    anchorLabel = ">>12",
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                     onOpenPost = {},
                     onOpenOverflow = {},
                     onImageClick = { _, _, _, _ -> },
@@ -339,6 +339,7 @@ private fun ReplyPreviewCardImageOnlyPreview() {
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                     onOpenPost = {},
                     onOpenOverflow = {},
                     onImageClick = { _, _, _, _ -> },

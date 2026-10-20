@@ -65,7 +65,9 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Layout and target action ---
-        composeRule.onAllNodesWithText(">>1", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onNodeWithText("1  name1  ID:id1", useUnmergedTree = true).assertExists()
+        composeRule.onAllNodesWithText("レス", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText(">>1", substring = true, useUnmergedTree = true).assertCountEquals(0)
         val before = composeRule.onNodeWithText("before").fetchSemanticsNode().boundsInRoot
         val target = composeRule.onNodeWithText("target preview").fetchSemanticsNode().boundsInRoot
         val after = composeRule.onNodeWithText("after").fetchSemanticsNode().boundsInRoot

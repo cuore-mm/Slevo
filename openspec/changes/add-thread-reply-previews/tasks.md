@@ -39,7 +39,7 @@
 
 ## 6. プレビュー描画と本文挿入
 
-- [x] 6.1 専用プレビュー部品を`ui/thread/res`へ追加する。全幅ヘッダー（番号・独自名・ID）、本文だけ三行ellipsis、ヘッダー／本文それぞれに対応するユーザー文字サイズ設定を反映し通常体で表示するヘッダー、右側56.dpサムネイル、画像なし全幅、画像のみ、`+N`を実装する。各状態の`@Preview`とComposeテストで画像位置、別々の文字サイズ設定、ヘッダーの太さを確認し、型・非自明関数のKDocを追加する。
+- [x] 6.1 専用プレビュー部品を`ui/thread/res`へ追加する。数字から始まり「レス」や`>>`を付けない全幅ヘッダー（番号・独自名・ID）、本文だけ三行ellipsis、通常レスの行間設定に追従するヘッダー／本文、右側56.dpサムネイル、画像なし全幅、画像のみ、`+N`を実装する。各状態の`@Preview`とComposeテストで画像位置、別々の文字サイズ設定と行高、ヘッダーの太さ・先頭表記を確認し、型・非自明関数のKDocを追加する。
 - [x] 6.2 `PostItemBody`で元offset付き本文セグメントと返信先プレビューを描画する。単一安価一体型と複数形式分離型を実装し、Composeテストで安価行の非重複、挿入位置、後続本文の順序、挿入前後のURL/安価/長押しの維持を確認する。
 - [x] 6.3 `PostItem`の通常画像の下へ返信元三件と省略操作を追加し、返信先の省略操作とともに候補全件ポップアップへ接続する。Composeテストで古い順、表示上限、「ほか2件」で全件表示、本体タップで対象レス単体表示を確認する。
 - [x] 6.4 `ThreadPostListContent`で`sortType == NUMBER`の本体だけへプレビューstateを渡す。ツリー/ポップアップ/プレビュー内では無効にし、切替とポップアップ表示のComposeテストで再帰表示なし、外側LazyColumnの既存stable key・新着バー・更新グループ維持を確認する。
@@ -65,9 +65,16 @@
 - `openspec validate add-thread-reply-previews --strict` — 成功。
 - 実機データを必要とする狭幅・横画面・TalkBack・長時間スクロールの手動確認 — 未実施。対象スレッドデータが利用できないため、8.3を必須タスクから削除し、8.4を自動検証へ置き換えた。
 
-今回の変更に対する再検証記録:
+前回の追加実装に対する再検証記録:
 - `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
 - `mise exec -- ./gradlew :app:compileDebugAndroidTestKotlin` — 成功。
 - `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（OpenCode_Mobile_Test・Medium_Phoneの各107件、失敗0件）。初回の文字サイズテスト失敗はマージ済みsemanticsから別Textのレイアウト結果を取得していたため、unmerged treeで個別Textを選択するよう修正して解消した。
 - `openspec validate add-thread-reply-previews --strict` — 成功。
 - Studio分析・Compose Preview・TalkBackの手動確認 — 未実施。対応するCompose UIテストを実施し、Studioによる追加確認は行っていない。
+
+行高追従・ヘッダー表記変更に対する再検証記録:
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功（最終実行は57タスクすべてUP-TO-DATE）。
+- `mise exec -- ./gradlew :app:compileDebugAndroidTestKotlin` — 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（Medium_Phone AVDで107件、失敗0件）。旧`>>1`期待値を更新し、ヘッダー全体が番号から始まることと「レス」「>>」がないことを検証した。
+- `openspec validate add-thread-reply-previews --strict` — 成功。
+- Studio分析・Compose Preview・TalkBackの手動確認 — 未実施。Compose UIテストを実施し、StudioとTalkBackによる追加確認は行っていない。
