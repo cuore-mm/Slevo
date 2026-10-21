@@ -126,7 +126,6 @@ internal fun PostItemBody(
                 modifier = Modifier.size(32.dp)
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
         // --- Offset-preserving text and reply-preview segments ---
         val bodySegments = replyPreviewState?.bodySegments?.takeIf { it.isNotEmpty() }
             ?: listOf(PostBodySegment.TextRange(0, post.body.content.length))

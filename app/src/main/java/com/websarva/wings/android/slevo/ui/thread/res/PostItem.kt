@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -134,7 +136,7 @@ fun PostItem(
             onHeaderClick = onContentClick,
             onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
         )
-
+        Spacer(modifier = Modifier.height(4.dp))
         PostItemBody(
             post = post,
             bodyTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = bodyFontSize),
