@@ -1,11 +1,9 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
-import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,35 +22,34 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.ImageThumbnail
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
-import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 
 /** 返信先または返信元一件を小型ヘッダー・本文・画像で表示する。 */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun ReplyPreviewCard(
     post: ReplyPreviewPostUiModel,
@@ -98,7 +95,8 @@ internal fun ReplyPreviewCard(
         previewType = previewType,
         targetPostNumber = post.postNumber,
     )
-    val previewHeaderTextSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f
+    val previewHeaderTextSize =
+        MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f
     val previewBodyTextSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f
 
     // --- Preview surface and reply-source rail ---
@@ -107,7 +105,6 @@ internal fun ReplyPreviewCard(
         modifier = Modifier.fillMaxWidth(),
         shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
         color = if (isReplySource) Color.Transparent else colors.surfaceVariant.copy(alpha = 0.35f),
-        border = if (isReplySource) null else BorderStroke(1.dp, colors.outlineVariant),
     ) {
         Column(
             modifier = Modifier
@@ -219,7 +216,10 @@ internal fun ReplyPreviewCard(
                                             R.string.reply_preview_image_more,
                                             post.imageUrls.size - 1,
                                         ),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                        modifier = Modifier.padding(
+                                            horizontal = 4.dp,
+                                            vertical = 2.dp
+                                        ),
                                         color = colors.onPrimary,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
@@ -266,7 +266,6 @@ internal fun ReplyPreviewCard(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 private fun ReplyPreviewCardPreview() {
@@ -304,7 +303,6 @@ private fun ReplyPreviewCardPreview() {
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true, name = "Reply preview with images")
 @Composable
 private fun ReplyPreviewCardWithImagesPreview() {
@@ -346,7 +344,6 @@ private fun ReplyPreviewCardWithImagesPreview() {
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true, name = "Image-only reply preview")
 @Composable
 private fun ReplyPreviewCardImageOnlyPreview() {
