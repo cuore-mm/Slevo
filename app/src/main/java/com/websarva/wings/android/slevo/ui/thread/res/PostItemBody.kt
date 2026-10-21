@@ -1,12 +1,15 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +21,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -28,22 +33,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import coil3.compose.AsyncImage
-import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import com.websarva.wings.android.slevo.data.model.ReplyInfo
 import com.websarva.wings.android.slevo.data.util.ReplyAnchorParser
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.item.rememberHighlightedText
 import com.websarva.wings.android.slevo.ui.thread.state.PostBodySegment
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
-import com.websarva.wings.android.slevo.ui.thread.res.ReplyPreviewCard
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
-import com.websarva.wings.android.slevo.ui.util.rememberUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
+import com.websarva.wings.android.slevo.ui.util.rememberUrlAnnotatedString
 import com.websarva.wings.android.slevo.ui.util.resolveUrl
 import kotlinx.coroutines.CoroutineScope
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 
 private const val BodyUrlTag = "URL"
 private const val BodyReplyTag = "REPLY"
@@ -449,4 +453,84 @@ private fun PostItemBodyPreview() {
         onUrlClick = {},
         onThreadUrlClick = {},
     )
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true, name = "Post body with reply target preview")
+@Composable
+private fun PostItemBodyWithReplyTargetPreview() {
+    // --- Preview content and target state ---
+    val body = ">>12\n返信本文の一行目\n返信本文の二行目"
+    val replyTarget = ReplyTargetPreviewUiState(
+        lineIndex = 0,
+        lineStartOffset = 0,
+        lineEndOffset = 4,
+        lineBreakEndOffset = 5,
+        anchorLine = ">>12",
+        isSingleAnchor = true,
+        post = ReplyPreviewPostUiModel(
+            postNumber = 12,
+            name = "返信先の投稿者",
+            id = "target-id",
+            body = "返信先本文の一行目\n返信先本文の二行目",
+            imageUrls = emptyList(),
+        ),
+        referencedNumbers = listOf(12),
+    )
+    val replyPreviewState = PostReplyPreviewUiState(
+        replyTarget = replyTarget,
+        replyTargetNumbers = listOf(12),
+        bodySegments = listOf(
+            PostBodySegment.ReplyTarget(replyTarget),
+            PostBodySegment.TextRange(startOffset = 5, endOffset = body.length),
+        ),
+    )
+
+    // --- Body composition with shared-transition scopes ---
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            PostItemBody(
+                post = ThreadPostUiModel(
+                    header = ThreadPostUiModel.Header(
+                        name = "風吹けば名無し",
+                        email = "sage",
+                        date = "2025/12/16(火) 12:34:56.78",
+                        id = "reply-post-id",
+                    ),
+                    body = ThreadPostUiModel.Body(content = body),
+                    meta = ThreadPostUiModel.Meta(
+                        urlFlags = ReplyInfo.HAS_OTHER_URL or ReplyInfo.HAS_THREAD_URL,
+                    ),
+                ),
+                bodyTextStyle = MaterialTheme.typography.bodyMedium,
+                headerTextScale = 1f,
+                lineHeightEm = 1.4f,
+                searchQuery = "",
+                pressedUrl = null,
+                pressedReply = null,
+                scope = rememberCoroutineScope(),
+                onPressedUrlChange = {},
+                onPressedReplyChange = {},
+                onContentPressedChange = {},
+                onRequestMenu = {},
+                onReplyClick = {},
+                onReplyNumbersClick = {},
+                maxPostNumber = 20,
+                replyPreviewState = replyPreviewState,
+                transitionNamespace = "preview-post-body-with-reply-target",
+                onImageClick = { _, _, _, _ -> },
+                onImageLongPress = { _, _ -> },
+                imageLoadFailureByUrl = emptyMap(),
+                onImageLoadStart = {},
+                onImageLoadError = { _, _ -> },
+                onImageLoadSuccess = {},
+                onImageRetry = {},
+                enableSharedElement = false,
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this,
+                onUrlClick = {},
+                onThreadUrlClick = {},
+            )
+        }
+    }
 }
