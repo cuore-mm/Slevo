@@ -12,12 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.state.PostBodySegment
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
-import com.websarva.wings.android.slevo.ui.thread.res.PostReplyPreviews
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /**
@@ -245,6 +247,89 @@ private fun ReplyCardPreview() {
                 onImageLongPress = { _, _ -> },
                 onRequestMenu = {},
                 onShowTextMenu = { _, _ -> },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Preview(showBackground = true, name = "Post with reply previews")
+@Composable
+private fun PostItemWithReplyPreviewsPreview() {
+    // --- Preview data ---
+    val body = ">>8\n返信本文の一行目\n返信本文の二行目"
+    val replyTarget = ReplyTargetPreviewUiState(
+        lineIndex = 0,
+        lineStartOffset = 0,
+        lineEndOffset = 3,
+        lineBreakEndOffset = 4,
+        anchorLine = ">>8",
+        isSingleAnchor = true,
+        post = ReplyPreviewPostUiModel(
+            postNumber = 8,
+            name = "返信先の投稿者",
+            id = "target-id",
+            body = "返信先本文の一行目\n返信先本文の二行目",
+            imageUrls = emptyList(),
+        ),
+        referencedNumbers = listOf(8),
+    )
+    val replySources = listOf(13, 14, 16).map { number ->
+        ReplyPreviewPostUiModel(
+            postNumber = number,
+            name = "返信者$number",
+            id = "source-id-$number",
+            body = "返信元レス$number の本文です。",
+            imageUrls = emptyList(),
+        )
+    }
+    val replyPreviewState = PostReplyPreviewUiState(
+        replyTarget = replyTarget,
+        replySourcePreviews = replySources,
+        replySourceNumbers = listOf(13, 14, 16, 18),
+        replyTargetNumbers = listOf(8),
+        bodySegments = listOf(
+            PostBodySegment.ReplyTarget(replyTarget),
+            PostBodySegment.TextRange(startOffset = 4, endOffset = body.length),
+        ),
+    )
+
+    // --- Complete post rendering ---
+    SharedTransitionLayout {
+        AnimatedVisibility(visible = true) {
+            PostItem(
+                post = ThreadPostUiModel(
+                    header = ThreadPostUiModel.Header(
+                        name = "風吹けば名無し",
+                        email = "sage",
+                        date = "10/21(水) 14:32:10",
+                        id = "reply-post-id",
+                    ),
+                    body = ThreadPostUiModel.Body(content = body),
+                ),
+                postNum = 12,
+                idIndex = 1,
+                idTotal = 1,
+                headerTextScale = 0.85f,
+                bodyTextScale = 1f,
+                lineHeight = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
+                replyFromNumbers = replyPreviewState.replySourceNumbers,
+                replyPreviewState = replyPreviewState,
+                maxPostNumber = 20,
+                isMyPost = true,
+                searchQuery = "",
+                onReplyFromClick = {},
+                onReplyClick = {},
+                onIdClick = {},
+                onUrlClick = {},
+                onThreadUrlClick = {},
+                transitionNamespace = "preview-post-with-replies",
+                onImageClick = { _, _, _, _ -> },
+                onImageLongPress = { _, _ -> },
+                onRequestMenu = {},
+                onShowTextMenu = { _, _ -> },
+                sharedTransitionScope = this@SharedTransitionLayout,
+                animatedVisibilityScope = this,
             )
         }
     }
