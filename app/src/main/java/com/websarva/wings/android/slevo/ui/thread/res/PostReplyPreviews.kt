@@ -5,26 +5,24 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
-import androidx.compose.ui.res.stringResource
 
-/** 本文・通常画像の後に返信元プレビュー三件と省略操作を表示する。 */
+/** 本文・通常画像の後に見出しなしの返信元プレビューと省略操作を表示する。 */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PostReplyPreviews(
@@ -48,18 +46,19 @@ internal fun PostReplyPreviews(
 ) {
     if (state.replySourcePreviews.isEmpty()) return
 
-    // --- Reply-source heading ---
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = stringResource(R.string.reply_preview_source_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // --- Oldest visible previews and optional overflow ---
+        // --- Oldest visible previews and separators ---
         state.replySourcePreviews.forEachIndexed { index, preview ->
+            if (index > 0) {
+                HorizontalDivider(
+                    modifier = Modifier
+                        .padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
+                        .testTag("reply-preview-source-divider"),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
             val overflowCount = if (index == state.replySourcePreviews.lastIndex) {
                 state.replySourceOverflowCount
             } else 0
@@ -100,6 +99,8 @@ private fun PostReplyPreviewsPreview() {
                     state = PostReplyPreviewUiState(
                         replySourcePreviews = listOf(
                             ReplyPreviewPostUiModel(2, "名前", "abc123", "返信本文", emptyList()),
+                            ReplyPreviewPostUiModel(4, "名前", "abc123", "次の返信本文", emptyList()),
+                            ReplyPreviewPostUiModel(6, "", "xyz789", "もう一件", emptyList()),
                         ),
                         replySourceNumbers = listOf(2, 4, 6, 8, 10),
                     ),

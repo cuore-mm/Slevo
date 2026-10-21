@@ -24,7 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -96,14 +101,35 @@ internal fun ReplyPreviewCard(
     val previewHeaderTextSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f
     val previewBodyTextSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f
 
-    // --- Full-width header and body ---
+    // --- Preview surface and reply-source rail ---
+    val isReplySource = previewType == ImageReplyPreviewType.REPLY_SOURCE
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = colors.surfaceVariant.copy(alpha = 0.35f),
-        border = BorderStroke(1.dp, colors.outlineVariant),
+        shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
+        color = if (isReplySource) Color.Transparent else colors.surfaceVariant.copy(alpha = 0.35f),
+        border = if (isReplySource) null else BorderStroke(1.dp, colors.outlineVariant),
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (isReplySource) {
+                        Modifier
+                            .drawBehind {
+                                val railWidth = 2.dp.toPx()
+                                drawLine(
+                                    color = colors.outlineVariant,
+                                    start = Offset(x = railWidth / 2, y = 0f),
+                                    end = Offset(x = railWidth / 2, y = size.height),
+                                    strokeWidth = railWidth,
+                                )
+                            }
+                            .testTag("reply-preview-source-rail-${post.postNumber}")
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -225,7 +251,7 @@ internal fun ReplyPreviewCard(
                             onClick = { onOpenOverflow(overflowNumbers) },
                         )
                         .semantics { contentDescription = overflowDescription },
-                    color = colors.surfaceVariant,
+                    color = if (isReplySource) Color.Transparent else colors.surfaceVariant,
                 ) {
                     Text(
                         text = stringResource(R.string.reply_preview_other_count, overflowCount),

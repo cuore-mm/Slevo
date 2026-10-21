@@ -39,11 +39,11 @@
 
 ## 6. プレビュー描画と本文挿入
 
-- [x] 6.1 専用プレビュー部品を`ui/thread/res`へ追加する。数字から始まり「レス」や`>>`を付けない全幅ヘッダー（番号・独自名・ID）、本文だけ三行ellipsis、通常レスの行間設定に追従するヘッダー／本文、右側56.dpサムネイル、画像なし全幅、画像のみ、`+N`を実装する。各状態の`@Preview`とComposeテストで画像位置、別々の文字サイズ設定と行高、ヘッダーの太さ・先頭表記を確認し、型・非自明関数のKDocを追加する。
+- [x] 6.1 専用プレビュー部品を`ui/thread/res`へ追加する。返信先は現行カード外観を保ち、返信元は数字から始まり「レス」や`>>`を付けないヘッダー、外枠・塗りつぶしなし、左縦線と項目間区切り線で表示する。通常レスの行間設定に追従するヘッダー／本文、右側56.dpサムネイル、画像なし全幅、画像のみ、`+N`を維持する。各状態の`@Preview`とComposeテストで別々の文字サイズ設定と行高、返信先カード維持、返信元の線・背景なし・番号表記を確認し、型・非自明関数のKDocを追加する。
 - [x] 6.2 `PostItemBody`で元offset付き本文セグメントと返信先プレビューを描画する。単一安価一体型と複数形式分離型を実装し、Composeテストで安価行の非重複、挿入位置、後続本文の順序、挿入前後のURL/安価/長押しの維持を確認する。
-- [x] 6.3 `PostItem`の通常画像の下へ返信元三件と省略操作を追加し、返信先の省略操作とともに候補全件ポップアップへ接続する。Composeテストで古い順、表示上限、「ほか2件」で全件表示、本体タップで対象レス単体表示を確認する。
+- [x] 6.3 `PostItem`の通常画像の下へ返信元三件と省略操作を追加し、返信先の省略操作とともに候補全件ポップアップへ接続する。返信元の先頭見出しをなくし、各項目を左縦線と項目間区切り線で表示する。Composeテストで古い順、表示上限、「ほか2件」で全件表示、見出しなし、返信先カード外観の維持、本体タップで対象レス単体表示を確認する。
 - [x] 6.4 `ThreadPostListContent`で`sortType == NUMBER`の本体だけへプレビューstateを渡す。ツリー/ポップアップ/プレビュー内では無効にし、切替とポップアップ表示のComposeテストで再帰表示なし、外側LazyColumnの既存stable key・新着バー・更新グループ維持を確認する。
-- [x] 6.5 「返信」「ほか%d件」「+%d」と読み上げ文言を`app/src/main/res`へ追加し、カード・画像・省略操作を独立したsemantics/フォーカスにする。Composeテストで対象番号・画像総数・一覧対象の識別、48.dp以上の操作領域、二重発火なし、色以外の識別を確認する。
+- [x] 6.5 既存の読み上げ文言を維持し、カード・画像・省略操作を独立したsemantics/フォーカスにする。返信元の「返信」見出し文字列と背景付きの省略表示をなくす。Composeテストで対象番号・画像総数・一覧対象の識別、48.dp以上の操作領域、二重発火なし、線とレイアウトによる識別を確認する。
 
 ## 7. NG通知抑止の統合
 
@@ -55,7 +55,7 @@
 ## 8. 統合検証
 
 - [x] 8.1 `./gradlew :app:assembleDebug :app:testDebugUnitTest`を実行し、ビルドと全ユニットテストの成功を記録する。必要な環境で`./gradlew testCiUnitTest assembleCi --stacktrace`も実行し、失敗があれば原因を修正して再実行する。
-- [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
+- [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、返信元引用風スタイル、見出しなし、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
 - [x] 8.4 `ThreadRouteViewModelTest`で無関係なstate更新が返信プレビュー派生データを再生成しないこと、`ReplyAnchorParserTest`で巨大範囲が取得済み上限を超えて展開されないこと、Composeテストで非表示の追加画像をロードしないことを確認する。通常レスの表示内容、既読境界、新着グループは既存回帰テストで維持を確認する。
 - [x] 8.5 三つのdeltaの全Scenarioと実装・テストを照合し、型/非自明関数のKDoc・長い関数の区分コメント・`@Preview`のコメントなしを確認する。`openspec validate add-thread-reply-previews --strict`の成功と検証結果を記録し、計画外のDB/設定/バックグラウンド処理変更がないことを確認する。
 
@@ -78,3 +78,11 @@
 - `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（Medium_Phone AVDで107件、失敗0件）。旧`>>1`期待値を更新し、ヘッダー全体が番号から始まることと「レス」「>>」がないことを検証した。
 - `openspec validate add-thread-reply-previews --strict` — 成功。
 - Studio分析・Compose Preview・TalkBackの手動確認 — 未実施。Compose UIテストを実施し、StudioとTalkBackによる追加確認は行っていない。
+
+返信元の引用風表示変更に対する検証記録:
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（Medium_Phone AVDで107件、失敗0件）。返信見出しの不在、左レールと区切り線、返信先ヘッダー、残数操作の48.dp以上をComposeテストで確認した。
+- `openspec validate add-thread-reply-previews --strict` — 成功。
+- Android Studio `analyze-file` — `PostReplyPreviews.kt`に問題なし。`ReplyPreviewCard.kt`にはIDEのスタイル提案2件とブラウザリンク情報1件が表示されたが、エラーはなし。
+- Android Studio Compose Preview `PostReplyPreviewsPreview` — 成功。三件表示、左縦線、項目間区切り線、見出しなし、省略操作を確認した。
+- TalkBackの手動確認 — 未実施。Compose UIテストで操作領域とsemanticsを確認し、手動読み上げ確認は行っていない。
