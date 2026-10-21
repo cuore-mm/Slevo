@@ -9,20 +9,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
-import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
@@ -30,6 +35,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -158,6 +164,64 @@ class ReplyPreviewCardTest {
             .assertDoesNotExist()
     }
 
+    /** 投稿コンテナと自レス表示線の内側で二行本文が高さ制約により省略されない。 */
+    @Test
+    fun twoLineBodyDoesNotEllipsizeInsidePostItemContainer() {
+        val body = "にしてもデブ過ぎやろ\nカロリー過多や"
+        composeRule.setContent {
+            PreviewCardHarness(
+                post = ReplyPreviewPostUiModel(169, "", "bj6p0cIb7", body, emptyList()),
+                previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                insidePostItemContainer = true,
+                onOpenPost = {},
+            )
+        }
+
+        val layout = textLayoutResult(body)
+        assertEquals(2, layout.lineCount)
+        assertFalse("Two fitting lines must not overflow vertically", layout.didOverflowHeight)
+        (0 until layout.lineCount).forEach { line ->
+            assertFalse("Line $line must not be ellipsized", layout.isLineEllipsized(line))
+            val lineWidth = layout.multiParagraph.getLineRight(line) -
+                layout.multiParagraph.getLineLeft(line)
+            assertTrue("Line $line must fit the available width", lineWidth <= layout.size.width)
+        }
+        assertEquals(
+            body.length,
+            layout.multiParagraph.getLineEnd(layout.lineCount - 1, visibleEnd = false),
+        )
+
+        val containerBounds = composeRule.onNodeWithTag("reply-preview-post-container")
+            .fetchSemanticsNode().boundsInRoot
+        val bodyBounds = composeRule.onNodeWithText(body).fetchSemanticsNode().boundsInRoot
+        assertTrue(bodyBounds.top > containerBounds.top)
+        assertTrue(bodyBounds.bottom < containerBounds.bottom)
+
+        val containerImage = composeRule.onNodeWithTag("reply-preview-post-container")
+            .captureToImage()
+            .toPixelMap()
+        assertTrue(containerImage[0, containerImage.height / 2].alpha > 0.9f)
+    }
+
+    /** 同じ投稿コンテナ内でも三行上限と末尾省略を維持する。 */
+    @Test
+    fun longBodyStillEllipsizesAtThreeLinesInsidePostItemContainer() {
+        val body = "一行目\n二行目\n三行目\n四行目"
+        composeRule.setContent {
+            PreviewCardHarness(
+                post = ReplyPreviewPostUiModel(169, "", "sample-id", body, emptyList()),
+                previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                insidePostItemContainer = true,
+                onOpenPost = {},
+            )
+        }
+
+        val layout = textLayoutResult(body)
+        assertEquals(3, layout.lineCount)
+        assertTrue("Four lines must exceed the three-line limit", layout.didOverflowHeight)
+        assertTrue(layout.isLineEllipsized(2))
+    }
+
     /** ヘッダーと本文へ別々の文字・行高設定を反映し、数字始まりの通常体ヘッダーを描画する。 */
     @Test
     fun headerAndBodyUseIndependentTextScalesWithNormalHeaderWeight() {
@@ -278,6 +342,7 @@ private fun PreviewCardHarness(
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
     imageFailures: Map<String, ImageLoadFailureType> = emptyMap(),
+    insidePostItemContainer: Boolean = false,
     onOpenPost: () -> Unit,
     onOpenOverflow: (List<Int>) -> Unit = {},
     onImageRetry: (String) -> Unit = {},
@@ -293,28 +358,46 @@ private fun PreviewCardHarness(
                 val visibilityScope = this
                 Box(modifier = Modifier.width(320.dp)) {
                     // --- Preview card parameters ---
-                    ReplyPreviewCard(
-                        post = post,
-                        hostNamespace = "thread-post-20",
-                        previewType = previewType,
-                        overflowCount = overflowCount,
-                        overflowNumbers = overflowNumbers,
-                        headerTextScale = headerTextScale,
-                        bodyTextScale = bodyTextScale,
-                        lineHeightEm = lineHeightEm,
-                        onOpenPost = onOpenPost,
-                        onOpenOverflow = onOpenOverflow,
-                        onImageClick = onImageClick,
-                        onImageLongPress = { _, _ -> },
-                        imageLoadFailureByUrl = imageFailures,
-                        onImageLoadStart = onImageLoadStart,
-                        onImageLoadError = { _, _ -> },
-                        onImageLoadSuccess = onImageLoadSuccess,
-                        onImageRetry = onImageRetry,
-                        enableSharedElement = true,
-                        sharedTransitionScope = sharedScope,
-                        animatedVisibilityScope = visibilityScope,
-                    )
+                    val previewContent: @Composable () -> Unit = {
+                        ReplyPreviewCard(
+                            post = post,
+                            hostNamespace = "thread-post-20",
+                            previewType = previewType,
+                            overflowCount = overflowCount,
+                            overflowNumbers = overflowNumbers,
+                            headerTextScale = headerTextScale,
+                            bodyTextScale = bodyTextScale,
+                            lineHeightEm = lineHeightEm,
+                            onOpenPost = onOpenPost,
+                            onOpenOverflow = onOpenOverflow,
+                            onImageClick = onImageClick,
+                            onImageLongPress = { _, _ -> },
+                            imageLoadFailureByUrl = imageFailures,
+                            onImageLoadStart = onImageLoadStart,
+                            onImageLoadError = { _, _ -> },
+                            onImageLoadSuccess = onImageLoadSuccess,
+                            onImageRetry = onImageRetry,
+                            enableSharedElement = true,
+                            sharedTransitionScope = sharedScope,
+                            animatedVisibilityScope = visibilityScope,
+                        )
+                    }
+                    if (insidePostItemContainer) {
+                        PostItemContainer(
+                            modifier = Modifier.testTag("reply-preview-post-container"),
+                            indentWidth = 0.dp,
+                            dimmed = false,
+                            isPressed = false,
+                            scope = rememberCoroutineScope(),
+                            onContentPressedChange = {},
+                            onRequestMenu = {},
+                            showMyPostIndicator = true,
+                            onContentClick = {},
+                            content = previewContent,
+                        )
+                    } else {
+                        previewContent()
+                    }
                 }
             }
         }

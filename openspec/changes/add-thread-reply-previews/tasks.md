@@ -44,6 +44,7 @@
 - [x] 6.3 `PostItem`の通常画像の下へ返信元三件と省略操作を追加し、返信先の省略操作とともに候補全件ポップアップへ接続する。返信元の先頭見出しをなくし、各項目を左縦線と項目間区切り線で表示する。Composeテストで古い順、表示上限、「ほか2件」で全件表示、見出しなし、返信先カード外観の維持、本体タップで対象レス単体表示を確認する。
 - [x] 6.4 `ThreadPostListContent`で`sortType == NUMBER`の本体だけへプレビューstateを渡す。ツリー/ポップアップ/プレビュー内では無効にし、切替とポップアップ表示のComposeテストで再帰表示なし、外側LazyColumnの既存stable key・新着バー・更新グループ維持を確認する。
 - [x] 6.5 既存の読み上げ文言を維持し、カード・画像・省略操作を独立したsemantics/フォーカスにする。返信元の「返信」見出し文字列と背景付きの省略表示をなくす。Composeテストで対象番号・画像総数・一覧対象の識別、48.dp以上の操作領域、二重発火なし、線とレイアウトによる識別を確認する。
+- [x] 6.6 `PostItemContainer`内に実際の`ReplyPreviewCard`を配置したComposeテストを追加する。自レス表示線を有効にして親レイアウト内の2行本文が全て表示され、省略記号がないことを`TextLayoutResult.lineCount`、`didOverflowHeight`、各行の`isLineEllipsized`と最終行offsetで確認する。同じコンテナ内で4行以上の本文が3行上限と末尾省略を保つこと、コンテナ高が本文の必要高を切らないこと、自レス表示線と本文周囲の余白が維持されることを検証する。`PostItemContainer`のintrinsic-height依存を外し、表示線を自然測定後の高さに重ねる。
 
 ## 7. NG通知抑止の統合
 
@@ -55,7 +56,7 @@
 ## 8. 統合検証
 
 - [x] 8.1 `./gradlew :app:assembleDebug :app:testDebugUnitTest`を実行し、ビルドと全ユニットテストの成功を記録する。必要な環境で`./gradlew testCiUnitTest assembleCi --stacktrace`も実行し、失敗があれば原因を修正して再実行する。
-- [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、返信元引用風スタイル、親レス単一安価の省略、見出しなし、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
+- [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、2行本文の省略なし、4行以上の3行上限、返信元引用風スタイル、親レス単一安価の省略、見出しなし、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
 - [x] 8.4 `ThreadRouteViewModelTest`で無関係なstate更新が返信プレビュー派生データを再生成しないこと、`ReplyAnchorParserTest`で巨大範囲が取得済み上限を超えて展開されないこと、Composeテストで非表示の追加画像をロードしないことを確認する。通常レスの表示内容、既読境界、新着グループは既存回帰テストで維持を確認する。
 - [x] 8.5 三つのdeltaの全Scenarioと実装・テストを照合し、型/非自明関数のKDoc・長い関数の区分コメント・`@Preview`のコメントなしを確認する。`openspec validate add-thread-reply-previews --strict`の成功と検証結果を記録し、計画外のDB/設定/バックグラウンド処理変更がないことを確認する。
 
@@ -93,3 +94,12 @@
 - `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（Medium_Phone AVDで107件、失敗0件）。
 - `openspec validate add-thread-reply-previews --strict` — 成功。
 - `git diff --check` — 成功。変更対象は返信プレビュー変換・unit test・OpenSpec artifactsのみで、DB/設定/バックグラウンド処理への変更なし。
+
+投稿行内の2行本文省略に対する検証記録:
+- 初回の`hasVisualOverflow`判定は失敗したが、詳細計測で幅方向のoverflowフラグであり、行のellipsisや高さoverflowではないことを確認した。
+- 元の`IntrinsicSize.Min`と自レス表示線を復元した状態でも、この分離テストの2行/長文ケースは成功した。したがって実際の`PostItem`全体で報告現象を再現できておらず、intrinsic heightが原因だったとは確定していない。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.websarva.wings.android.slevo.ui.thread.res.ReplyPreviewCardTest` — 修正後に成功（7件）。2行本文の全offset表示・高さoverflowなし・行省略なし、4行本文の3行省略、自レス線の描画、コンテナ余白を確認。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（Medium_Phone AVDで109件、失敗0件）。
+- `openspec validate add-thread-reply-previews --strict`、`git diff --check` — 成功。
+- Studio分析／Compose Preview — 未実施。実コンテナを使うCompose UIテストで描画とレイアウトを検証した。
