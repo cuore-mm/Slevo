@@ -23,12 +23,21 @@ internal object ThreadReplyPreviewTransformer {
         defaultName: String,
     ): Map<Int, PostReplyPreviewUiState> {
         val previewByNumber = mutableMapOf<Int, ReplyPreviewPostUiModel>()
+        val replySourcePreviewByHost = mutableMapOf<Pair<Int, Int>, ReplyPreviewPostUiModel>()
 
         fun preview(number: Int): ReplyPreviewPostUiModel? {
             if (number in ngPostNumbers) return null
             return previewByNumber.getOrPut(number) {
                 posts.getOrNull(number - 1)?.toReplyPreview(number, defaultName)
                     ?: return null
+            }
+        }
+
+        /** 親レス番号に応じて単一安価を除いた返信元プレビューを返す。 */
+        fun replySourcePreview(number: Int, hostNumber: Int): ReplyPreviewPostUiModel? {
+            val basePreview = preview(number) ?: return null
+            return replySourcePreviewByHost.getOrPut(number to hostNumber) {
+                basePreview.copy(body = removeReplySourceAnchor(basePreview.body, hostNumber))
             }
         }
 
@@ -73,7 +82,8 @@ internal object ThreadReplyPreviewTransformer {
                 .distinct()
                 .sorted()
                 .toList()
-            val replyPreviews = replyNumbers.take(MAX_REPLY_PREVIEWS).mapNotNull(::preview)
+            val replyPreviews = replyNumbers.take(MAX_REPLY_PREVIEWS)
+                .mapNotNull { number -> replySourcePreview(number, postNumber) }
             // --- Original-offset body segments and immutable row state ---
             val bodySegments = if (replyTarget == null) {
                 listOf(PostBodySegment.TextRange(0, post.body.content.length))
@@ -182,6 +192,38 @@ internal object ThreadReplyPreviewTransformer {
             body = previewBody,
             imageUrls = images,
         )
+    }
+
+    /** 返信元本文から親番号への単一安価と直後の空白を除き、安価だけの行を省く。 */
+    private fun removeReplySourceAnchor(body: String, hostNumber: Int): String =
+        splitContentLines(body).mapNotNull { line ->
+            val (text, removedAnchor) = removeReplySourceAnchorFromLine(line.text, hostNumber)
+            if (removedAnchor && text.isBlank()) null else text
+        }.joinToString("\n")
+
+    /** 一行から親番号への単一安価を除き、除去の有無と残りの文字列を返す。 */
+    private fun removeReplySourceAnchorFromLine(line: String, hostNumber: Int): Pair<String, Boolean> {
+        val tokens = ReplyAnchorParser.parseAnchors(line)
+        if (tokens.isEmpty()) return line to false
+
+        val result = StringBuilder(line.length)
+        var cursor = 0
+        var removedAnchor = false
+        tokens.forEach { token ->
+            val range = token.ranges.singleOrNull()
+            val isSingleNumber = singleAnchorRegex.matches(token.rawText) &&
+                range != null && range.first == hostNumber && range.last == hostNumber
+            if (!isSingleNumber) return@forEach
+
+            result.append(line, cursor, token.start)
+            cursor = token.end
+            while (cursor < line.length && line[cursor].isWhitespace()) cursor++
+            removedAnchor = true
+        }
+        if (!removedAnchor) return line to false
+
+        result.append(line, cursor, line.length)
+        return result.toString() to true
     }
 
     /** DAT由来の名前と板設定名をHTML表示文字列に正規化して比較する。 */

@@ -28,7 +28,7 @@
 - [x] 4.2 専用transformerで安価だけの行を検出し、レス全体の返信先を一件選ぶ。空白付き単一、空白区切り複数、範囲、カンマ、文中除外、複数行、先頭NG/未取得、全件不可のケースで、選択番号・挿入行・一体型/分離型をテストする。
 - [x] 4.3 同transformerでNG除外済み返信元の先頭三件と「ほか○件」用の全候補・残数を生成する。返信先は複数行を通じた重複除去後の全候補を用い、NG先行除外、残数ゼロ、非NG5件、返信先1/3/1/5のテストで件数が一致することを確認する。
 - [x] 4.4 板デフォルト名を`BoardRepository.fetchBoardNoname`から板単位で取得・UiState保持する経路を追加する。名前のHTML等の表記を揃えて比較し、既定名/独自名/トリップ/取得失敗のテストで省略・保持を確認する。レスごとの取得と既存投稿プレースホルダの変更がないことを確認する。
-- [x] 4.5 `extractImageUrls`と同じ認識結果で、プレビュー本文だけから画像URLを除去し全画像一覧・先頭画像・追加枚数を生成する。非画像URL、周囲の文字、混在行、画像だけの行、複数画像、重複URLのテストで、本文破損やビューア入力との差がないことを確認する。
+- [x] 4.5 `extractImageUrls`と同じ認識結果で、プレビュー本文だけから画像URLを除去し全画像一覧・先頭画像・追加枚数を生成する。返信元プレビューでは共通tokenから親番号だけの単一安価spanを判定し、直後の空白と一行全体が安価だけの場合の行を除去する。返信先プレビュー、通常レス、ポップアップは変更しない。範囲・カンマtoken、文中安価、空白、複数行、画像URL混在のテストで、表示本文とビューア入力を確認する。
 - [x] 4.6 派生処理を投稿版・NG・板デフォルト名の変更で更新する経路へ接続する。ViewModelテストでNG追加/解除と追加取得時に一貫して更新し、無関係なスクロールstate更新では本文再解析を繰り返さないことを確認する。
 
 ## 5. 画像部品と表示文脈
@@ -55,7 +55,7 @@
 ## 8. 統合検証
 
 - [x] 8.1 `./gradlew :app:assembleDebug :app:testDebugUnitTest`を実行し、ビルドと全ユニットテストの成功を記録する。必要な環境で`./gradlew testCiUnitTest assembleCi --stacktrace`も実行し、失敗があれば原因を修正して再実行する。
-- [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、返信元引用風スタイル、見出しなし、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
+- [x] 8.2 端末/エミュレータで`./gradlew :app:connectedDebugAndroidTest`を実行する。番号順限定、本文挿入、返信元引用風スタイル、親レス単一安価の省略、見出しなし、NG動的更新、通知の両経路、画像/ポップアップの独立操作の統合テスト成功を記録する。
 - [x] 8.4 `ThreadRouteViewModelTest`で無関係なstate更新が返信プレビュー派生データを再生成しないこと、`ReplyAnchorParserTest`で巨大範囲が取得済み上限を超えて展開されないこと、Composeテストで非表示の追加画像をロードしないことを確認する。通常レスの表示内容、既読境界、新着グループは既存回帰テストで維持を確認する。
 - [x] 8.5 三つのdeltaの全Scenarioと実装・テストを照合し、型/非自明関数のKDoc・長い関数の区分コメント・`@Preview`のコメントなしを確認する。`openspec validate add-thread-reply-previews --strict`の成功と検証結果を記録し、計画外のDB/設定/バックグラウンド処理変更がないことを確認する。
 
@@ -86,3 +86,10 @@
 - Android Studio `analyze-file` — `PostReplyPreviews.kt`に問題なし。`ReplyPreviewCard.kt`にはIDEのスタイル提案2件とブラウザリンク情報1件が表示されたが、エラーはなし。
 - Android Studio Compose Preview `PostReplyPreviewsPreview` — 成功。三件表示、左縦線、項目間区切り線、見出しなし、省略操作を確認した。
 - TalkBackの手動確認 — 未実施。Compose UIテストで操作領域とsemanticsを確認し、手動読み上げ確認は行っていない。
+
+返信元の親レス安価省略に対する検証記録:
+- `mise exec -- ./gradlew :app:testDebugUnitTest --tests com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadReplyPreviewTransformerTest` — 成功（11件）。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（Medium_Phone AVDで107件、失敗0件）。
+- `openspec validate add-thread-reply-previews --strict` — 成功。
+- `git diff --check` — 成功。変更対象は返信プレビュー変換・unit test・OpenSpec artifactsのみで、DB/設定/バックグラウンド処理への変更なし。

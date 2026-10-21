@@ -213,6 +213,43 @@ class ThreadReplyPreviewTransformerTest {
         assertEquals(listOf("https://example.com/only.gif"), result?.imageUrls)
     }
 
+    /** 返信元だけ親レス単一安価と後続空白を省き、複数指定と返信先本文を保つ。 */
+    @Test
+    fun omitsOnlySingleAnchorToHostFromReplySourcePreview() {
+        val sourceBody = listOf(
+            ">>2 ありがとう",
+            ">>2",
+            ">>2,3 カンマ指定",
+            ">>2-3 範囲指定",
+            ">>2 https://example.com/reply.jpg",
+            ">>1 別レス",
+            "続き >>2\t本文",
+        ).joinToString("\n")
+        val posts = listOf(
+            post("source", "id1", sourceBody),
+            post("host", "id2", ">>1"),
+            post("viewer", "id3", ">>1"),
+        )
+
+        val result = ThreadReplyPreviewTransformer.derive(
+            posts = posts,
+            visibleReplySourceMap = mapOf(2 to listOf(1)),
+            ngPostNumbers = emptySet(),
+            defaultName = "",
+        )
+
+        assertEquals(
+            "ありがとう\n>>2,3 カンマ指定\n>>2-3 範囲指定\n>>1 別レス\n続き 本文",
+            result.getValue(2).replySourcePreviews.single().body,
+        )
+        assertEquals(
+            listOf("https://example.com/reply.jpg"),
+            result.getValue(2).replySourcePreviews.single().imageUrls,
+        )
+        assertTrue(result.getValue(3).replyTarget?.post?.body?.contains(">>2") == true)
+        assertEquals(sourceBody, posts.first().body.content)
+    }
+
     @Test
     fun keepsAllTargetAndSourceCandidatesWhileLimitingDisplayedPreviews() {
         val posts = (1..10).map { number ->
