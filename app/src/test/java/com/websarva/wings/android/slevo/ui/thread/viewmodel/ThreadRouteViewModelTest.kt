@@ -30,6 +30,9 @@ import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -65,6 +68,7 @@ class ThreadRouteViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    /** 既知のレス境界を優先し、未取得時にはタブの件数へフォールバックする。 */
     @Test
     fun resolvePendingBaseResCount_prefersCapturedBoundaryAfterRefresh() {
         assertEquals(10, resolvePendingBaseResCount(10, loadedResCount = 11, tabResCount = 11))
@@ -72,6 +76,7 @@ class ThreadRouteViewModelTest {
         assertEquals(10, resolvePendingBaseResCount(null, loadedResCount = null, tabResCount = 10))
     }
 
+    /** 表示可能レス番号を順序維持で重複除去し、NG・範囲外番号を除く。 */
     @Test
     fun resolveRenderablePostNumbersKeepsOrderAndRemovesNgDuplicatesAndMissingPosts() {
         assertEquals(
@@ -85,6 +90,7 @@ class ThreadRouteViewModelTest {
         assertEquals(emptyList<Int>(), resolveRenderablePostNumbers(listOf(1), 0, emptySet()))
     }
 
+    /** 同じタブkeyから同一のUiState Flowを返す。 */
     @Test
     fun uiStateFor_sameKeyReusesCachedFlow() {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -97,6 +103,7 @@ class ThreadRouteViewModelTest {
         assertSame(first, second)
     }
 
+    /** reload要求をスレッド本文取得ユースケースへ渡す。 */
     @Test
     fun reloadThread_callsThreadContentLoadUseCase() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -111,6 +118,7 @@ class ThreadRouteViewModelTest {
         }
     }
 
+    /** 未選択タブの最下端到達では自動更新を実行しない。 */
     @Test
     fun onAutoScrollReachedBottom_doesNotUpdateUnselectedTab() = runTest {
         val firstId = ThreadId.of("example.com", "test", "111")
@@ -131,6 +139,7 @@ class ThreadRouteViewModelTest {
         coVerify(exactly = 0) { dependencies.threadContentLoadUseCase.load(any(), "222", any()) }
     }
 
+    /** スレッドタブを閉じたとき実行中の読み込みをキャンセルする。 */
     @Test
     fun closingThreadTab_cancelsInFlightLoad() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -149,6 +158,7 @@ class ThreadRouteViewModelTest {
         assertTrue(dependencies.threadLoadCancelled.value)
     }
 
+    /** ViewModel破棄時にroute jobを解放し、タブsession状態を保持する。 */
     @Test
     fun onCleared_keepsSessionStateButCancelsRouteJobs() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -168,6 +178,7 @@ class ThreadRouteViewModelTest {
         assertEquals(1, dependencies.sessionStates.value.size)
     }
 
+    /** 読み込み失敗を画面stateのtoastへ反映する。 */
     @Test
     fun reloadThread_loadFailure_setsPendingToast() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -184,6 +195,7 @@ class ThreadRouteViewModelTest {
         assertEquals(com.websarva.wings.android.slevo.R.string.thread_load_failed, dependencies.sessionStates.value[threadId.value]?.pendingToastResId)
     }
 
+    /** 読み込み成功後にloading状態を解除し、失敗toastを設定しない。 */
     @Test
     fun reloadThread_successfulLoad_keepsSuccessfulLoadState() = runTest {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -201,6 +213,7 @@ class ThreadRouteViewModelTest {
         assertEquals(false, session?.isLoading)
     }
 
+    /** 初回取得で最終既読位置に対応する新着グループを復元する。 */
     @Test
     fun initialLoad_restoresUnreadGroupFromLastReadPosition() {
         val state = updateThreadPostGroups(
@@ -235,6 +248,7 @@ class ThreadRouteViewModelTest {
         assertEquals(100, visible.firstAfterIndex)
     }
 
+    /** first-new位置がない場合も既読位置から新着境界を復元する。 */
     @Test
     fun initialLoad_restoresUnreadGroupWhenFirstNewResNoIsMissing() {
         val readState = ThreadReadState(lastReadResNo = 100, firstNewResNo = null)
@@ -253,6 +267,7 @@ class ThreadRouteViewModelTest {
         assertEquals(101, state.groups[1].startResNo)
     }
 
+    /** 有効な未読境界がない初回取得では新着バーを表示しない。 */
     @Test
     fun initialLoad_doesNotShowArrivalBarWithoutValidUnreadBoundary() {
         val states = listOf(
@@ -279,6 +294,7 @@ class ThreadRouteViewModelTest {
         }
     }
 
+    /** 未読境界がレス番号1なら全取得レスを新着グループにする。 */
     @Test
     fun initialLoad_treatsAllResponsesAsUnreadWhenBoundaryIsOne() {
         val state = updateThreadPostGroups(emptyList(), 0, posts(10), 1, true)
@@ -290,6 +306,7 @@ class ThreadRouteViewModelTest {
         assertEquals(0, state.latestArrivalGroupIndex)
     }
 
+    /** 既読状態更新後も初回に確定した未読境界を維持する。 */
     @Test
     fun initialLoad_keepsBoundaryAfterReadStateChanges() {
         val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
@@ -299,6 +316,7 @@ class ThreadRouteViewModelTest {
         assertEquals(initial.latestArrivalGroupIndex, afterRead.latestArrivalGroupIndex)
     }
 
+    /** 再取得で追加されたグループへ新着バーを移し、変化なしで消去する。 */
     @Test
     fun reload_movesArrivalBarToNewestAppendedGroupAndClearsOnNoChange() {
         val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
@@ -310,6 +328,7 @@ class ThreadRouteViewModelTest {
         assertEquals(null, unchanged.latestArrivalGroupIndex)
     }
 
+    /** 空の再取得後に復旧しても古い初回未読境界を再利用しない。 */
     @Test
     fun recoveryAfterEmptyReload_doesNotReuseInitialBoundary() {
         val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
@@ -324,6 +343,7 @@ class ThreadRouteViewModelTest {
         assertEquals(-1, firstAfterIndex(posts(110), recovered))
     }
 
+    /** 空の初回取得後の復旧時に未読境界を再利用しない。 */
     @Test
     fun recoveryAfterInitialEmptyLoad_doesNotReuseInitialBoundary() {
         val empty = updateThreadPostGroups(emptyList(), 0, emptyList(), 101, true)
@@ -337,6 +357,7 @@ class ThreadRouteViewModelTest {
         assertEquals(-1, firstAfterIndex(posts(110), recovered))
     }
 
+    /** レス数が減少して復旧した場合も初回未読境界を再利用しない。 */
     @Test
     fun recoveryAfterNonZeroCountDecrease_doesNotReuseInitialBoundary() {
         val initial = updateThreadPostGroups(emptyList(), 0, posts(110), 101, true)
@@ -351,6 +372,7 @@ class ThreadRouteViewModelTest {
     }
 
     /** キャッシュ済み新着件数が0でも、初回実取得レス数から未読境界を復元する。 */
+    /** cached件数が0でも実取得件数から既読・未読境界を決める。 */
     @Test
     fun initialLoad_usesFetchedCountWhenCachedNewResCountIsZero() = runTest {
         val tab = threadTab(ThreadId.of("example.com", "test", "stale-cache"), "title").copy(
@@ -379,6 +401,7 @@ class ThreadRouteViewModelTest {
     }
 
     /** 未訪問スレッドでは実取得レス数が増えていても初回未読境界を作らない。 */
+    /** 未訪問スレッドでは取得レス数が増えても未読境界を作らない。 */
     @Test
     fun initialLoad_doesNotCreateBoundaryForUnvisitedThreadWhenFetchedCountIncreases() = runTest {
         val tab = threadTab(ThreadId.of("example.com", "test", "unvisited"), "title").copy(
@@ -403,6 +426,7 @@ class ThreadRouteViewModelTest {
         assertEquals(-1, firstAfterIndex(posts(110), state))
     }
 
+    /** 入力中compositionを保持したまま検索文字列を更新する。 */
     @Test
     fun updateSearchInput_preservesComposition() {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -416,6 +440,7 @@ class ThreadRouteViewModelTest {
         assertEquals("かな", dependencies.sessionStates.value[threadId.value]?.searchQuery)
     }
 
+    /** 検索終了時に入力値を消去してタブスワイプを再有効化する。 */
     @Test
     fun closeSearch_clearsSearchAndRestoresSwipe() {
         val threadId = ThreadId.of("example.com", "test", "111")
@@ -608,6 +633,253 @@ class ThreadRouteViewModelTest {
             listOf(listOf(5, 4), listOf(1)),
             dependencies.sessionStates.value.getValue(threadId.value).popupStack.map { it.postNumbers },
         )
+    }
+
+    /** 返信先一覧はNG・未取得番号を除外せず、専用ポップアップとして保持する。 */
+    @Test
+    fun addPopupForReplyTargetsRetainsNgAndUnavailableCandidates() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-targets")
+        val ngRules = MutableStateFlow(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        val posts = listOf(
+            threadPost(1, "blocked candidate"),
+            threadPost(2, ">>1 >>99"),
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(contentLoadResult(posts)),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.addPopupForReplyTargetNumbers(
+            tabKey = threadId.value,
+            baseOffset = IntOffset(10, 20),
+            replyNumbers = listOf(1, 99),
+            hasMoreCandidates = true,
+        )
+        advanceUntilIdle()
+
+        val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
+        assertEquals(listOf(1, 99), popup.postNumbers)
+        assertEquals(PopupContentType.REPLY_TARGETS, popup.contentType)
+        assertEquals(true, popup.hasMoreCandidates)
+        assertEquals(listOf(1, 99), uiState.value.popupStack.single().postNumbers)
+        assertEquals(setOf(1), uiState.value.ngPostNumbers)
+    }
+
+    /** 再取得で投稿数が減り、残り候補がNG・未取得になっても一覧番号を維持する。 */
+    @Test
+    fun replyTargetPopupSurvivesPostCountDecreaseAndResolvesLatestNgState() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-target-refresh")
+        val ngRules = MutableStateFlow(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        val initialPosts = listOf(
+            threadPost(1, "blocked target"),
+            threadPost(2, ">>1"),
+        )
+        val refreshedPosts = listOf(threadPost(1, "available target"))
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(contentLoadResult(initialPosts), contentLoadResult(refreshedPosts)),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.addPopupForReplyTargetNumbers(
+            threadId.value,
+            IntOffset.Zero,
+            listOf(1, 2, 99),
+            hasMoreCandidates = false,
+        )
+        advanceUntilIdle()
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+
+        assertEquals(1, uiState.value.posts?.size)
+        assertTrue(uiState.value.ngPostNumbers.isEmpty())
+        assertEquals(
+            listOf(1, 2, 99),
+            uiState.value.popupStack.single { it.contentType == PopupContentType.REPLY_TARGETS }.postNumbers,
+        )
+        assertEquals(1, dependencies.sessionStates.value.getValue(threadId.value).popupStack.size)
+    }
+
+    /** NG・追加取得の変化を反映しつつ、行候補順と残数を維持する。 */
+    @Test
+    fun replyTargetCandidatesUpdateAcrossNgChangesAndAdditionalPosts() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-target-candidates")
+        val ngRules = MutableStateFlow(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        val initialPosts = listOf(
+            threadPost(1, "blocked target"),
+            threadPost(2, ">>1 >>3"),
+        )
+        val postsAfterAdditionalFetch = initialPosts + threadPost(3, "new target")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(
+                contentLoadResult(initialPosts),
+                contentLoadResult(postsAfterAdditionalFetch),
+            ),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        val initialTarget = uiState.value.replyPreviewByPostNumber.getValue(2).replyTargets.single()
+        assertEquals(listOf(1, 3), initialTarget.referencedNumbers)
+        assertEquals(ReplyTargetCandidateStatus.NG, initialTarget.candidates[0].status)
+        assertEquals(ReplyTargetCandidateStatus.UNAVAILABLE, initialTarget.candidates[1].status)
+        assertEquals(1, initialTarget.selectedCandidate.postNumber)
+        assertEquals(1, initialTarget.overflowCount)
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        val afterFetch = uiState.value.replyPreviewByPostNumber.getValue(2).replyTargets.single()
+        assertEquals(listOf(1, 3), afterFetch.referencedNumbers)
+        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, afterFetch.candidates[1].status)
+        assertEquals(3, afterFetch.selectedCandidate.postNumber)
+        assertEquals(1, afterFetch.overflowCount)
+
+        ngRules.value = emptyList()
+        advanceUntilIdle()
+        val afterNgRemoval = uiState.value.replyPreviewByPostNumber.getValue(2).replyTargets.single()
+        assertEquals(listOf(1, 3), afterNgRemoval.referencedNumbers)
+        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, afterNgRemoval.candidates[0].status)
+        assertEquals(1, afterNgRemoval.selectedCandidate.postNumber)
+        assertEquals(1, afterNgRemoval.overflowCount)
+    }
+
+    /** プレビューとポップアップのNG開示は独立し、一覧を閉じるとポップアップ分だけ破棄する。 */
+    @Test
+    fun replyTargetDisclosureIsScopedAndResetAfterPopupCloses() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-target-disclosure")
+        val ngRules = MutableStateFlow(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        val posts = listOf(
+            threadPost(1, "blocked candidate"),
+            threadPost(2, ">>1 >>99"),
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(contentLoadResult(posts)),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        val inlineKey = ReplyTargetDisclosureKey(hostPostNumber = 2, lineIndex = 0, postNumber = 1)
+        viewModel.setReplyTargetDisclosure(threadId.value, inlineKey, revealed = true)
+        advanceUntilIdle()
+        assertEquals(setOf(inlineKey), uiState.value.revealedReplyTargetKeys)
+
+        viewModel.addPopupForReplyTargetNumbers(
+            threadId.value,
+            IntOffset.Zero,
+            listOf(1, 99),
+            hasMoreCandidates = false,
+        )
+        advanceUntilIdle()
+        val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
+        val popupKey = ReplyTargetDisclosureKey(
+            hostPostNumber = 0,
+            lineIndex = 0,
+            postNumber = 1,
+            popupId = popup.popupId,
+        )
+        viewModel.setReplyTargetDisclosure(threadId.value, popupKey, revealed = true)
+        advanceUntilIdle()
+        assertEquals(setOf(inlineKey, popupKey), uiState.value.revealedReplyTargetKeys)
+
+        viewModel.removeTopPopup(threadId.value)
+        advanceUntilIdle()
+        assertEquals(setOf(inlineKey), uiState.value.revealedReplyTargetKeys)
+
+        viewModel.addPopupForReplyTargetNumbers(
+            threadId.value,
+            IntOffset.Zero,
+            listOf(1, 99),
+            hasMoreCandidates = false,
+        )
+        advanceUntilIdle()
+        val reopenedPopup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
+        assertTrue(reopenedPopup.popupId != popup.popupId)
+        assertEquals(setOf(inlineKey), uiState.value.revealedReplyTargetKeys)
+
+        ngRules.value = ngRules.value + NgEntity(
+            pattern = "unused rule",
+            isRegex = false,
+            boardId = 1L,
+            type = NgType.WORD,
+        )
+        advanceUntilIdle()
+        assertTrue(uiState.value.revealedReplyTargetKeys.isEmpty())
+        assertEquals(setOf(1), uiState.value.ngPostNumbers)
+    }
+
+    /** 安価行が本文から消えた時点で開示を破棄し、後日の再出現へ引き継がない。 */
+    @Test
+    fun replyTargetDisclosureIsDiscardedWhenItsAnchorLineDisappears() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-target-invalidated")
+        val ngRules = MutableStateFlow(
+            listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
+        )
+        val initialPosts = listOf(
+            threadPost(1, "blocked candidate"),
+            threadPost(2, ">>1"),
+        )
+        val changedPosts = listOf(
+            threadPost(1, "blocked candidate"),
+            threadPost(2, "anchor removed"),
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            ngRules = ngRules,
+            loadResults = listOf(
+                contentLoadResult(initialPosts),
+                contentLoadResult(changedPosts),
+                contentLoadResult(initialPosts),
+            ),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        val disclosureKey = ReplyTargetDisclosureKey(hostPostNumber = 2, lineIndex = 0, postNumber = 1)
+        viewModel.setReplyTargetDisclosure(threadId.value, disclosureKey, revealed = true)
+        advanceUntilIdle()
+        assertEquals(setOf(disclosureKey), uiState.value.revealedReplyTargetKeys)
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        assertTrue(uiState.value.replyPreviewByPostNumber[2]?.replyTargets.isNullOrEmpty())
+        assertTrue(uiState.value.revealedReplyTargetKeys.isEmpty())
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+        assertEquals(listOf(1), uiState.value.replyPreviewByPostNumber[2]?.replyTargets?.single()?.referencedNumbers)
+        assertTrue(uiState.value.revealedReplyTargetKeys.isEmpty())
     }
 
     /** テスト用依存一式を構築する。 */

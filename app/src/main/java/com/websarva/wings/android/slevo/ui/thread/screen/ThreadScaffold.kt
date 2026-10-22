@@ -305,6 +305,17 @@ fun ThreadScaffold(
                 onAddPopupForReplyNumber = { postNumber, baseOffset ->
                     routeViewModel.addPopupForReplyNumber(tab.id.value, baseOffset, postNumber)
                 },
+                onAddPopupForReplyTargetNumbers = { replyNumbers, hasMoreCandidates, baseOffset ->
+                    routeViewModel.addPopupForReplyTargetNumbers(
+                        tab.id.value,
+                        baseOffset,
+                        replyNumbers,
+                        hasMoreCandidates,
+                    )
+                },
+                onReplyTargetDisclosureChange = { key, revealed ->
+                    routeViewModel.setReplyTargetDisclosure(tab.id.value, key, revealed)
+                },
                 onAddPopupForId = { id, baseOffset ->
                     routeViewModel.addPopupForId(tab.id.value, baseOffset, id)
                 },
@@ -383,6 +394,7 @@ fun ThreadScaffold(
                 idIndexList = uiState.idIndexList,
                 ngPostNumbers = uiState.ngPostNumbers,
                 myPostNumbers = uiState.myPostNumbers,
+                revealedReplyTargetKeys = uiState.revealedReplyTargetKeys,
                 headerTextScale = if (uiState.isIndividualTextScale) uiState.headerTextScale else uiState.textScale * 0.85f,
                 bodyTextScale = if (uiState.isIndividualTextScale) uiState.bodyTextScale else uiState.textScale,
                 lineHeight = if (uiState.isIndividualTextScale) {
@@ -428,6 +440,9 @@ fun ThreadScaffold(
                 },
                 onAddPopupForReplyNumber = { postNumber, baseOffset ->
                     routeViewModel.addPopupForReplyNumber(tab.id.value, baseOffset, postNumber)
+                },
+                onReplyTargetDisclosureChange = { key, revealed ->
+                    routeViewModel.setReplyTargetDisclosure(tab.id.value, key, revealed)
                 },
                 onAddPopupForId = { id, baseOffset ->
                     routeViewModel.addPopupForId(tab.id.value, baseOffset, id)

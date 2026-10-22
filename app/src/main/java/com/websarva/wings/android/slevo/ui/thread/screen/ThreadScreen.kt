@@ -63,6 +63,7 @@ import com.websarva.wings.android.slevo.ui.thread.screen.effects.ObservePopupVis
 import com.websarva.wings.android.slevo.ui.thread.screen.effects.rememberBottomRefreshHandle
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
@@ -95,6 +96,8 @@ fun ThreadScreen(
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
+    onAddPopupForReplyTargetNumbers: (replyNumbers: List<Int>, hasMoreCandidates: Boolean, baseOffset: IntOffset) -> Unit = { _, _, _ -> },
+    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },
     onImageLoadStart: (String) -> Unit = {},
@@ -244,6 +247,8 @@ fun ThreadScreen(
                 onRequestTreePopup = onRequestTreePopup,
                 onAddPopupForReplyFrom = onAddPopupForReplyFrom,
                 onAddPopupForReplyNumber = onAddPopupForReplyNumber,
+                onAddPopupForReplyTargetNumbers = onAddPopupForReplyTargetNumbers,
+                onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
                 onAddPopupForId = onAddPopupForId,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,

@@ -35,7 +35,10 @@ import com.websarva.wings.android.slevo.ui.tabs.model.ThreadTabInfo
 import com.websarva.wings.android.slevo.ui.tabs.session.ThreadSessionState
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -434,6 +437,15 @@ class ThreadRouteViewModel @Inject constructor(
             val next = state.copy(popupStack = state.popupStack.dropLast(1))
             next.copy(isTabSwipeEnabled = shouldEnableTabSwipe(next))
         }
+        val activePopupIds = tabSessionStore.getThreadSessionState(ThreadId(tabKey))
+            .popupStack.mapTo(mutableSetOf()) { it.popupId }
+        updateContentState(tabKey) { content ->
+            content.copy(
+                revealedReplyTargetKeys = content.revealedReplyTargetKeys.filterTo(mutableSetOf()) { key ->
+                    key.popupId == null || key.popupId in activePopupIds
+                },
+            )
+        }
     }
 
     /** 返信元レス群をポップアップへ追加する。 */
@@ -467,6 +479,49 @@ class ThreadRouteViewModel @Inject constructor(
     /** 単一レスをポップアップへ追加する。 */
     fun addPopupForReplyNumber(tabKey: String, baseOffset: IntOffset, postNumber: Int) {
         addPopupForReplyNumbers(tabKey, baseOffset, listOf(postNumber))
+    }
+
+    /** 返信先候補一覧では未取得番号とNG番号を除外せずに表示する。 */
+    fun addPopupForReplyTargetNumbers(
+        tabKey: String,
+        baseOffset: IntOffset,
+        replyNumbers: List<Int>,
+        hasMoreCandidates: Boolean,
+    ) {
+        val state = uiStateFor(tabKey).value
+        val targetNumbers = replyNumbers.filter { it > 0 }.distinct()
+        // Guard: 候補が空なら表示内容のないポップアップを積まない。
+        if (targetNumbers.isEmpty()) return
+        appendPopup(
+            tabKey = tabKey,
+            info = PopupInfo(
+                popupId = nextPopupId(tabKey),
+                postNumbers = targetNumbers,
+                offset = baseOffset,
+                rootNumbers = targetNumbers.map { number -> state.treeRootMap[number] ?: number },
+                contentType = PopupContentType.REPLY_TARGETS,
+                hasMoreCandidates = hasMoreCandidates,
+            ),
+        )
+    }
+
+    /** 表示箇所ごとにNG返信先の一時開示状態を切り替える。 */
+    fun setReplyTargetDisclosure(
+        tabKey: String,
+        key: ReplyTargetDisclosureKey,
+        revealed: Boolean,
+    ) {
+        val currentState = uiStateFor(tabKey).value
+        // Guard: NGでないレスの本文は一時開示状態に追加しない。
+        if (revealed && key.postNumber !in currentState.ngPostNumbers) return
+        updateContentState(tabKey) { content ->
+            val keys = if (revealed) {
+                content.revealedReplyTargetKeys + key
+            } else {
+                content.revealedReplyTargetKeys - key
+            }
+            content.copy(revealedReplyTargetKeys = keys)
+        }
     }
 
     /** 指定 ID のレス群をポップアップへ追加する。 */
@@ -845,7 +900,7 @@ class ThreadRouteViewModel @Inject constructor(
         val activeImageUrls = deriveActiveImageUrls(derived.uiPosts)
         val prunedPopupStack = prunePopupStackWithoutRenderablePosts(
             popupStack = tabSessionStore.getThreadSessionState(ThreadId(tabKey)).popupStack,
-            posts = derived.uiPosts,
+            postCount = derived.uiPosts.size,
             ngPostNumbers = emptySet(),
         )
         updateThreadSessionState(tabKey) { session ->
@@ -1015,6 +1070,18 @@ class ThreadRouteViewModel @Inject constructor(
                 rules = compiledNg,
             )
         }
+        val disclosureStateIsCurrent = content.ngPostNumbersSnapshot == ngPostNumbers &&
+            content.ngRulesSnapshot == ngList
+        if (!disclosureStateIsCurrent) {
+            // NGルールまたは対象レスの状態が変わった場合は、すべての開示を閉じる。
+            updateContentState(tab.id.value) { current ->
+                current.copy(
+                    revealedReplyTargetKeys = emptySet(),
+                    ngPostNumbersSnapshot = ngPostNumbers,
+                    ngRulesSnapshot = ngList,
+                )
+            }
+        }
         val visibleReplySourceMap = if (posts == null) {
             emptyMap()
         } else {
@@ -1037,7 +1104,32 @@ class ThreadRouteViewModel @Inject constructor(
         val popupStack = if (posts == null) {
             session.popupStack
         } else {
-            prunePopupStackWithoutRenderablePosts(session.popupStack, posts, ngPostNumbers)
+            prunePopupStackWithoutRenderablePosts(session.popupStack, posts.size, ngPostNumbers)
+        }
+        val validDisclosureKeys = if (disclosureStateIsCurrent) {
+            content.revealedReplyTargetKeys.filterTo(mutableSetOf()) { key ->
+                if (key.postNumber !in ngPostNumbers) {
+                    false
+                } else if (key.popupId != null) {
+                    popupStack.any { popup -> popup.popupId == key.popupId }
+                } else {
+                    replyPreviewByPostNumber[key.hostPostNumber]
+                        ?.replyTargets
+                        ?.any { target ->
+                            target.lineIndex == key.lineIndex &&
+                                target.candidates.any { candidate ->
+                                    candidate.postNumber == key.postNumber &&
+                                        candidate.status == ReplyTargetCandidateStatus.NG
+                                }
+                        } == true
+                }
+            }
+        } else emptySet()
+        if (validDisclosureKeys != content.revealedReplyTargetKeys) {
+            // 無効になった行と閉じたポップアップの開示キーは所有stateからも除去する。
+            updateContentState(tab.id.value) { current ->
+                current.copy(revealedReplyTargetKeys = validDisclosureKeys)
+            }
         }
         val visibleRowsResult = if (posts == null) {
             null
@@ -1090,6 +1182,7 @@ class ThreadRouteViewModel @Inject constructor(
             replySourceMap = content.replySourceMap,
             visibleReplySourceMap = visibleReplySourceMap,
             replyPreviewByPostNumber = replyPreviewByPostNumber,
+            revealedReplyTargetKeys = validDisclosureKeys,
             ngPostNumbers = ngPostNumbers,
             imageLoadFailureByUrl = content.imageLoadFailureByUrl,
             imageLoadingUrls = content.imageLoadingUrls,
@@ -1205,20 +1298,6 @@ class ThreadRouteViewModel @Inject constructor(
         val parsed = com.websarva.wings.android.slevo.ui.util.parseBoardUrl(boardUrl) ?: return ""
         val (host, boardKey) = parsed
         return "https://$host/test/read.cgi/$boardKey/$threadKey/"
-    }
-
-    /** 表示不能になったポップアップを除外する。 */
-    private fun prunePopupStackWithoutRenderablePosts(
-        popupStack: List<PopupInfo>,
-        posts: List<ThreadPostUiModel>,
-        ngPostNumbers: Set<Int>,
-    ): List<PopupInfo> {
-        if (popupStack.isEmpty()) {
-            return popupStack
-        }
-        return popupStack.filter { info ->
-            info.postNumbers.any { number -> number in 1..posts.size && number !in ngPostNumbers }
-        }
     }
 
     /** 閉じたタブのキャッシュと監視ジョブを解放する。 */
@@ -1374,6 +1453,9 @@ private data class ThreadRouteContentState(
     val myPostNumbers: Set<Int> = emptySet(),
     val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
     val imageLoadingUrls: Set<String> = emptySet(),
+    val revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    val ngPostNumbersSnapshot: Set<Int> = emptySet(),
+    val ngRulesSnapshot: List<NgEntity> = emptyList(),
     val observedThreadHistoryId: Long? = null,
 )
 

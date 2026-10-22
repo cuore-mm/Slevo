@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,6 +58,8 @@ internal fun ReplyPreviewCard(
     previewType: ImageReplyPreviewType,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
+    hasMoreCandidates: Boolean = false,
+    onHide: (() -> Unit)? = null,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeightEm: Float,
@@ -261,6 +264,30 @@ internal fun ReplyPreviewCard(
                         color = colors.primary,
                     )
                 }
+                if (previewType == ImageReplyPreviewType.REPLY_TARGET && hasMoreCandidates) {
+                    Text(
+                        text = stringResource(R.string.reply_preview_candidates_truncated),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontSize = previewBodyTextSize,
+                        lineHeight = lineHeightEm.em,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+            }
+            if (onHide != null) {
+                val hideDescription = stringResource(
+                    R.string.reply_preview_hide_target,
+                    post.postNumber,
+                )
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = hideDescription },
+                    onClick = onHide,
+                ) {
+                    Text(stringResource(R.string.reply_preview_hide))
+                }
             }
         }
     }
@@ -360,6 +387,47 @@ private fun ReplyPreviewCardImageOnlyPreview() {
                     ),
                     hostNamespace = "thread-post-20",
                     previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    headerTextScale = 1f,
+                    bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
+                    onOpenPost = {},
+                    onOpenOverflow = {},
+                    onImageClick = { _, _, _, _ -> },
+                    onImageLongPress = { _, _ -> },
+                    imageLoadFailureByUrl = emptyMap(),
+                    onImageLoadStart = {},
+                    onImageLoadError = { _, _ -> },
+                    onImageLoadSuccess = {},
+                    onImageRetry = {},
+                    enableSharedElement = true,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Revealed NG reply target")
+@Composable
+private fun RevealedNgReplyPreviewCardPreview() {
+    SlevoTheme {
+        SharedTransitionLayout {
+            AnimatedVisibility(visible = true) {
+                ReplyPreviewCard(
+                    post = ReplyPreviewPostUiModel(
+                        postNumber = 14,
+                        name = "一時表示中の投稿者",
+                        id = "temporarily-visible-id",
+                        body = "開示されたNG本文のプレビューです。\n二行目\n三行目\n四行目は省略されます。",
+                        imageUrls = emptyList(),
+                    ),
+                    hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                    overflowCount = 2,
+                    overflowNumbers = listOf(14, 16, 18),
+                    hasMoreCandidates = true,
+                    onHide = {},
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,

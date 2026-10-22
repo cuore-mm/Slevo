@@ -9,17 +9,47 @@ data class ReplyPreviewPostUiModel(
     val imageUrls: List<String>,
 )
 
-/** 安価だけの行に挿入する返信先プレビューと元行情報を表す。 */
+/** 返信先候補が取得状態のどれに該当するかを表す。 */
+enum class ReplyTargetCandidateStatus {
+    AVAILABLE,
+    NG,
+    UNAVAILABLE,
+}
+
+/** 安価行に含まれる一つの返信先番号と、その最新の表示状態を表す。 */
+data class ReplyTargetCandidateUiModel(
+    val postNumber: Int,
+    val status: ReplyTargetCandidateStatus,
+    val post: ReplyPreviewPostUiModel?,
+)
+
+/** NG返信先の一時開示状態を表示箇所ごとに識別する。 */
+data class ReplyTargetDisclosureKey(
+    val hostPostNumber: Int,
+    val lineIndex: Int,
+    val postNumber: Int,
+    val popupId: Long? = null,
+)
+
+/** 安価だけの行に挿入する返信先と候補一覧を表す。 */
 data class ReplyTargetPreviewUiState(
     val lineIndex: Int,
     val lineStartOffset: Int,
     val lineEndOffset: Int,
     val lineBreakEndOffset: Int,
     val anchorLine: String,
-    val isSingleAnchor: Boolean,
-    val post: ReplyPreviewPostUiModel,
-    val referencedNumbers: List<Int>,
-)
+    val candidates: List<ReplyTargetCandidateUiModel>,
+    val selectedCandidate: ReplyTargetCandidateUiModel,
+    val hasMoreCandidates: Boolean,
+) {
+    /** 安価行に含まれる全候補番号を出現順で返す。 */
+    val referencedNumbers: List<Int>
+        get() = candidates.map(ReplyTargetCandidateUiModel::postNumber)
+
+    /** 選択済み候補以外の件数を返す。 */
+    val overflowCount: Int
+        get() = (candidates.size - 1).coerceAtLeast(0)
+}
 
 /** 元本文の範囲を参照する、プレビュー挿入前後の本文セグメントを表す。 */
 sealed interface PostBodySegment {
@@ -37,17 +67,12 @@ sealed interface PostBodySegment {
 
 /** 一つの通常レスに付随する返信先と返信元プレビューの集合を表す。 */
 data class PostReplyPreviewUiState(
-    val replyTarget: ReplyTargetPreviewUiState? = null,
+    val replyTargets: List<ReplyTargetPreviewUiState> = emptyList(),
     val replySourcePreviews: List<ReplyPreviewPostUiModel> = emptyList(),
     val replySourceNumbers: List<Int> = emptyList(),
-    val replyTargetNumbers: List<Int> = emptyList(),
     val bodySegments: List<PostBodySegment> = emptyList(),
 ) {
     /** 先頭三件の表示後に省略される返信元件数。 */
     val replySourceOverflowCount: Int
         get() = (replySourceNumbers.size - replySourcePreviews.size).coerceAtLeast(0)
-
-    /** 先頭の返信先プレビュー以外に省略される参照先件数。 */
-    val replyTargetOverflowCount: Int
-        get() = (replyTargetNumbers.size - if (replyTarget == null) 0 else 1).coerceAtLeast(0)
 }

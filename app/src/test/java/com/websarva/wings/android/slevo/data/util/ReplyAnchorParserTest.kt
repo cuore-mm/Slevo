@@ -82,4 +82,70 @@ class ReplyAnchorParserTest {
     fun doesNotExpandWhenNoPostsAreAvailable() {
         assertEquals(emptyList<Int>(), ReplyAnchorParser.extractReferencedNumbers(">>1-2147483647", 0))
     }
+
+    /** 返信先候補は取得済み上限と独立して出現順・重複なしで上限まで展開する。 */
+    @Test
+    fun extractsDistinctReferencedNumbersUpToLimit() {
+        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+            content = ">>3-5,4 >>1,5",
+            limit = 4,
+        )
+
+        assertEquals(listOf(3, 4, 5, 1), result.numbers)
+        assertEquals(false, result.hasMore)
+    }
+
+    /** 候補がちょうど上限数なら打切り状態にしない。 */
+    @Test
+    fun exactLimitDoesNotReportMoreCandidates() {
+        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+            content = ">>1-1000 >>1-1000",
+            limit = 1000,
+        )
+
+        assertEquals((1..1000).toList(), result.numbers)
+        assertEquals(false, result.hasMore)
+    }
+
+    /** 上限を超える巨大範囲は上限+1件目を見つけた時点で打ち切る。 */
+    @Test
+    fun hugeRangeStopsAfterFindingCandidateBeyondLimit() {
+        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+            content = ">>1-2147483647",
+            limit = 1000,
+        )
+
+        assertEquals((1..1000).toList(), result.numbers)
+        assertEquals(true, result.hasMore)
+    }
+
+    /** 範囲端点がInt最大値でも増分をoverflowさせず、終端で停止する。 */
+    @Test
+    fun maximumIntAnchorDoesNotOverflow() {
+        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+            content = ">>2147483647",
+            limit = 1000,
+        )
+
+        assertEquals(listOf(Int.MAX_VALUE), result.numbers)
+        assertEquals(false, result.hasMore)
+    }
+
+    /** 不正tokenは候補を作らず、後続する有効tokenは処理する。 */
+    @Test
+    fun limitedExtractionIgnoresInvalidAnchors() {
+        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+            content = ">>0 >>5-1 >>1- >>2",
+            limit = 10,
+        )
+
+        assertEquals(listOf(2), result.numbers)
+        assertEquals(false, result.hasMore)
+    }
+
+    /** 空の候補上限は受け付けない。 */
+    @Test(expected = IllegalArgumentException::class)
+    fun limitedExtractionRequiresPositiveLimit() {
+        ReplyAnchorParser.extractReferencedNumbersWithLimit(">>1", limit = 0)
+    }
 }

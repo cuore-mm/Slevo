@@ -5,6 +5,8 @@ import com.websarva.wings.android.slevo.data.util.ReplyAnchorParser
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.PostBodySegment
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
@@ -14,8 +16,9 @@ import com.websarva.wings.android.slevo.ui.util.removeImageUrls
 /** 通常の番号順投稿一覧から返信プレビュー用の不変表示データを導出する。 */
 internal object ThreadReplyPreviewTransformer {
     private val singleAnchorRegex = Regex(">>\\d+")
+    private const val MAX_REPLY_TARGET_CANDIDATES = 1_000
 
-    /** NGを除き、返信先一件と番号順の返信元最大三件を投稿番号別に作成する。 */
+    /** 行ごとの返信先候補とNG除外済み返信元最大三件を投稿番号別に作成する。 */
     fun derive(
         posts: List<ThreadPostUiModel>,
         visibleReplySourceMap: Map<Int, List<Int>>,
@@ -25,8 +28,8 @@ internal object ThreadReplyPreviewTransformer {
         val previewByNumber = mutableMapOf<Int, ReplyPreviewPostUiModel>()
         val replySourcePreviewByHost = mutableMapOf<Pair<Int, Int>, ReplyPreviewPostUiModel>()
 
-        fun preview(number: Int): ReplyPreviewPostUiModel? {
-            if (number in ngPostNumbers) return null
+        fun preview(number: Int, includeNg: Boolean = false): ReplyPreviewPostUiModel? {
+            if (!includeNg && number in ngPostNumbers) return null
             return previewByNumber.getOrPut(number) {
                 posts.getOrNull(number - 1)?.toReplyPreview(number, defaultName)
                     ?: return null
@@ -48,32 +51,44 @@ internal object ThreadReplyPreviewTransformer {
             val anchorOnlyLines = contentLines.mapNotNull { contentLine ->
                 val tokens = contentLine.text.takeIf(::isAnchorOnlyLine)?.let(ReplyAnchorParser::parseAnchors)
                     ?: return@mapNotNull null
-                val availableNumbers = tokens.flatMap { token ->
-                    ReplyAnchorParser.extractReferencedNumbers(token.rawText, posts.size)
-                }.distinct().filterNot { it in ngPostNumbers }
-                if (availableNumbers.isEmpty()) return@mapNotNull null
-                AnchorOnlyLine(contentLine, tokens, availableNumbers)
-            }
-
-            val allTargetNumbers = anchorOnlyLines.flatMap { it.availableNumbers }.distinct()
-            val selectedLine = anchorOnlyLines.firstOrNull()
-            val replyTarget = selectedLine?.availableNumbers?.firstOrNull()?.let { targetNumber ->
-                preview(targetNumber)?.let { targetPost ->
-                    val anchor = selectedLine.tokens.singleOrNull()
-                    val isSingle = anchor != null &&
-                        singleAnchorRegex.matches(anchor.rawText) &&
-                        selectedLine.contentLine.text.trim() == anchor.rawText
-                    ReplyTargetPreviewUiState(
-                        lineIndex = selectedLine.contentLine.index,
-                        lineStartOffset = selectedLine.contentLine.startOffset,
-                        lineEndOffset = selectedLine.contentLine.endOffset,
-                        lineBreakEndOffset = selectedLine.contentLine.lineBreakEndOffset,
-                        anchorLine = selectedLine.contentLine.text,
-                        isSingleAnchor = isSingle,
-                        post = targetPost,
-                        referencedNumbers = allTargetNumbers,
+                val limitedNumbers = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+                    content = contentLine.text,
+                    limit = MAX_REPLY_TARGET_CANDIDATES,
+                )
+                // Guard: 有効な番号がない行は返信先候補を生成しない。
+                if (limitedNumbers.numbers.isEmpty()) return@mapNotNull null
+                val candidates = limitedNumbers.numbers.map { number ->
+                    val targetPost = posts.getOrNull(number - 1)
+                    val status = when {
+                        targetPost == null -> ReplyTargetCandidateStatus.UNAVAILABLE
+                        number in ngPostNumbers -> ReplyTargetCandidateStatus.NG
+                        else -> ReplyTargetCandidateStatus.AVAILABLE
+                    }
+                    ReplyTargetCandidateUiModel(
+                        postNumber = number,
+                        status = status,
+                        post = targetPost?.let { preview(number, includeNg = status == ReplyTargetCandidateStatus.NG) },
                     )
                 }
+                // 正常候補を優先し、なければNG、最後に未取得の先頭を選ぶ。
+                val selectedCandidate = candidates.firstOrNull {
+                    it.status == ReplyTargetCandidateStatus.AVAILABLE
+                } ?: candidates.firstOrNull { it.status == ReplyTargetCandidateStatus.NG }
+                    ?: candidates.first()
+                AnchorOnlyLine(contentLine, candidates, selectedCandidate, limitedNumbers.hasMore)
+            }
+
+            val replyTargets = anchorOnlyLines.map { line ->
+                ReplyTargetPreviewUiState(
+                    lineIndex = line.contentLine.index,
+                    lineStartOffset = line.contentLine.startOffset,
+                    lineEndOffset = line.contentLine.endOffset,
+                    lineBreakEndOffset = line.contentLine.lineBreakEndOffset,
+                    anchorLine = line.contentLine.text,
+                    candidates = line.candidates,
+                    selectedCandidate = line.selectedCandidate,
+                    hasMoreCandidates = line.hasMoreCandidates,
+                )
             }
 
             val replyNumbers = visibleReplySourceMap[postNumber].orEmpty()
@@ -85,19 +100,18 @@ internal object ThreadReplyPreviewTransformer {
             val replyPreviews = replyNumbers.take(MAX_REPLY_PREVIEWS)
                 .mapNotNull { number -> replySourcePreview(number, postNumber) }
             // --- Original-offset body segments and immutable row state ---
-            val bodySegments = if (replyTarget == null) {
+            val bodySegments = if (replyTargets.isEmpty()) {
                 listOf(PostBodySegment.TextRange(0, post.body.content.length))
             } else {
-                buildBodySegments(post.body.content, selectedLine!!, replyTarget)
+                buildBodySegments(post.body.content, replyTargets)
             }
-            if (replyTarget == null && replyPreviews.isEmpty()) {
+            if (replyTargets.isEmpty() && replyPreviews.isEmpty()) {
                 null
             } else {
                 postNumber to PostReplyPreviewUiState(
-                    replyTarget = replyTarget,
+                    replyTargets = replyTargets,
                     replySourcePreviews = replyPreviews,
                     replySourceNumbers = replyNumbers,
-                    replyTargetNumbers = allTargetNumbers,
                     bodySegments = bodySegments,
                 )
             }
@@ -138,34 +152,36 @@ internal object ThreadReplyPreviewTransformer {
         return lines
     }
 
-    /** 選択行だけを置換または保持し、本文offset範囲と挿入位置を組み立てる。 */
+    /** 対象行をそれぞれ置換し、通常本文のoffset順を維持する。 */
     private fun buildBodySegments(
         content: String,
-        selectedLine: AnchorOnlyLine,
-        targetPreview: ReplyTargetPreviewUiState,
+        targetPreviews: List<ReplyTargetPreviewUiState>,
     ): List<PostBodySegment> = buildList {
-        val line = selectedLine.contentLine
-        val previousLineIsBlank = if (line.startOffset > 0) {
-            val previousLineStart = content.lastIndexOf('\n', line.startOffset - 2) + 1
-            content.substring(previousLineStart, line.startOffset - 1).isBlank()
-        } else {
-            false
+        var cursor = 0
+        targetPreviews.forEach { targetPreview ->
+            val previousLineIsBlank = targetPreview.lineStartOffset > 0 &&
+                previousLineText(content, targetPreview.lineStartOffset).isBlank()
+            val prefixEnd = when {
+                targetPreview.lineStartOffset == 0 -> cursor
+                previousLineIsBlank -> targetPreview.lineStartOffset
+                else -> (targetPreview.lineStartOffset - 1).coerceAtLeast(cursor)
+            }
+            if (prefixEnd > cursor) {
+                add(PostBodySegment.TextRange(startOffset = cursor, endOffset = prefixEnd))
+            }
+            add(PostBodySegment.ReplyTarget(targetPreview))
+            cursor = targetPreview.lineBreakEndOffset
         }
-        val prefixEnd = when {
-            line.startOffset == 0 -> 0
-            previousLineIsBlank -> line.startOffset
-            else -> line.startOffset - 1
+        if (cursor < content.length) {
+            add(PostBodySegment.TextRange(cursor, content.length))
         }
-        if (prefixEnd > 0) {
-            add(PostBodySegment.TextRange(startOffset = 0, endOffset = prefixEnd))
-        }
-        if (!targetPreview.isSingleAnchor) {
-            add(PostBodySegment.TextRange(line.startOffset, line.endOffset))
-        }
-        add(PostBodySegment.ReplyTarget(targetPreview))
-        if (line.lineBreakEndOffset < content.length) {
-            add(PostBodySegment.TextRange(line.lineBreakEndOffset, content.length))
-        }
+    }
+
+    /** 指定offset直前の行内容を返す。 */
+    private fun previousLineText(content: String, lineStartOffset: Int): String {
+        val previousLineEnd = lineStartOffset - 1
+        val previousLineStart = content.lastIndexOf('\n', previousLineEnd - 1) + 1
+        return content.substring(previousLineStart, previousLineEnd)
     }
 
     /** レス本文から画像URLを除き、プレビュー用の名前・本文・画像一覧を作る。 */
@@ -244,8 +260,9 @@ internal object ThreadReplyPreviewTransformer {
     /** 表示可能な参照先を含む、安価だけの本文行を表す。 */
     private data class AnchorOnlyLine(
         val contentLine: ContentLine,
-        val tokens: List<ReplyAnchorParser.AnchorToken>,
-        val availableNumbers: List<Int>,
+        val candidates: List<ReplyTargetCandidateUiModel>,
+        val selectedCandidate: ReplyTargetCandidateUiModel,
+        val hasMoreCandidates: Boolean,
     )
 
     private const val MAX_REPLY_PREVIEWS = 3

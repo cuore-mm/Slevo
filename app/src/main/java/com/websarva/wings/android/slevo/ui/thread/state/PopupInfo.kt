@@ -3,6 +3,12 @@ package com.websarva.wings.android.slevo.ui.thread.state
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 
+/** ポップアップの通常レス表示と返信先候補一覧を区別する。 */
+enum class PopupContentType {
+    STANDARD,
+    REPLY_TARGETS,
+}
+
 /**
  * Holds the post numbers and layout info needed for reply popup rendering.
  *
@@ -21,4 +27,6 @@ data class PopupInfo(
     val size: IntSize = IntSize.Zero,
     val indentLevels: List<Int> = emptyList(),
     val rootNumbers: List<Int> = emptyList(),
+    val contentType: PopupContentType = PopupContentType.STANDARD,
+    val hasMoreCandidates: Boolean = false,
 )

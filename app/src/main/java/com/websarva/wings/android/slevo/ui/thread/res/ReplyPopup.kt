@@ -19,6 +19,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -61,6 +64,9 @@ import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.calculateTreeIndentWidths
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
@@ -94,7 +100,8 @@ private data class PopupPlacement(
 private data class PopupRow(
     val originalIndex: Int,
     val postNumber: Int,
-    val post: ThreadPostUiModel,
+    val post: ThreadPostUiModel?,
+    val status: ReplyTargetCandidateStatus,
     val indentWidth: Dp,
 )
 
@@ -115,6 +122,7 @@ fun ReplyPopup(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
+    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -133,6 +141,7 @@ fun ReplyPopup(
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
+    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
     onPopupSizeChange: (index: Int, size: IntSize) -> Unit,
     onClose: () -> Unit,
@@ -213,6 +222,7 @@ fun ReplyPopup(
                     idIndexList = idIndexList,
                     ngPostNumbers = ngPostNumbers,
                     myPostNumbers = myPostNumbers,
+                    revealedReplyTargetKeys = revealedReplyTargetKeys,
                     headerTextScale = headerTextScale,
                     bodyTextScale = bodyTextScale,
                     lineHeight = lineHeight,
@@ -252,6 +262,7 @@ fun ReplyPopup(
                             baseOffset,
                         )
                     },
+                    onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
                     onIdClick = { id, baseOffset ->
                         onAddPopupForId(
                             id,
@@ -412,6 +423,7 @@ private fun PopupPostList(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
+    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey>,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -432,6 +444,7 @@ private fun PopupPostList(
     onContentClick: ((Int, IntOffset) -> Unit)?,
     onReplyFromClick: (List<Int>, IntOffset) -> Unit,
     onReplyClick: (Int, IntOffset) -> Unit,
+    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit,
     onIdClick: (String, IntOffset) -> Unit,
 ) {
     // --- レイアウト ---
@@ -460,6 +473,7 @@ private fun PopupPostList(
                 idIndexList = idIndexList,
                 ngPostNumbers = ngPostNumbers,
                 myPostNumbers = myPostNumbers,
+                revealedReplyTargetKeys = revealedReplyTargetKeys,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,
@@ -480,6 +494,7 @@ private fun PopupPostList(
                 onContentClick = onContentClick,
                 onReplyFromClick = onReplyFromClick,
                 onReplyClick = onReplyClick,
+                onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
                 onIdClick = onIdClick,
                 maxHeight = maxHeight,
                 maxWidth = calculatePopupPlacement(
@@ -512,6 +527,7 @@ private fun PopupPostLazyColumn(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
+    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey>,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -532,6 +548,7 @@ private fun PopupPostLazyColumn(
     onContentClick: ((Int, IntOffset) -> Unit)?,
     onReplyFromClick: (List<Int>, IntOffset) -> Unit,
     onReplyClick: (Int, IntOffset) -> Unit,
+    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit,
     onIdClick: (String, IntOffset) -> Unit,
     maxHeight: Dp,
     maxWidth: Dp,
@@ -560,14 +577,27 @@ private fun PopupPostLazyColumn(
     // 最新の posts から表示可能な行を解決する。
     // 元のポップアップ内インデックスを保持して indentWidths と整合させる。
     val rows = info.postNumbers.mapIndexedNotNull { i, postNum ->
-        if (postNum in ngPostNumbers) return@mapIndexedNotNull null
-        val post = posts.getOrNull(postNum - 1) ?: return@mapIndexedNotNull null
-        PopupRow(
-            originalIndex = i,
-            postNumber = postNum,
-            post = post,
-            indentWidth = indentWidths.getOrElse(i) { 0.dp },
-        )
+        if (info.contentType == PopupContentType.REPLY_TARGETS) {
+            // 正の候補番号は未取得でも状態行を表示する。
+            if (postNum <= 0) return@mapIndexedNotNull null
+            val post = posts.getOrNull(postNum - 1)
+            val status = when {
+                post == null -> ReplyTargetCandidateStatus.UNAVAILABLE
+                postNum in ngPostNumbers -> ReplyTargetCandidateStatus.NG
+                else -> ReplyTargetCandidateStatus.AVAILABLE
+            }
+            PopupRow(i, postNum, post, status, indentWidths.getOrElse(i) { 0.dp })
+        } else {
+            if (postNum in ngPostNumbers) return@mapIndexedNotNull null
+            val post = posts.getOrNull(postNum - 1) ?: return@mapIndexedNotNull null
+            PopupRow(
+                originalIndex = i,
+                postNumber = postNum,
+                post = post,
+                status = ReplyTargetCandidateStatus.AVAILABLE,
+                indentWidth = indentWidths.getOrElse(i) { 0.dp },
+            )
+        }
     }
 
     LazyColumn(
@@ -578,6 +608,13 @@ private fun PopupPostLazyColumn(
             val postNum = row.postNumber
             val postIndex = postNum - 1
             val indentWidth = row.indentWidth
+            val disclosureKey = ReplyTargetDisclosureKey(
+                hostPostNumber = 0,
+                lineIndex = row.originalIndex,
+                postNumber = postNum,
+                popupId = info.popupId,
+            )
+            val isRevealed = disclosureKey in revealedReplyTargetKeys
             var postOffset by remember { mutableStateOf(IntOffset.Zero) }
             var isPostOffsetMeasured by remember { mutableStateOf(false) }
             val baseOffset = if (isPostOffsetMeasured) {
@@ -596,16 +633,33 @@ private fun PopupPostLazyColumn(
                 popupId = info.popupId,
                 postNumber = postNum,
             )
+            if (row.status != ReplyTargetCandidateStatus.AVAILABLE &&
+                !(row.status == ReplyTargetCandidateStatus.NG && isRevealed)
+            ) {
+                ReplyTargetStatusRow(
+                    postNumber = postNum,
+                    status = row.status,
+                    overflowCount = 0,
+                    overflowNumbers = emptyList(),
+                    hasMoreCandidates = false,
+                    onReveal = if (row.status == ReplyTargetCandidateStatus.NG) {
+                        { onReplyTargetDisclosureChange(disclosureKey, true) }
+                    } else null,
+                    onOpenOverflow = null,
+                )
+            } else {
+            // Guard: 状態行でない投稿にも更新中に解決不能となる場合がある。
+            val resolvedPost = row.post ?: return@itemsIndexed
             PostItem(
                 modifier = Modifier.onGloballyPositioned { coords ->
                     val position = coords.positionInRoot()
                     postOffset = IntOffset(position.x.toInt(), position.y.toInt())
                     isPostOffsetMeasured = true
                 },
-                post = row.post,
+                post = resolvedPost,
                 postNum = postNum,
                 idIndex = idIndexList.getOrElse(postIndex) { 1 },
-                idTotal = if (row.post.header.id.isBlank()) 1 else idCountMap[row.post.header.id] ?: 1,
+                idTotal = if (resolvedPost.header.id.isBlank()) 1 else idCountMap[resolvedPost.header.id] ?: 1,
                 maxPostNumber = posts.size,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
@@ -630,14 +684,46 @@ private fun PopupPostLazyColumn(
                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
                     ?: emptyList(),
                 onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
+                revealedReplyTargetKeys = revealedReplyTargetKeys,
                 onReplyClick = { number -> onReplyClick(number, baseOffset) },
                 onIdClick = { id -> onIdClick(id, baseOffset) },
                 onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
             )
+            }
+            if (row.status == ReplyTargetCandidateStatus.NG && isRevealed) {
+                val hideDescription = androidx.compose.ui.res.stringResource(
+                    com.websarva.wings.android.slevo.R.string.reply_preview_hide_target,
+                    postNum,
+                )
+                androidx.compose.material3.TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = hideDescription },
+                    onClick = { onReplyTargetDisclosureChange(disclosureKey, false) },
+                ) {
+                    androidx.compose.material3.Text(
+                        text = androidx.compose.ui.res.stringResource(
+                            com.websarva.wings.android.slevo.R.string.reply_preview_hide,
+                        ),
+                    )
+                }
+            }
             if (i < rows.size - 1) {
                 val nextVisibleIndentWidth = rows[i + 1].indentWidth
                 HorizontalDivider(
                     modifier = Modifier.padding(start = minOf(indentWidth, nextVisibleIndentWidth))
+                )
+            }
+        }
+        if (info.contentType == PopupContentType.REPLY_TARGETS && info.hasMoreCandidates) {
+            item {
+                androidx.compose.material3.Text(
+                    text = androidx.compose.ui.res.stringResource(
+                        com.websarva.wings.android.slevo.R.string.reply_preview_candidates_truncated,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

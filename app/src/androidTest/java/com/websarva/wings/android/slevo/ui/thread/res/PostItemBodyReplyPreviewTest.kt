@@ -6,6 +6,10 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -18,6 +22,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.geometry.Offset
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadReplyPreviewTransformer
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -68,6 +73,7 @@ class PostItemBodyReplyPreviewTest {
         composeRule.onNodeWithText("1  name1  ID:id1", useUnmergedTree = true).assertExists()
         composeRule.onAllNodesWithText("レス", substring = true, useUnmergedTree = true).assertCountEquals(0)
         composeRule.onAllNodesWithText(">>1", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("ほか", substring = true).assertCountEquals(0)
         val before = composeRule.onNodeWithText("before").fetchSemanticsNode().boundsInRoot
         val target = composeRule.onNodeWithText("target preview").fetchSemanticsNode().boundsInRoot
         val after = composeRule.onNodeWithText("after").fetchSemanticsNode().boundsInRoot
@@ -78,9 +84,9 @@ class PostItemBodyReplyPreviewTest {
         assertEquals(listOf(1), openedPosts)
     }
 
-    /** 複数安価の元リンクを残した直後に枠を挿入し、省略操作から全候補を返す。 */
+    /** 複数安価の元行をカードへ置換し、省略操作から全候補を返す。 */
     @Test
-    fun multipleAnchorLineRemainsOperableBeforeSeparateTargetCard() {
+    fun multipleAnchorLineIsReplacedAndOverflowOpensAllCandidates() {
         // --- Fixture ---
         val posts = listOf(
             post(1, "target one"),
@@ -110,17 +116,12 @@ class PostItemBodyReplyPreviewTest {
             }
         }
 
-        // --- Original anchor and overflow actions ---
-        composeRule.onAllNodesWithText(">>1,2", substring = true, useUnmergedTree = true).assertCountEquals(1)
-        val anchor = composeRule.onNodeWithText(">>1,2", useUnmergedTree = true)
-        val anchorHeight = anchor.fetchSemanticsNode().boundsInRoot.height
-        anchor.performTouchInput {
-            click(Offset(composeRule.density.density * 28f, anchorHeight / 2f))
-        }
-        assertEquals(listOf(listOf(1, 2)), openedNumbers)
+        // --- Replaced row and candidate list action ---
+        composeRule.onAllNodesWithText(">>1,2", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        composeRule.onNodeWithText("1  name1  ID:id1", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("ほか1件").performClick()
 
-        assertEquals(listOf(listOf(1, 2), listOf(1, 2)), openedNumbers)
+        assertEquals(listOf(listOf(1, 2)), openedNumbers)
         assertTrue(openedTargets.isEmpty())
     }
 
@@ -129,11 +130,14 @@ class PostItemBodyReplyPreviewTest {
     fun keepsLinksAndLongPressAroundInsertedPreview() {
         // --- Fixture ---
         val beforeUrl = "https://example.com/before"
+        val middleUrl = "https://example.com/middle"
         val afterUrl = "https://example.com/after"
         val posts = listOf(
             post(1, "target one"),
             post(2, "target two"),
-            post(3, "$beforeUrl\n>>1 inline\n>>2\n$afterUrl\n>>3 inline after\nplain tail"),
+            post(3, "target three"),
+            post(4, "target four"),
+            post(5, "$beforeUrl\n>>1 inline\n>>2\n$middleUrl\n>>3\n$afterUrl\n>>4 inline after\nplain tail"),
         )
         val urlClicks = mutableListOf<String>()
         val replyClicks = mutableListOf<Int>()
@@ -146,8 +150,9 @@ class PostItemBodyReplyPreviewTest {
                     val sharedScope = this
                     AnimatedVisibility(visible = true) {
                         PostBodyHarness(
-                            post = posts[2],
+                            post = posts[4],
                             previewState = derivePreview(posts),
+                            maxPostNumber = posts.size,
                             sharedTransitionScope = sharedScope,
                             animatedVisibilityScope = this,
                             onReplyClick = { replyClicks += it },
@@ -172,12 +177,17 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Links and long press after the inserted preview ---
+        val middleText = composeRule.onNodeWithText(middleUrl, substring = true, useUnmergedTree = true)
+        val middleBounds = middleText.fetchSemanticsNode().boundsInRoot
+        middleText.performTouchInput {
+            click(Offset(composeRule.density.density * 20f, middleBounds.height * 0.25f))
+        }
         val afterText = composeRule.onNodeWithText(afterUrl, substring = true, useUnmergedTree = true)
         val afterBounds = afterText.fetchSemanticsNode().boundsInRoot
         afterText.performTouchInput {
             click(Offset(composeRule.density.density * 20f, afterBounds.height * 0.25f))
         }
-        val afterAnchor = composeRule.onNodeWithText(">>3 inline after", substring = true, useUnmergedTree = true)
+        val afterAnchor = composeRule.onNodeWithText(">>4 inline after", substring = true, useUnmergedTree = true)
         val afterAnchorBounds = afterAnchor.fetchSemanticsNode().boundsInRoot
         afterAnchor.performTouchInput {
             click(Offset(composeRule.density.density * 10f, afterAnchorBounds.height * 0.5f))
@@ -189,9 +199,135 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Expected callbacks ---
-        assertEquals(listOf(beforeUrl, afterUrl), urlClicks)
-        assertEquals(listOf(1, 3), replyClicks)
+        assertEquals(listOf(beforeUrl, middleUrl, afterUrl), urlClicks)
+        assertEquals(listOf(1, 4), replyClicks)
         assertEquals(1, longPressCount)
+    }
+
+    /** NG本文は非表示時に描画せず、同じ行で表示・隠すを切り替える。 */
+    @Test
+    fun ngTargetContentIsRevealedAndHiddenInPlace() {
+        // --- Fixture and disclosure key ---
+        val privateBody = "private NG reply body"
+        val privateImageUrl = "https://example.com/private-ng.jpg"
+        var imageLoadStartCount = 0
+        val posts = listOf(
+            post(1, "$privateBody\n$privateImageUrl"),
+            post(2, ">>1"),
+        )
+        val previewState = derivePreview(posts, ngPostNumbers = setOf(1))
+        val disclosureKey = ReplyTargetDisclosureKey(
+            hostPostNumber = 2,
+            lineIndex = 0,
+            postNumber = 1,
+        )
+        val disclosureChanges = mutableListOf<Pair<ReplyTargetDisclosureKey, Boolean>>()
+        val openedPosts = mutableListOf<Int>()
+
+        // --- Compose disclosure state ---
+        composeRule.setContent {
+            var revealedKeys by remember { mutableStateOf(emptySet<ReplyTargetDisclosureKey>()) }
+            SlevoTheme {
+                SharedTransitionLayout {
+                    val sharedScope = this
+                    AnimatedVisibility(visible = true) {
+                        PostBodyHarness(
+                            post = posts[1],
+                            previewState = previewState,
+                            sharedTransitionScope = sharedScope,
+                            animatedVisibilityScope = this,
+                            onReplyClick = { openedPosts += it },
+                            hostPostNumber = 2,
+                            revealedReplyTargetKeys = revealedKeys,
+                            onImageLoadStart = { imageLoadStartCount++ },
+                            onDisclosureChange = { key, revealed ->
+                                disclosureChanges += key to revealed
+                                revealedKeys = if (revealed) revealedKeys + key else revealedKeys - key
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- Privacy and local toggle assertions ---
+        composeRule.onNodeWithText("NGで非表示", substring = true).assertExists()
+        composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("name1", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("ID:id1", substring = true).assertCountEquals(0)
+        assertEquals(0, imageLoadStartCount)
+        composeRule.onNodeWithText("表示").performClick()
+        composeRule.onNodeWithText(privateBody, substring = true).assertExists()
+        composeRule.onNodeWithText("隠す").performClick()
+        composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
+        assertEquals(listOf(disclosureKey to true, disclosureKey to false), disclosureChanges)
+        assertTrue(openedPosts.isEmpty())
+    }
+
+    /** 千候補ちょうどのカードには残数を表示し、打切り通知を表示しない。 */
+    @Test
+    fun inlineCardAtCandidateLimitHasNoTruncationNotice() {
+        val posts = (1..1_000).map { number ->
+            post(number, if (number == 1_000) ">>1-1000" else "target$number")
+        }
+        val previewState = derivePreview(posts)
+        val target = previewState.replyTargets.single()
+
+        assertEquals(1_000, target.candidates.size)
+        assertEquals(false, target.hasMoreCandidates)
+        composeRule.setContent {
+            SlevoTheme {
+                SharedTransitionLayout {
+                    val sharedScope = this
+                    AnimatedVisibility(visible = true) {
+                        PostBodyHarness(
+                            post = posts.last(),
+                            previewState = previewState,
+                            sharedTransitionScope = sharedScope,
+                            animatedVisibilityScope = this,
+                            onReplyClick = {},
+                            maxPostNumber = posts.size,
+                        )
+                    }
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("ほか999件").assertExists()
+        composeRule.onAllNodesWithText("参照先が上限を超えたため、一部を省略しています").assertCountEquals(0)
+    }
+
+    /** 巨大範囲の実候補を千件で打ち切り、カード直下に通知する。 */
+    @Test
+    fun inlineCardAboveCandidateLimitShowsTruncationNotice() {
+        val posts = (1..1_001).map { number ->
+            post(number, if (number == 1_001) ">>1-2147483647" else "target$number")
+        }
+        val previewState = derivePreview(posts)
+        val target = previewState.replyTargets.single()
+
+        assertEquals(1_000, target.candidates.size)
+        assertEquals(true, target.hasMoreCandidates)
+        composeRule.setContent {
+            SlevoTheme {
+                SharedTransitionLayout {
+                    val sharedScope = this
+                    AnimatedVisibility(visible = true) {
+                        PostBodyHarness(
+                            post = posts.last(),
+                            previewState = previewState,
+                            sharedTransitionScope = sharedScope,
+                            animatedVisibilityScope = this,
+                            onReplyClick = {},
+                            maxPostNumber = posts.size,
+                        )
+                    }
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("ほか999件").assertExists()
+        composeRule.onNodeWithText("参照先が上限を超えたため、一部を省略しています").assertExists()
     }
 }
 
@@ -205,6 +341,11 @@ private fun PostBodyHarness(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onReplyClick: (Int) -> Unit,
     onReplyNumbersClick: (List<Int>) -> Unit = {},
+    hostPostNumber: Int = 0,
+    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    onDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
+    onImageLoadStart: (String) -> Unit = {},
+    maxPostNumber: Int = 3,
     onRequestMenu: () -> Unit = {},
     onUrlClick: (String) -> Unit = {},
 ) {
@@ -227,13 +368,16 @@ private fun PostBodyHarness(
         onRequestMenu = onRequestMenu,
         onReplyClick = onReplyClick,
         onReplyNumbersClick = onReplyNumbersClick,
-        maxPostNumber = 3,
+        replyTargetHostPostNumber = hostPostNumber,
+        revealedReplyTargetKeys = revealedReplyTargetKeys,
+        onReplyTargetDisclosureChange = onDisclosureChange,
+        maxPostNumber = maxPostNumber,
         replyPreviewState = previewState,
         transitionNamespace = "thread-post-${post.body.content.hashCode()}",
         onImageClick = { _, _, _, _ -> },
         onImageLongPress = { _, _ -> },
         imageLoadFailureByUrl = emptyMap<String, ImageLoadFailureType>(),
-        onImageLoadStart = {},
+        onImageLoadStart = onImageLoadStart,
         onImageLoadError = { _, _ -> },
         onImageLoadSuccess = {},
         onImageRetry = {},
@@ -247,11 +391,14 @@ private fun PostBodyHarness(
 }
 
 /** 小さな投稿データを作って純粋transformerへ渡す。 */
-private fun derivePreview(posts: List<ThreadPostUiModel>): PostReplyPreviewUiState =
+private fun derivePreview(
+    posts: List<ThreadPostUiModel>,
+    ngPostNumbers: Set<Int> = emptySet(),
+): PostReplyPreviewUiState =
     ThreadReplyPreviewTransformer.derive(
         posts = posts,
         visibleReplySourceMap = emptyMap(),
-        ngPostNumbers = emptySet(),
+        ngPostNumbers = ngPostNumbers,
         defaultName = "",
     ).getValue(posts.size)
 

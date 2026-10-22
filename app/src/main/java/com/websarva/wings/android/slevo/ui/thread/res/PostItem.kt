@@ -20,6 +20,9 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PostBodySegment
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
@@ -79,6 +82,10 @@ fun PostItem(
     searchQuery: String = "",
     onReplyFromClick: ((List<Int>) -> Unit),
     onReplyClick: ((Int) -> Unit)? = null,
+    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    onReplyTargetClick: ((Int) -> Unit)? = null,
+    onReplyTargetNumbersClick: ((List<Int>, Boolean) -> Unit)? = null,
+    onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
@@ -152,6 +159,11 @@ fun PostItem(
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyClick = onReplyClick,
             onReplyNumbersClick = onReplyFromClick,
+            replyTargetHostPostNumber = postNum,
+            revealedReplyTargetKeys = revealedReplyTargetKeys,
+            onReplyTargetClick = onReplyTargetClick,
+            onReplyTargetNumbersClick = onReplyTargetNumbersClick,
+            onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
             maxPostNumber = maxPostNumber,
             replyPreviewState = replyPreviewState,
             transitionNamespace = transitionNamespace,
@@ -266,15 +278,31 @@ private fun PostItemWithReplyPreviewsPreview() {
         lineEndOffset = 3,
         lineBreakEndOffset = 4,
         anchorLine = ">>8",
-        isSingleAnchor = true,
-        post = ReplyPreviewPostUiModel(
-            postNumber = 8,
-            name = "返信先の投稿者",
-            id = "target-id",
-            body = "返信先本文の一行目\n返信先本文の二行目",
-            imageUrls = emptyList(),
+        candidates = listOf(
+            ReplyTargetCandidateUiModel(
+                postNumber = 8,
+                status = ReplyTargetCandidateStatus.AVAILABLE,
+                post = ReplyPreviewPostUiModel(
+                    postNumber = 8,
+                    name = "返信先の投稿者",
+                    id = "target-id",
+                    body = "返信先本文の一行目\n返信先本文の二行目",
+                    imageUrls = emptyList(),
+                ),
+            ),
         ),
-        referencedNumbers = listOf(8),
+        selectedCandidate = ReplyTargetCandidateUiModel(
+            postNumber = 8,
+            status = ReplyTargetCandidateStatus.AVAILABLE,
+            post = ReplyPreviewPostUiModel(
+                postNumber = 8,
+                name = "返信先の投稿者",
+                id = "target-id",
+                body = "返信先本文の一行目\n返信先本文の二行目",
+                imageUrls = emptyList(),
+            ),
+        ),
+        hasMoreCandidates = false,
     )
     val replySources = listOf(13, 14, 16).map { number ->
         ReplyPreviewPostUiModel(
@@ -286,10 +314,9 @@ private fun PostItemWithReplyPreviewsPreview() {
         )
     }
     val replyPreviewState = PostReplyPreviewUiState(
-        replyTarget = replyTarget,
+        replyTargets = listOf(replyTarget),
         replySourcePreviews = replySources,
         replySourceNumbers = listOf(13, 14, 16, 18),
-        replyTargetNumbers = listOf(8),
         bodySegments = listOf(
             PostBodySegment.ReplyTarget(replyTarget),
             PostBodySegment.TextRange(startOffset = 4, endOffset = body.length),

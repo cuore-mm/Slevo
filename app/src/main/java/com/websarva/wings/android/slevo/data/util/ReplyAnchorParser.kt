@@ -24,6 +24,12 @@ object ReplyAnchorParser {
         val ranges: List<NumberRange>,
     )
 
+    /** 展開上限までに得た一意の番号と、上限を超える候補があるかを表す。 */
+    data class LimitedReferencedNumbers(
+        val numbers: List<Int>,
+        val hasMore: Boolean,
+    )
+
     /** 本文から有効な安価tokenを出現順で返し、不完全な区切りを含むtokenは無視する。 */
     fun parseAnchors(content: String): List<AnchorToken> = anchorRegex.findAll(content).mapNotNull { match ->
         val rangeParts = match.groupValues[1].split(',')
@@ -47,6 +53,33 @@ object ReplyAnchorParser {
         return parseAnchors(content)
             .flatMap { token -> token.ranges.flatMap { it.numbersWithin(maxPostNumber) } }
             .distinct()
+    }
+
+    /** 取得済み状態に関係なく安価番号を出現順に重複除去し、正の上限まで展開する。 */
+    fun extractReferencedNumbersWithLimit(
+        content: String,
+        limit: Int,
+    ): LimitedReferencedNumbers {
+        require(limit > 0) { "limit must be positive" }
+
+        val numbers = LinkedHashSet<Int>()
+        for (token in parseAnchors(content)) {
+            for (range in token.ranges) {
+                var number = range.first.toLong()
+                val last = range.last.toLong()
+                while (number <= last) {
+                    val candidate = number.toInt()
+                    if (candidate !in numbers) {
+                        if (numbers.size == limit) {
+                            return LimitedReferencedNumbers(numbers.toList(), hasMore = true)
+                        }
+                        numbers += candidate
+                    }
+                    number++
+                }
+            }
+        }
+        return LimitedReferencedNumbers(numbers.toList(), hasMore = false)
     }
 
     /** 一つの数値項目または範囲項目を解析する。 */

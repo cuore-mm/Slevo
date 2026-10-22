@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
+import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -100,10 +101,66 @@ class ThreadViewModelPopupStackTest {
         assertEquals(listOf(1L, 2L), result.map { it.popupId })
     }
 
+    /** 同じ番号でも返信先候補一覧と通常ポップアップは別内容として積む。 */
+    @Test
+    fun appendPopupIfDistinctSeparatesReplyTargetPopupMode() {
+        val standard = popup(popupId = 1L, postNumbers = listOf(1))
+        val targets = popup(
+            popupId = 2L,
+            postNumbers = listOf(1),
+            contentType = PopupContentType.REPLY_TARGETS,
+        )
+
+        val result = appendPopupIfDistinct(appendPopupIfDistinct(emptyList(), standard), targets)
+
+        assertEquals(listOf(1L, 2L), result.map { it.popupId })
+    }
+
+    /** 返信先候補の超過有無が異なる場合は別一覧として扱う。 */
+    @Test
+    fun appendPopupIfDistinctSeparatesTruncatedCandidateLists() {
+        val complete = popup(
+            popupId = 1L,
+            postNumbers = listOf(1, 2),
+            contentType = PopupContentType.REPLY_TARGETS,
+        )
+        val truncated = popup(
+            popupId = 2L,
+            postNumbers = listOf(1, 2),
+            contentType = PopupContentType.REPLY_TARGETS,
+            hasMoreCandidates = true,
+        )
+
+        val result = appendPopupIfDistinct(appendPopupIfDistinct(emptyList(), complete), truncated)
+
+        assertEquals(listOf(1L, 2L), result.map { it.popupId })
+    }
+
+    /** 通常一覧は描画可能レスなしで閉じるが、返信先一覧のNG・未取得候補は維持する。 */
+    @Test
+    fun prunePopupStackRetainsReplyTargetStatusRows() {
+        val standard = popup(popupId = 1L, postNumbers = listOf(2))
+        val replyTargets = popup(
+            popupId = 2L,
+            postNumbers = listOf(2, 99),
+            contentType = PopupContentType.REPLY_TARGETS,
+        )
+
+        val result = prunePopupStackWithoutRenderablePosts(
+            popupStack = listOf(standard, replyTargets),
+            postCount = 3,
+            ngPostNumbers = setOf(2),
+        )
+
+        assertEquals(listOf(2L), result.map { it.popupId })
+    }
+
     private fun popup(
         popupId: Long,
         postNumbers: List<Int>,
         indentLevels: List<Int> = emptyList(),
+        contentType: PopupContentType = PopupContentType.STANDARD,
+        hasMoreCandidates: Boolean = false,
         offset: IntOffset = IntOffset.Zero,
         size: IntSize = IntSize.Zero,
     ): PopupInfo {
@@ -113,6 +170,8 @@ class ThreadViewModelPopupStackTest {
             offset = offset,
             size = size,
             indentLevels = indentLevels,
+            contentType = contentType,
+            hasMoreCandidates = hasMoreCandidates,
         )
     }
 }
