@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -57,7 +58,11 @@ fun LazyListScope.threadPostListContent(
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
-    onAddPopupForReplyTargetNumbers: (replyNumbers: List<Int>, hasMoreCandidates: Boolean, baseOffset: IntOffset) -> Unit = { _, _, _ -> },
+    onAddPopupForReplyTargetNumbers: (
+        replyNumbers: List<Int>,
+        unavailableRanges: List<ReplyTargetUnavailableRange>,
+        baseOffset: IntOffset,
+    ) -> Unit = { _, _, _ -> },
     onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -179,11 +184,11 @@ fun LazyListScope.threadPostListContent(
                 },
                 onReplyTargetClick = { num ->
                     val offset = resolvePopupBaseOffset(itemOffset.value, popupStack)
-                    onAddPopupForReplyTargetNumbers(listOf(num), false, offset)
+                    onAddPopupForReplyTargetNumbers(listOf(num), emptyList(), offset)
                 },
-                onReplyTargetNumbersClick = { numbers, hasMore ->
+                onReplyTargetNumbersClick = { numbers, unavailableRanges ->
                     val offset = resolvePopupBaseOffset(itemOffset.value, popupStack)
-                    onAddPopupForReplyTargetNumbers(numbers, hasMore, offset)
+                    onAddPopupForReplyTargetNumbers(numbers, unavailableRanges, offset)
                 },
                 onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
                 onIdClick = { id ->

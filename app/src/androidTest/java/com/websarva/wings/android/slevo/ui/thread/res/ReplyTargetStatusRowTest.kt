@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -31,7 +32,7 @@ class ReplyTargetStatusRowTest {
                     status = ReplyTargetCandidateStatus.NG,
                     overflowCount = 0,
                     overflowNumbers = emptyList(),
-                    hasMoreCandidates = false,
+                    unavailableRanges = emptyList(),
                     onReveal = { revealCount++ },
                     onOpenOverflow = null,
                 )
@@ -57,7 +58,7 @@ class ReplyTargetStatusRowTest {
                     status = ReplyTargetCandidateStatus.UNAVAILABLE,
                     overflowCount = 0,
                     overflowNumbers = emptyList(),
-                    hasMoreCandidates = false,
+                    unavailableRanges = emptyList(),
                     onReveal = null,
                     onOpenOverflow = null,
                 )
@@ -68,9 +69,9 @@ class ReplyTargetStatusRowTest {
         composeRule.onAllNodesWithText("表示").assertCountEquals(0)
     }
 
-    /** 候補が上限を超えた状態では残数と超過通知を表示し、一覧操作を呼び出す。 */
+    /** 残りの取得済み候補数から一覧操作を呼び出す。 */
     @Test
-    fun truncatedCandidateStatusOffersOverflowAndNotice() {
+    fun acquiredCandidateOverflowOffersList() {
         var overflowCount = 0
         composeRule.setContent {
             SlevoTheme {
@@ -79,7 +80,7 @@ class ReplyTargetStatusRowTest {
                     status = ReplyTargetCandidateStatus.NG,
                     overflowCount = 999,
                     overflowNumbers = (1..1_000).toList(),
-                    hasMoreCandidates = true,
+                    unavailableRanges = listOf(ReplyTargetUnavailableRange(1_001, Int.MAX_VALUE)),
                     onReveal = {},
                     onOpenOverflow = { overflowCount++ },
                 )
@@ -87,8 +88,23 @@ class ReplyTargetStatusRowTest {
         }
 
         composeRule.onNodeWithText("ほか999件").assertExists()
-        composeRule.onNodeWithText("参照先が上限を超えたため、一部を省略しています").assertExists()
+        composeRule.onNodeWithText("レス1001〜2147483647は未取得のため参照できません").assertExists()
         composeRule.onNodeWithText("ほか999件").performClick()
         assertEquals(1, overflowCount)
+    }
+
+    /** 候補がない場合も巨大未取得範囲を単一状態文言で表示する。 */
+    @Test
+    fun unavailableRangeIsShownWithoutEnumeratingItsNumbers() {
+        composeRule.setContent {
+            SlevoTheme {
+                ReplyTargetUnavailableRangesRow(
+                    ranges = listOf(ReplyTargetUnavailableRange(101, Int.MAX_VALUE)),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("レス101〜2147483647は未取得のため参照できません").assertExists()
+        composeRule.onAllNodesWithText("ほか", substring = true).assertCountEquals(0)
     }
 }

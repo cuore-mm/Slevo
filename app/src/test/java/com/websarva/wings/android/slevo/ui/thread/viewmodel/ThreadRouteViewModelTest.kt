@@ -33,6 +33,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -635,7 +636,7 @@ class ThreadRouteViewModelTest {
         )
     }
 
-    /** 返信先一覧はNG・未取得番号を除外せず、専用ポップアップとして保持する。 */
+    /** 返信先一覧は取得済みNG番号と統合済み未取得範囲を保持する。 */
     @Test
     fun addPopupForReplyTargetsRetainsNgAndUnavailableCandidates() = runTest {
         val threadId = ThreadId.of("example.com", "test", "reply-targets")
@@ -660,16 +661,16 @@ class ThreadRouteViewModelTest {
         viewModel.addPopupForReplyTargetNumbers(
             tabKey = threadId.value,
             baseOffset = IntOffset(10, 20),
-            replyNumbers = listOf(1, 99),
-            hasMoreCandidates = true,
+            replyNumbers = listOf(1),
+            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
 
         val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
-        assertEquals(listOf(1, 99), popup.postNumbers)
+        assertEquals(listOf(1), popup.postNumbers)
         assertEquals(PopupContentType.REPLY_TARGETS, popup.contentType)
-        assertEquals(true, popup.hasMoreCandidates)
-        assertEquals(listOf(1, 99), uiState.value.popupStack.single().postNumbers)
+        assertEquals(listOf(ReplyTargetUnavailableRange(99, 99)), popup.unavailableRanges)
+        assertEquals(listOf(1), uiState.value.popupStack.single().postNumbers)
         assertEquals(setOf(1), uiState.value.ngPostNumbers)
     }
 
@@ -699,8 +700,8 @@ class ThreadRouteViewModelTest {
         viewModel.addPopupForReplyTargetNumbers(
             threadId.value,
             IntOffset.Zero,
-            listOf(1, 2, 99),
-            hasMoreCandidates = false,
+            listOf(1, 2),
+            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
         viewModel.reloadThread(threadId.value)
@@ -708,10 +709,9 @@ class ThreadRouteViewModelTest {
 
         assertEquals(1, uiState.value.posts?.size)
         assertTrue(uiState.value.ngPostNumbers.isEmpty())
-        assertEquals(
-            listOf(1, 2, 99),
-            uiState.value.popupStack.single { it.contentType == PopupContentType.REPLY_TARGETS }.postNumbers,
-        )
+        val popup = uiState.value.popupStack.single { it.contentType == PopupContentType.REPLY_TARGETS }
+        assertEquals(listOf(1, 2), popup.postNumbers)
+        assertEquals(listOf(ReplyTargetUnavailableRange(99, 99)), popup.unavailableRanges)
         assertEquals(1, dependencies.sessionStates.value.getValue(threadId.value).popupStack.size)
     }
 
@@ -742,18 +742,19 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
 
         val initialTarget = uiState.value.replyPreviewByPostNumber.getValue(2).replyTargets.single()
-        assertEquals(listOf(1, 3), initialTarget.referencedNumbers)
+        assertEquals(listOf(1), initialTarget.referencedNumbers)
         assertEquals(ReplyTargetCandidateStatus.NG, initialTarget.candidates[0].status)
-        assertEquals(ReplyTargetCandidateStatus.UNAVAILABLE, initialTarget.candidates[1].status)
-        assertEquals(1, initialTarget.selectedCandidate.postNumber)
-        assertEquals(1, initialTarget.overflowCount)
+        assertEquals(listOf(ReplyTargetUnavailableRange(3, 3)), initialTarget.unavailableRanges)
+        assertEquals(1, initialTarget.selectedCandidate?.postNumber)
+        assertEquals(0, initialTarget.overflowCount)
 
         viewModel.reloadThread(threadId.value)
         advanceUntilIdle()
         val afterFetch = uiState.value.replyPreviewByPostNumber.getValue(2).replyTargets.single()
         assertEquals(listOf(1, 3), afterFetch.referencedNumbers)
         assertEquals(ReplyTargetCandidateStatus.AVAILABLE, afterFetch.candidates[1].status)
-        assertEquals(3, afterFetch.selectedCandidate.postNumber)
+        assertEquals(emptyList<ReplyTargetUnavailableRange>(), afterFetch.unavailableRanges)
+        assertEquals(3, afterFetch.selectedCandidate?.postNumber)
         assertEquals(1, afterFetch.overflowCount)
 
         ngRules.value = emptyList()
@@ -761,7 +762,7 @@ class ThreadRouteViewModelTest {
         val afterNgRemoval = uiState.value.replyPreviewByPostNumber.getValue(2).replyTargets.single()
         assertEquals(listOf(1, 3), afterNgRemoval.referencedNumbers)
         assertEquals(ReplyTargetCandidateStatus.AVAILABLE, afterNgRemoval.candidates[0].status)
-        assertEquals(1, afterNgRemoval.selectedCandidate.postNumber)
+        assertEquals(1, afterNgRemoval.selectedCandidate?.postNumber)
         assertEquals(1, afterNgRemoval.overflowCount)
     }
 
@@ -795,8 +796,8 @@ class ThreadRouteViewModelTest {
         viewModel.addPopupForReplyTargetNumbers(
             threadId.value,
             IntOffset.Zero,
-            listOf(1, 99),
-            hasMoreCandidates = false,
+            listOf(1),
+            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
         val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
@@ -817,8 +818,8 @@ class ThreadRouteViewModelTest {
         viewModel.addPopupForReplyTargetNumbers(
             threadId.value,
             IntOffset.Zero,
-            listOf(1, 99),
-            hasMoreCandidates = false,
+            listOf(1),
+            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
         val reopenedPopup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()

@@ -24,10 +24,10 @@ object ReplyAnchorParser {
         val ranges: List<NumberRange>,
     )
 
-    /** 展開上限までに得た一意の番号と、上限を超える候補があるかを表す。 */
-    data class LimitedReferencedNumbers(
+    /** 取得済み番号の列と、未取得番号を列挙せず保持する範囲を表す。 */
+    data class ReplyTargetReferences(
         val numbers: List<Int>,
-        val hasMore: Boolean,
+        val unavailableRanges: List<NumberRange>,
     )
 
     /** 本文から有効な安価tokenを出現順で返し、不完全な区切りを含むtokenは無視する。 */
@@ -55,31 +55,61 @@ object ReplyAnchorParser {
             .distinct()
     }
 
-    /** 取得済み状態に関係なく安価番号を出現順に重複除去し、正の上限まで展開する。 */
-    fun extractReferencedNumbersWithLimit(
+    /** 取得済み範囲だけを展開し、取得済み上限を超える部分は統合範囲として返す。 */
+    fun extractReplyTargetReferences(
         content: String,
-        limit: Int,
-    ): LimitedReferencedNumbers {
-        require(limit > 0) { "limit must be positive" }
-
+        maxPostNumber: Int,
+    ): ReplyTargetReferences {
         val numbers = LinkedHashSet<Int>()
+        val unavailableRanges = mutableListOf<NumberRange>()
+        val availableLimit = maxPostNumber.coerceAtLeast(0)
+
+        // --- 取得済みレスとの共通部分だけを展開 ---
         for (token in parseAnchors(content)) {
             for (range in token.ranges) {
-                var number = range.first.toLong()
-                val last = range.last.toLong()
-                while (number <= last) {
-                    val candidate = number.toInt()
-                    if (candidate !in numbers) {
-                        if (numbers.size == limit) {
-                            return LimitedReferencedNumbers(numbers.toList(), hasMore = true)
-                        }
-                        numbers += candidate
+                val availableEnd = range.last.coerceAtMost(availableLimit)
+                if (range.first <= availableEnd) {
+                    for (number in range.first..availableEnd) {
+                        numbers += number
                     }
-                    number++
+                }
+
+                // --- 未取得部分は範囲のまま保持 ---
+                val unavailableStart = maxOf(range.first.toLong(), availableLimit.toLong() + 1L)
+                if (unavailableStart <= range.last.toLong()) {
+                    unavailableRanges += NumberRange(
+                        first = unavailableStart.toInt(),
+                        last = range.last,
+                    )
                 }
             }
         }
-        return LimitedReferencedNumbers(numbers.toList(), hasMore = false)
+
+        // --- 未取得区間の重複と隣接を統合 ---
+        return ReplyTargetReferences(
+            numbers = numbers.toList(),
+            unavailableRanges = mergeRanges(unavailableRanges),
+        )
+    }
+
+    /** 重複または隣接する区間を、番号を列挙せず昇順で統合する。 */
+    private fun mergeRanges(ranges: List<NumberRange>): List<NumberRange> {
+        if (ranges.isEmpty()) return emptyList()
+        val sortedRanges = ranges.sortedBy(NumberRange::first)
+        val merged = mutableListOf<NumberRange>()
+        var first = sortedRanges.first().first
+        var last = sortedRanges.first().last
+        sortedRanges.drop(1).forEach { range ->
+            if (range.first.toLong() <= last.toLong() + 1L) {
+                last = maxOf(last, range.last)
+            } else {
+                merged += NumberRange(first, last)
+                first = range.first
+                last = range.last
+            }
+        }
+        merged += NumberRange(first, last)
+        return merged
     }
 
     /** 一つの数値項目または範囲項目を解析する。 */

@@ -8,6 +8,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.extractImageUrls
 import com.websarva.wings.android.slevo.ui.util.extractImageUrlSpans
@@ -16,7 +17,6 @@ import com.websarva.wings.android.slevo.ui.util.removeImageUrls
 /** 通常の番号順投稿一覧から返信プレビュー用の不変表示データを導出する。 */
 internal object ThreadReplyPreviewTransformer {
     private val singleAnchorRegex = Regex(">>\\d+")
-    private const val MAX_REPLY_TARGET_CANDIDATES = 1_000
 
     /** 行ごとの返信先候補とNG除外済み返信元最大三件を投稿番号別に作成する。 */
     fun derive(
@@ -51,13 +51,15 @@ internal object ThreadReplyPreviewTransformer {
             val anchorOnlyLines = contentLines.mapNotNull { contentLine ->
                 val tokens = contentLine.text.takeIf(::isAnchorOnlyLine)?.let(ReplyAnchorParser::parseAnchors)
                     ?: return@mapNotNull null
-                val limitedNumbers = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+                val references = ReplyAnchorParser.extractReplyTargetReferences(
                     content = contentLine.text,
-                    limit = MAX_REPLY_TARGET_CANDIDATES,
+                    maxPostNumber = posts.size,
                 )
-                // Guard: 有効な番号がない行は返信先候補を生成しない。
-                if (limitedNumbers.numbers.isEmpty()) return@mapNotNull null
-                val candidates = limitedNumbers.numbers.map { number ->
+                // Guard: 有効な取得済み番号も未取得範囲もない行は返信先を生成しない。
+                if (references.numbers.isEmpty() && references.unavailableRanges.isEmpty()) {
+                    return@mapNotNull null
+                }
+                val candidates = references.numbers.map { number ->
                     val targetPost = posts.getOrNull(number - 1)
                     val status = when {
                         targetPost == null -> ReplyTargetCandidateStatus.UNAVAILABLE
@@ -70,12 +72,21 @@ internal object ThreadReplyPreviewTransformer {
                         post = targetPost?.let { preview(number, includeNg = status == ReplyTargetCandidateStatus.NG) },
                     )
                 }
-                // 正常候補を優先し、なければNG、最後に未取得の先頭を選ぶ。
+                // 取得済み候補では正常を優先し、すべてNGなら最初のNGを選ぶ。
                 val selectedCandidate = candidates.firstOrNull {
                     it.status == ReplyTargetCandidateStatus.AVAILABLE
                 } ?: candidates.firstOrNull { it.status == ReplyTargetCandidateStatus.NG }
-                    ?: candidates.first()
-                AnchorOnlyLine(contentLine, candidates, selectedCandidate, limitedNumbers.hasMore)
+                AnchorOnlyLine(
+                    contentLine = contentLine,
+                    candidates = candidates,
+                    selectedCandidate = selectedCandidate,
+                    unavailableRanges = references.unavailableRanges.map { range ->
+                        ReplyTargetUnavailableRange(
+                            firstPostNumber = range.first,
+                            lastPostNumber = range.last,
+                        )
+                    },
+                )
             }
 
             val replyTargets = anchorOnlyLines.map { line ->
@@ -87,7 +98,7 @@ internal object ThreadReplyPreviewTransformer {
                     anchorLine = line.contentLine.text,
                     candidates = line.candidates,
                     selectedCandidate = line.selectedCandidate,
-                    hasMoreCandidates = line.hasMoreCandidates,
+                    unavailableRanges = line.unavailableRanges,
                 )
             }
 
@@ -261,8 +272,8 @@ internal object ThreadReplyPreviewTransformer {
     private data class AnchorOnlyLine(
         val contentLine: ContentLine,
         val candidates: List<ReplyTargetCandidateUiModel>,
-        val selectedCandidate: ReplyTargetCandidateUiModel,
-        val hasMoreCandidates: Boolean,
+        val selectedCandidate: ReplyTargetCandidateUiModel?,
+        val unavailableRanges: List<ReplyTargetUnavailableRange>,
     )
 
     private const val MAX_REPLY_PREVIEWS = 3

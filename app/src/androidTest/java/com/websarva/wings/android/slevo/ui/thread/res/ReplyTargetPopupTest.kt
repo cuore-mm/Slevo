@@ -21,6 +21,7 @@ import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -44,11 +45,11 @@ class ReplyTargetPopupTest {
         )
         val info = PopupInfo(
             popupId = 42L,
-            postNumbers = listOf(1, 2, 99),
+            postNumbers = listOf(1, 2),
             offset = IntOffset.Zero,
             size = IntSize.Zero,
             contentType = PopupContentType.REPLY_TARGETS,
-            hasMoreCandidates = true,
+            unavailableRanges = listOf(ReplyTargetUnavailableRange(3, Int.MAX_VALUE)),
         )
         val key = ReplyTargetDisclosureKey(
             hostPostNumber = 0,
@@ -91,11 +92,14 @@ class ReplyTargetPopupTest {
 
         composeRule.onNodeWithText("normal candidate", substring = true).assertExists()
         composeRule.onNodeWithText("NGで非表示", substring = true).assertExists()
-        composeRule.onNodeWithText("未取得のため参照できません", substring = true).assertExists()
+        composeRule.onNodeWithText(
+            "レス3〜2147483647は未取得のため参照できません",
+            substring = true,
+        ).assertExists()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("name2", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("ID:id2", substring = true).assertCountEquals(0)
-        composeRule.onNodeWithText("参照先が上限を超えたため、一部を省略しています").assertExists()
+        composeRule.onAllNodesWithText("参照先が上限を超えたため、一部を省略しています").assertCountEquals(0)
 
         composeRule.onNodeWithText("表示").performClick()
         composeRule.onNodeWithText(privateBody, substring = true).assertExists()
@@ -106,12 +110,14 @@ class ReplyTargetPopupTest {
 
         // --- Latest post resolution ---
         composeRule.runOnIdle {
-            currentPostsState.value = posts + (3..98).map { number -> post(number, "post$number") } +
-                post(99, "newly fetched candidate")
+            currentPostsState.value = posts + post(3, "newly fetched candidate")
             currentNgPostNumbersState.value = emptySet()
         }
         composeRule.waitForIdle()
-        composeRule.onAllNodesWithText("未取得のため参照できません", substring = true).assertCountEquals(0)
+        composeRule.onNodeWithText(
+            "レス4〜2147483647は未取得のため参照できません",
+            substring = true,
+        ).assertExists()
         composeRule.onNodeWithText("newly fetched candidate", substring = true).assertExists()
     }
 }

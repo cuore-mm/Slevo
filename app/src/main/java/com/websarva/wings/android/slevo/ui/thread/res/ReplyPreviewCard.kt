@@ -47,6 +47,7 @@ import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewTy
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 
@@ -58,7 +59,7 @@ internal fun ReplyPreviewCard(
     previewType: ImageReplyPreviewType,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
-    hasMoreCandidates: Boolean = false,
+    unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
     onHide: (() -> Unit)? = null,
     headerTextScale: Float,
     bodyTextScale: Float,
@@ -264,15 +265,15 @@ internal fun ReplyPreviewCard(
                         color = colors.primary,
                     )
                 }
-                if (previewType == ImageReplyPreviewType.REPLY_TARGET && hasMoreCandidates) {
-                    Text(
-                        text = stringResource(R.string.reply_preview_candidates_truncated),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontSize = previewBodyTextSize,
-                        lineHeight = lineHeightEm.em,
-                        color = colors.onSurfaceVariant,
-                    )
-                }
+            }
+            if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+                ReplyTargetUnavailableRangesRow(
+                    ranges = unavailableRanges,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    onClick = if (unavailableRanges.isNotEmpty()) {
+                        { onOpenOverflow(overflowNumbers) }
+                    } else null,
+                )
             }
             if (onHide != null) {
                 val hideDescription = stringResource(
@@ -426,7 +427,7 @@ private fun RevealedNgReplyPreviewCardPreview() {
                     previewType = ImageReplyPreviewType.REPLY_TARGET,
                     overflowCount = 2,
                     overflowNumbers = listOf(14, 16, 18),
-                    hasMoreCandidates = true,
+                    unavailableRanges = listOf(ReplyTargetUnavailableRange(15, Int.MAX_VALUE)),
                     onHide = {},
                     headerTextScale = 1f,
                     bodyTextScale = 1f,

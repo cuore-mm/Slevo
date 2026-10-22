@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -23,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 
 /** 返信先がNGまたは未取得のときに番号・状態・利用可能な操作を表示する。 */
 @Composable
@@ -31,7 +34,7 @@ internal fun ReplyTargetStatusRow(
     status: ReplyTargetCandidateStatus,
     overflowCount: Int,
     overflowNumbers: List<Int>,
-    hasMoreCandidates: Boolean,
+    unavailableRanges: List<ReplyTargetUnavailableRange>,
     onReveal: (() -> Unit)?,
     onOpenOverflow: (() -> Unit)?,
 ) {
@@ -84,7 +87,7 @@ internal fun ReplyTargetStatusRow(
                 }
             }
         }
-        // --- Remaining candidates and truncation notice ---
+        // --- Remaining acquired candidates ---
         if (overflowCount > 0 && overflowNumbers.isNotEmpty() && onOpenOverflow != null) {
             val overflowDescription = stringResource(
                 R.string.reply_preview_open_target_list,
@@ -107,15 +110,57 @@ internal fun ReplyTargetStatusRow(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            if (hasMoreCandidates) {
-                Text(
-                    text = stringResource(R.string.reply_preview_candidates_truncated),
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
         }
+        ReplyTargetUnavailableRangesRow(
+            ranges = unavailableRanges,
+            onClick = onOpenOverflow,
+        )
+    }
+}
+
+/** 未取得番号を番号列に展開せず、隣接範囲をまとめた状態文言で表示する。 */
+@Composable
+internal fun ReplyTargetUnavailableRangesRow(
+    ranges: List<ReplyTargetUnavailableRange>,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    if (ranges.isEmpty()) return
+
+    // --- 統合区間から有限長の表示文言を作る ---
+    val rangeText = ranges.joinToString("、") { range ->
+        if (range.firstPostNumber == range.lastPostNumber) {
+            range.firstPostNumber.toString()
+        } else {
+            "${range.firstPostNumber}〜${range.lastPostNumber}"
+        }
+    }
+    val unavailableText = stringResource(R.string.reply_preview_unavailable_ranges, rangeText)
+
+    // --- 任意で一覧を開ける状態行を描画 ---
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .then(
+                if (onClick == null) {
+                    Modifier
+                } else {
+                    Modifier.clickable(
+                        role = Role.Button,
+                        onClickLabel = unavailableText,
+                        onClick = onClick,
+                    )
+                },
+            )
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = unavailableText,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -128,7 +173,7 @@ private fun ReplyTargetNgStatusRowPreview() {
             status = ReplyTargetCandidateStatus.NG,
             overflowCount = 2,
             overflowNumbers = listOf(12, 14, 16),
-            hasMoreCandidates = true,
+            unavailableRanges = emptyList(),
             onReveal = {},
             onOpenOverflow = {},
         )
@@ -144,7 +189,7 @@ private fun ReplyTargetUnavailableNarrowStatusRowPreview() {
             status = ReplyTargetCandidateStatus.UNAVAILABLE,
             overflowCount = 0,
             overflowNumbers = emptyList(),
-            hasMoreCandidates = false,
+            unavailableRanges = listOf(ReplyTargetUnavailableRange(100, 200)),
             onReveal = null,
             onOpenOverflow = null,
         )
@@ -160,7 +205,7 @@ private fun ReplyTargetUnavailableStatusRowPreview() {
             status = ReplyTargetCandidateStatus.UNAVAILABLE,
             overflowCount = 0,
             overflowNumbers = emptyList(),
-            hasMoreCandidates = false,
+            unavailableRanges = emptyList(),
             onReveal = null,
             onOpenOverflow = null,
         )

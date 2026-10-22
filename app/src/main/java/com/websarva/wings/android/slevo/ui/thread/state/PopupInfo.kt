@@ -28,5 +28,5 @@ data class PopupInfo(
     val indentLevels: List<Int> = emptyList(),
     val rootNumbers: List<Int> = emptyList(),
     val contentType: PopupContentType = PopupContentType.STANDARD,
-    val hasMoreCandidates: Boolean = false,
+    val unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
 )

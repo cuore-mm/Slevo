@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadReplyPreviewTransformer
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -264,9 +265,9 @@ class PostItemBodyReplyPreviewTest {
         assertTrue(openedPosts.isEmpty())
     }
 
-    /** 千候補ちょうどのカードには残数を表示し、打切り通知を表示しない。 */
+    /** 取得済み千件はそのまま保持し、未取得範囲だけを別表示する。 */
     @Test
-    fun inlineCardAtCandidateLimitHasNoTruncationNotice() {
+    fun inlineCardShowsAllFetchedCandidatesWithoutUnavailableRange() {
         val posts = (1..1_000).map { number ->
             post(number, if (number == 1_000) ">>1-1000" else "target$number")
         }
@@ -274,7 +275,7 @@ class PostItemBodyReplyPreviewTest {
         val target = previewState.replyTargets.single()
 
         assertEquals(1_000, target.candidates.size)
-        assertEquals(false, target.hasMoreCandidates)
+        assertEquals(emptyList<ReplyTargetUnavailableRange>(), target.unavailableRanges)
         composeRule.setContent {
             SlevoTheme {
                 SharedTransitionLayout {
@@ -297,17 +298,20 @@ class PostItemBodyReplyPreviewTest {
         composeRule.onAllNodesWithText("参照先が上限を超えたため、一部を省略しています").assertCountEquals(0)
     }
 
-    /** 巨大範囲の実候補を千件で打ち切り、カード直下に通知する。 */
+    /** 旧上限を超える取得済み候補を扱い、未取得部分を番号列挙せず表示する。 */
     @Test
-    fun inlineCardAboveCandidateLimitShowsTruncationNotice() {
+    fun inlineCardShowsUnavailableRangeAfterAllFetchedCandidates() {
         val posts = (1..1_001).map { number ->
             post(number, if (number == 1_001) ">>1-2147483647" else "target$number")
         }
         val previewState = derivePreview(posts)
         val target = previewState.replyTargets.single()
 
-        assertEquals(1_000, target.candidates.size)
-        assertEquals(true, target.hasMoreCandidates)
+        assertEquals(1_001, target.candidates.size)
+        assertEquals(
+            listOf(ReplyTargetUnavailableRange(1_002, Int.MAX_VALUE)),
+            target.unavailableRanges,
+        )
         composeRule.setContent {
             SlevoTheme {
                 SharedTransitionLayout {
@@ -326,8 +330,8 @@ class PostItemBodyReplyPreviewTest {
             }
         }
 
-        composeRule.onNodeWithText("ほか999件").assertExists()
-        composeRule.onNodeWithText("参照先が上限を超えたため、一部を省略しています").assertExists()
+        composeRule.onNodeWithText("ほか1000件").assertExists()
+        composeRule.onNodeWithText("レス1002〜2147483647は未取得のため参照できません").assertExists()
     }
 }
 

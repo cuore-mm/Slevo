@@ -83,69 +83,117 @@ class ReplyAnchorParserTest {
         assertEquals(emptyList<Int>(), ReplyAnchorParser.extractReferencedNumbers(">>1-2147483647", 0))
     }
 
-    /** 返信先候補は取得済み上限と独立して出現順・重複なしで上限まで展開する。 */
+    /** 取得済み番号だけを出現順で返し、上限外番号を個別展開しない。 */
     @Test
-    fun extractsDistinctReferencedNumbersUpToLimit() {
-        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
-            content = ">>3-5,4 >>1,5",
-            limit = 4,
+    fun separatesAvailableNumbersFromUnavailableRanges() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
+            content = ">>3-5,8 >>4,10-2147483647",
+            maxPostNumber = 5,
         )
 
-        assertEquals(listOf(3, 4, 5, 1), result.numbers)
-        assertEquals(false, result.hasMore)
+        assertEquals(listOf(3, 4, 5), result.numbers)
+        assertEquals(
+            listOf(
+                ReplyAnchorParser.NumberRange(8, 8),
+                ReplyAnchorParser.NumberRange(10, Int.MAX_VALUE),
+            ),
+            result.unavailableRanges,
+        )
     }
 
-    /** 候補がちょうど上限数なら打切り状態にしない。 */
+    /** 重複・隣接する未取得区間を番号列挙せず統合する。 */
     @Test
-    fun exactLimitDoesNotReportMoreCandidates() {
-        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
-            content = ">>1-1000 >>1-1000",
-            limit = 1000,
+    fun mergesOverlappingAndAdjacentUnavailableRanges() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
+            content = ">>105-110 >>108-120 >>121-125 >>130",
+            maxPostNumber = 100,
         )
 
-        assertEquals((1..1000).toList(), result.numbers)
-        assertEquals(false, result.hasMore)
+        assertEquals(emptyList<Int>(), result.numbers)
+        assertEquals(
+            listOf(
+                ReplyAnchorParser.NumberRange(105, 125),
+                ReplyAnchorParser.NumberRange(130, 130),
+            ),
+            result.unavailableRanges,
+        )
     }
 
-    /** 上限を超える巨大範囲は上限+1件目を見つけた時点で打ち切る。 */
+    /** 取得済み候補は参照出現順を維持して重複番号を一度だけ返す。 */
     @Test
-    fun hugeRangeStopsAfterFindingCandidateBeyondLimit() {
-        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+    fun preservesFetchedNumberOccurrenceOrderAcrossRanges() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
+            content = ">>5,2-4,3 >>1",
+            maxPostNumber = 5,
+        )
+
+        assertEquals(listOf(5, 2, 3, 4, 1), result.numbers)
+        assertEquals(emptyList<ReplyAnchorParser.NumberRange>(), result.unavailableRanges)
+    }
+
+    /** Int最大値までの範囲を末尾一件だけの区間として保持する。 */
+    @Test
+    fun hugeFutureRangeRemainsOneUnavailableInterval() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
             content = ">>1-2147483647",
-            limit = 1000,
+            maxPostNumber = 100,
         )
 
-        assertEquals((1..1000).toList(), result.numbers)
-        assertEquals(true, result.hasMore)
+        assertEquals((1..100).toList(), result.numbers)
+        assertEquals(
+            listOf(ReplyAnchorParser.NumberRange(101, Int.MAX_VALUE)),
+            result.unavailableRanges,
+        )
     }
 
-    /** 範囲端点がInt最大値でも増分をoverflowさせず、終端で停止する。 */
+    /** 取得済み番号の抽出には固定候補数上限を設けない。 */
     @Test
-    fun maximumIntAnchorDoesNotOverflow() {
-        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
+    fun fetchedCandidatesCanExceedFormerThousandItemLimit() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
+            content = ">>1-1001",
+            maxPostNumber = 1001,
+        )
+
+        assertEquals((1..1001).toList(), result.numbers)
+        assertEquals(emptyList<ReplyAnchorParser.NumberRange>(), result.unavailableRanges)
+    }
+
+    /** 取得済みレスがない場合も巨大安価を全番号へ展開しない。 */
+    @Test
+    fun noFetchedPostsKeepsWholeReferenceAsRange() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
+            content = ">>1-2147483647",
+            maxPostNumber = 0,
+        )
+
+        assertEquals(emptyList<Int>(), result.numbers)
+        assertEquals(
+            listOf(ReplyAnchorParser.NumberRange(1, Int.MAX_VALUE)),
+            result.unavailableRanges,
+        )
+    }
+
+    /** Int最大値一件は取得済み番号として扱い、未取得区間を作らない。 */
+    @Test
+    fun maximumIntNumberIsReturnedWhenItIsFetched() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
             content = ">>2147483647",
-            limit = 1000,
+            maxPostNumber = Int.MAX_VALUE,
         )
 
         assertEquals(listOf(Int.MAX_VALUE), result.numbers)
-        assertEquals(false, result.hasMore)
+        assertEquals(emptyList<ReplyAnchorParser.NumberRange>(), result.unavailableRanges)
     }
 
-    /** 不正tokenは候補を作らず、後続する有効tokenは処理する。 */
+    /** 不正tokenを無視し、有効tokenの未取得範囲は保持する。 */
     @Test
-    fun limitedExtractionIgnoresInvalidAnchors() {
-        val result = ReplyAnchorParser.extractReferencedNumbersWithLimit(
-            content = ">>0 >>5-1 >>1- >>2",
-            limit = 10,
+    fun replyTargetExtractionIgnoresInvalidAnchors() {
+        val result = ReplyAnchorParser.extractReplyTargetReferences(
+            content = ">>0 >>5-1 >>1- >>2,",
+            maxPostNumber = 1,
         )
 
-        assertEquals(listOf(2), result.numbers)
-        assertEquals(false, result.hasMore)
-    }
-
-    /** 空の候補上限は受け付けない。 */
-    @Test(expected = IllegalArgumentException::class)
-    fun limitedExtractionRequiresPositiveLimit() {
-        ReplyAnchorParser.extractReferencedNumbersWithLimit(">>1", limit = 0)
+        assertEquals(emptyList<Int>(), result.numbers)
+        assertEquals(emptyList<ReplyAnchorParser.NumberRange>(), result.unavailableRanges)
     }
 }

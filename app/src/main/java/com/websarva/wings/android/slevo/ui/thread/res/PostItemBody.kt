@@ -43,6 +43,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStat
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
@@ -87,7 +88,7 @@ internal fun PostItemBody(
     replyTargetHostPostNumber: Int = 0,
     revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
     onReplyTargetClick: ((Int) -> Unit)? = null,
-    onReplyTargetNumbersClick: ((List<Int>, Boolean) -> Unit)? = null,
+    onReplyTargetNumbersClick: ((List<Int>, List<ReplyTargetUnavailableRange>) -> Unit)? = null,
     onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
     maxPostNumber: Int,
     replyPreviewState: PostReplyPreviewUiState?,
@@ -166,102 +167,113 @@ internal fun PostItemBody(
                     val transitionScope = sharedTransitionScope ?: return@forEach
                     val visibilityScope = animatedVisibilityScope ?: return@forEach
                     val selected = target.selectedCandidate
-                    val disclosureKey = ReplyTargetDisclosureKey(
-                        hostPostNumber = replyTargetHostPostNumber,
-                        lineIndex = target.lineIndex,
-                        postNumber = selected.postNumber,
-                    )
-                    val isRevealed = disclosureKey in revealedReplyTargetKeys
                     val openCandidates = {
                         onReplyTargetNumbersClick?.invoke(
                             target.referencedNumbers,
-                            target.hasMoreCandidates,
+                            target.unavailableRanges,
                         ) ?: onReplyNumbersClick?.invoke(target.referencedNumbers)
                     }
-                    val selectedPost = selected.post
-                    when {
-                        selected.status == ReplyTargetCandidateStatus.AVAILABLE && selectedPost != null -> {
-                            ReplyPreviewCard(
-                                post = selectedPost,
-                                hostNamespace = transitionNamespace,
-                                previewType = ImageReplyPreviewType.REPLY_TARGET,
-                                overflowCount = target.overflowCount,
-                                overflowNumbers = target.referencedNumbers,
-                                hasMoreCandidates = target.hasMoreCandidates,
-                                headerTextScale = headerTextScale,
-                                bodyTextScale = bodyTextStyle.fontSize.value /
-                                    MaterialTheme.typography.bodyMedium.fontSize.value,
-                                lineHeightEm = lineHeightEm,
-                                onOpenPost = {
-                                    if (onReplyTargetClick != null) {
-                                        onReplyTargetClick(selected.postNumber)
-                                    } else {
-                                        onReplyClick?.invoke(selected.postNumber)
-                                    }
-                                },
-                                onOpenOverflow = { openCandidates() },
-                                onImageClick = onImageClick,
-                                onImageLongPress = onImageLongPress,
-                                imageLoadFailureByUrl = imageLoadFailureByUrl,
-                                onImageLoadStart = onImageLoadStart,
-                                onImageLoadError = onImageLoadError,
-                                onImageLoadSuccess = onImageLoadSuccess,
-                                onImageRetry = onImageRetry,
-                                enableSharedElement = enableSharedElement,
-                                sharedTransitionScope = transitionScope,
-                                animatedVisibilityScope = visibilityScope,
-                            )
-                        }
-
-                        selected.status == ReplyTargetCandidateStatus.NG && isRevealed && selectedPost != null -> {
-                            ReplyPreviewCard(
-                                post = selectedPost,
-                                hostNamespace = transitionNamespace,
-                                previewType = ImageReplyPreviewType.REPLY_TARGET,
-                                overflowCount = target.overflowCount,
-                                overflowNumbers = target.referencedNumbers,
-                                hasMoreCandidates = target.hasMoreCandidates,
-                                onHide = {
-                                    onReplyTargetDisclosureChange?.invoke(disclosureKey, false)
-                                },
-                                headerTextScale = headerTextScale,
-                                bodyTextScale = bodyTextStyle.fontSize.value /
-                                    MaterialTheme.typography.bodyMedium.fontSize.value,
-                                lineHeightEm = lineHeightEm,
-                                onOpenPost = {
-                                    if (onReplyTargetClick != null) {
-                                        onReplyTargetClick(selected.postNumber)
-                                    } else {
-                                        onReplyClick?.invoke(selected.postNumber)
-                                    }
-                                },
-                                onOpenOverflow = { openCandidates() },
-                                onImageClick = onImageClick,
-                                onImageLongPress = onImageLongPress,
-                                imageLoadFailureByUrl = imageLoadFailureByUrl,
-                                onImageLoadStart = onImageLoadStart,
-                                onImageLoadError = onImageLoadError,
-                                onImageLoadSuccess = onImageLoadSuccess,
-                                onImageRetry = onImageRetry,
-                                enableSharedElement = enableSharedElement,
-                                sharedTransitionScope = transitionScope,
-                                animatedVisibilityScope = visibilityScope,
-                            )
-                        }
-
-                        else -> ReplyTargetStatusRow(
-                            postNumber = selected.postNumber,
-                            status = selected.status,
-                            overflowCount = target.overflowCount,
-                            overflowNumbers = target.referencedNumbers,
-                            hasMoreCandidates = target.hasMoreCandidates,
-                            onReveal = if (selected.status == ReplyTargetCandidateStatus.NG) {
-                                { onReplyTargetDisclosureChange?.invoke(disclosureKey, true) }
-                            } else null,
-                            onOpenOverflow = if (target.overflowCount > 0) {
+                    if (selected == null) {
+                        ReplyTargetUnavailableRangesRow(
+                            ranges = target.unavailableRanges,
+                            onClick = if (onReplyTargetNumbersClick != null || onReplyNumbersClick != null) {
                                 { openCandidates() }
                             } else null,
                         )
+                    } else {
+                        val disclosureKey = ReplyTargetDisclosureKey(
+                            hostPostNumber = replyTargetHostPostNumber,
+                            lineIndex = target.lineIndex,
+                            postNumber = selected.postNumber,
+                        )
+                        val isRevealed = disclosureKey in revealedReplyTargetKeys
+                        val selectedPost = selected.post
+                        when {
+                            selected.status == ReplyTargetCandidateStatus.AVAILABLE && selectedPost != null -> {
+                                ReplyPreviewCard(
+                                    post = selectedPost,
+                                    hostNamespace = transitionNamespace,
+                                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                                    overflowCount = target.overflowCount,
+                                    overflowNumbers = target.referencedNumbers,
+                                    unavailableRanges = target.unavailableRanges,
+                                    headerTextScale = headerTextScale,
+                                    bodyTextScale = bodyTextStyle.fontSize.value /
+                                        MaterialTheme.typography.bodyMedium.fontSize.value,
+                                    lineHeightEm = lineHeightEm,
+                                    onOpenPost = {
+                                        if (onReplyTargetClick != null) {
+                                            onReplyTargetClick(selected.postNumber)
+                                        } else {
+                                            onReplyClick?.invoke(selected.postNumber)
+                                        }
+                                    },
+                                    onOpenOverflow = { openCandidates() },
+                                    onImageClick = onImageClick,
+                                    onImageLongPress = onImageLongPress,
+                                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                                    onImageLoadStart = onImageLoadStart,
+                                    onImageLoadError = onImageLoadError,
+                                    onImageLoadSuccess = onImageLoadSuccess,
+                                    onImageRetry = onImageRetry,
+                                    enableSharedElement = enableSharedElement,
+                                    sharedTransitionScope = transitionScope,
+                                    animatedVisibilityScope = visibilityScope,
+                                )
+                            }
+
+                            selected.status == ReplyTargetCandidateStatus.NG && isRevealed && selectedPost != null -> {
+                                ReplyPreviewCard(
+                                    post = selectedPost,
+                                    hostNamespace = transitionNamespace,
+                                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                                    overflowCount = target.overflowCount,
+                                    overflowNumbers = target.referencedNumbers,
+                                    unavailableRanges = target.unavailableRanges,
+                                    onHide = {
+                                        onReplyTargetDisclosureChange?.invoke(disclosureKey, false)
+                                    },
+                                    headerTextScale = headerTextScale,
+                                    bodyTextScale = bodyTextStyle.fontSize.value /
+                                        MaterialTheme.typography.bodyMedium.fontSize.value,
+                                    lineHeightEm = lineHeightEm,
+                                    onOpenPost = {
+                                        if (onReplyTargetClick != null) {
+                                            onReplyTargetClick(selected.postNumber)
+                                        } else {
+                                            onReplyClick?.invoke(selected.postNumber)
+                                        }
+                                    },
+                                    onOpenOverflow = { openCandidates() },
+                                    onImageClick = onImageClick,
+                                    onImageLongPress = onImageLongPress,
+                                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                                    onImageLoadStart = onImageLoadStart,
+                                    onImageLoadError = onImageLoadError,
+                                    onImageLoadSuccess = onImageLoadSuccess,
+                                    onImageRetry = onImageRetry,
+                                    enableSharedElement = enableSharedElement,
+                                    sharedTransitionScope = transitionScope,
+                                    animatedVisibilityScope = visibilityScope,
+                                )
+                            }
+
+                            else -> ReplyTargetStatusRow(
+                                postNumber = selected.postNumber,
+                                status = selected.status,
+                                overflowCount = target.overflowCount,
+                                overflowNumbers = target.referencedNumbers,
+                                unavailableRanges = target.unavailableRanges,
+                                onReveal = if (selected.status == ReplyTargetCandidateStatus.NG) {
+                                    { onReplyTargetDisclosureChange?.invoke(disclosureKey, true) }
+                                } else null,
+                                onOpenOverflow = if (
+                                    target.overflowCount > 0 || target.unavailableRanges.isNotEmpty()
+                                ) {
+                                    { openCandidates() }
+                                } else null,
+                            )
+                        }
                     }
                 }
             }
@@ -540,13 +552,13 @@ private fun PostItemBodyPreview() {
 @Composable
 private fun PostItemBodyWithReplyTargetPreview() {
     // --- Preview content and target state ---
-    val body = ">>12\n返信本文の一行目\n返信本文の二行目"
+    val body = ">>12-2147483647\n返信本文の一行目\n返信本文の二行目"
     val replyTarget = ReplyTargetPreviewUiState(
         lineIndex = 0,
         lineStartOffset = 0,
-        lineEndOffset = 4,
-        lineBreakEndOffset = 5,
-        anchorLine = ">>12",
+        lineEndOffset = 15,
+        lineBreakEndOffset = 16,
+        anchorLine = ">>12-2147483647",
         candidates = listOf(
             ReplyTargetCandidateUiModel(
                 postNumber = 12,
@@ -571,13 +583,13 @@ private fun PostItemBodyWithReplyTargetPreview() {
                 imageUrls = emptyList(),
             ),
         ),
-        hasMoreCandidates = false,
+        unavailableRanges = listOf(ReplyTargetUnavailableRange(13, Int.MAX_VALUE)),
     )
     val replyPreviewState = PostReplyPreviewUiState(
         replyTargets = listOf(replyTarget),
         bodySegments = listOf(
             PostBodySegment.ReplyTarget(replyTarget),
-            PostBodySegment.TextRange(startOffset = 5, endOffset = body.length),
+            PostBodySegment.TextRange(startOffset = 16, endOffset = body.length),
         ),
     )
 
@@ -634,7 +646,7 @@ private fun PostItemBodyWithReplyTargetPreview() {
 @Preview(showBackground = true, name = "Multiple reply target lines and NG state")
 @Composable
 private fun PostItemBodyWithMultipleReplyTargetsPreview() {
-    val body = ">>1 >>3\nmiddle\n>>8"
+    val body = ">>1 >>10-2147483647\nmiddle\n>>8"
     val ngCandidate = ReplyTargetCandidateUiModel(
         postNumber = 1,
         status = ReplyTargetCandidateStatus.NG,
@@ -645,11 +657,6 @@ private fun PostItemBodyWithMultipleReplyTargetsPreview() {
             body = "NG本文は初期表示しません",
             imageUrls = emptyList(),
         ),
-    )
-    val unavailableCandidate = ReplyTargetCandidateUiModel(
-        postNumber = 3,
-        status = ReplyTargetCandidateStatus.UNAVAILABLE,
-        post = null,
     )
     val normalCandidate = ReplyTargetCandidateUiModel(
         postNumber = 8,
@@ -665,28 +672,28 @@ private fun PostItemBodyWithMultipleReplyTargetsPreview() {
     val ngTarget = ReplyTargetPreviewUiState(
         lineIndex = 0,
         lineStartOffset = 0,
-        lineEndOffset = 7,
-        lineBreakEndOffset = 8,
-        anchorLine = ">>1 >>3",
-        candidates = listOf(ngCandidate, unavailableCandidate),
+        lineEndOffset = 19,
+        lineBreakEndOffset = 20,
+        anchorLine = ">>1 >>10-2147483647",
+        candidates = listOf(ngCandidate),
         selectedCandidate = ngCandidate,
-        hasMoreCandidates = false,
+        unavailableRanges = listOf(ReplyTargetUnavailableRange(10, Int.MAX_VALUE)),
     )
     val normalTarget = ReplyTargetPreviewUiState(
         lineIndex = 2,
-        lineStartOffset = 15,
-        lineEndOffset = 18,
-        lineBreakEndOffset = 18,
+        lineStartOffset = 27,
+        lineEndOffset = 30,
+        lineBreakEndOffset = 30,
         anchorLine = ">>8",
         candidates = listOf(normalCandidate),
         selectedCandidate = normalCandidate,
-        hasMoreCandidates = false,
+        unavailableRanges = emptyList(),
     )
     val state = PostReplyPreviewUiState(
         replyTargets = listOf(ngTarget, normalTarget),
         bodySegments = listOf(
             PostBodySegment.ReplyTarget(ngTarget),
-            PostBodySegment.TextRange(startOffset = 8, endOffset = 14),
+            PostBodySegment.TextRange(startOffset = 20, endOffset = 26),
             PostBodySegment.ReplyTarget(normalTarget),
         ),
     )

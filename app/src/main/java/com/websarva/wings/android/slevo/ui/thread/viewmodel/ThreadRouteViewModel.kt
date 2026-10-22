@@ -39,6 +39,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -481,17 +482,17 @@ class ThreadRouteViewModel @Inject constructor(
         addPopupForReplyNumbers(tabKey, baseOffset, listOf(postNumber))
     }
 
-    /** 返信先候補一覧では未取得番号とNG番号を除外せずに表示する。 */
+    /** 返信先候補一覧へ取得済み番号と未取得範囲を渡して表示する。 */
     fun addPopupForReplyTargetNumbers(
         tabKey: String,
         baseOffset: IntOffset,
         replyNumbers: List<Int>,
-        hasMoreCandidates: Boolean,
+        unavailableRanges: List<ReplyTargetUnavailableRange>,
     ) {
         val state = uiStateFor(tabKey).value
         val targetNumbers = replyNumbers.filter { it > 0 }.distinct()
-        // Guard: 候補が空なら表示内容のないポップアップを積まない。
-        if (targetNumbers.isEmpty()) return
+        // Guard: 番号も範囲もない一覧は作成しない。
+        if (targetNumbers.isEmpty() && unavailableRanges.isEmpty()) return
         appendPopup(
             tabKey = tabKey,
             info = PopupInfo(
@@ -500,7 +501,7 @@ class ThreadRouteViewModel @Inject constructor(
                 offset = baseOffset,
                 rootNumbers = targetNumbers.map { number -> state.treeRootMap[number] ?: number },
                 contentType = PopupContentType.REPLY_TARGETS,
-                hasMoreCandidates = hasMoreCandidates,
+                unavailableRanges = unavailableRanges,
             ),
         )
     }

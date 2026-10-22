@@ -30,7 +30,7 @@ internal fun appendPopupIfDistinct(
 /**
  * 2つのポップアップが同一表示内容かを判定する。
  *
- * `popupId` やレイアウト情報ではなく、表示対象投稿とツリーインデントの一致で比較する。
+ * `popupId` やレイアウト情報ではなく、投稿・未取得範囲・ツリー表示情報の一致で比較する。
  */
 internal fun isSamePopupContent(
     left: PopupInfo,
@@ -40,7 +40,7 @@ internal fun isSamePopupContent(
         left.indentLevels == right.indentLevels &&
         left.rootNumbers == right.rootNumbers &&
         left.contentType == right.contentType &&
-        left.hasMoreCandidates == right.hasMoreCandidates
+        left.unavailableRanges == right.unavailableRanges
 }
 
 /** 通常ポップアップは描画可能な投稿がある場合に残し、返信先一覧は状態行も含めて残す。 */
@@ -51,7 +51,7 @@ internal fun prunePopupStackWithoutRenderablePosts(
 ): List<PopupInfo> {
     return popupStack.filter { info ->
         if (info.contentType == PopupContentType.REPLY_TARGETS) {
-            info.postNumbers.any { number -> number > 0 }
+            info.postNumbers.any { number -> number > 0 } || info.unavailableRanges.isNotEmpty()
         } else {
             info.postNumbers.any { number -> number in 1..postCount && number !in ngPostNumbers }
         }

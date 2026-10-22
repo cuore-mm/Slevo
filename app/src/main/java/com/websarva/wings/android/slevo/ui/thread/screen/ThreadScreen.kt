@@ -65,6 +65,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.util.GestureHint
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.detectDirectionalGesture
@@ -96,7 +97,11 @@ fun ThreadScreen(
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit = { _, _ -> },
-    onAddPopupForReplyTargetNumbers: (replyNumbers: List<Int>, hasMoreCandidates: Boolean, baseOffset: IntOffset) -> Unit = { _, _, _ -> },
+    onAddPopupForReplyTargetNumbers: (
+        replyNumbers: List<Int>,
+        unavailableRanges: List<ReplyTargetUnavailableRange>,
+        baseOffset: IntOffset,
+    ) -> Unit = { _, _, _ -> },
     onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit = { _, _ -> },
     onImageLongPress: (String, List<String>) -> Unit = { _, _ -> },

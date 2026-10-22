@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.thread.viewmodel
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.PostBodySegment
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -32,10 +33,10 @@ class ThreadReplyPreviewTransformerTest {
         ).getValue(5)
 
         assertEquals(listOf(0, 1, 2), result.replyTargets.map { it.lineIndex })
-        assertEquals(1, result.replyTargets.first().selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.NG, result.replyTargets.first().selectedCandidate.status)
+        assertEquals(1, result.replyTargets.first().selectedCandidate?.postNumber)
+        assertEquals(ReplyTargetCandidateStatus.NG, result.replyTargets.first().selectedCandidate?.status)
         assertEquals(" >>2,3 ", result.replyTargets[1].anchorLine)
-        assertEquals(2, result.replyTargets[1].selectedCandidate.postNumber)
+        assertEquals(2, result.replyTargets[1].selectedCandidate?.postNumber)
         assertEquals(listOf(1), result.replyTargets.first().referencedNumbers)
         assertEquals(listOf(2, 4, 6), result.replySourceNumbers)
         assertEquals(listOf(2, 4, 6), result.replySourcePreviews.map { it.postNumber })
@@ -118,8 +119,8 @@ class ThreadReplyPreviewTransformerTest {
         ).getValue(10)
 
         assertEquals(listOf(0, 1, 2, 3, 5), result.replyTargets.map { it.lineIndex })
-        assertEquals(1, result.replyTargets[0].selectedCandidate.postNumber)
-        assertEquals(2, result.replyTargets[1].selectedCandidate.postNumber)
+        assertEquals(1, result.replyTargets[0].selectedCandidate?.postNumber)
+        assertEquals(2, result.replyTargets[1].selectedCandidate?.postNumber)
         assertEquals(listOf(2, 3), result.replyTargets[1].referencedNumbers)
         assertEquals(listOf(2), result.replyTargets[1].referencedNumbers
             .filter { result.replyTargets[1].candidates.first { candidate -> candidate.postNumber == it }.status == ReplyTargetCandidateStatus.AVAILABLE })
@@ -150,7 +151,7 @@ class ThreadReplyPreviewTransformerTest {
         assertEquals(1, result.bodySegments.filterIsInstance<PostBodySegment.ReplyTarget>().size)
     }
 
-    /** 無効構文を除外し、有効な未取得番号は未取得候補として保持する。 */
+    /** 無効構文を除外し、有効な未取得番号は範囲状態として保持する。 */
     @Test
     fun doesNotCreatePreviewsForInvalidOrUnavailableAnchors() {
         val posts = listOf(post("name", "id1", ">>3-1\n>>999\n>>0"))
@@ -163,7 +164,9 @@ class ThreadReplyPreviewTransformerTest {
         )
 
         assertEquals(1, result.getValue(1).replyTargets.size)
-        assertEquals(ReplyTargetCandidateStatus.UNAVAILABLE, result.getValue(1).replyTargets.firstOrNull()?.selectedCandidate?.status)
+        val target = result.getValue(1).replyTargets.single()
+        assertEquals(null, target.selectedCandidate)
+        assertEquals(listOf(ReplyTargetUnavailableRange(999, 999)), target.unavailableRanges)
     }
 
     /** 画像URLだけの行を省き、通常URL・空行・残り本文を保持する。 */
@@ -279,7 +282,7 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(10)
 
-        assertEquals(listOf(1, 3, 1, 5), result.replyTargets.map { it.selectedCandidate.postNumber })
+        assertEquals(listOf(1, 3, 1, 5), result.replyTargets.map { it.selectedCandidate?.postNumber })
         assertEquals(listOf(listOf(1), listOf(3), listOf(1), listOf(5)), result.replyTargets.map { it.referencedNumbers })
         assertEquals(listOf(2, 4, 6, 8, 9), result.replySourceNumbers)
         assertEquals(listOf(2, 4, 6), result.replySourcePreviews.map { it.postNumber })
@@ -305,12 +308,12 @@ class ThreadReplyPreviewTransformerTest {
         ).getValue(6).replyTargets.single()
 
         assertEquals(listOf(1, 2, 3, 4, 5), result.referencedNumbers)
-        assertEquals(3, result.selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, result.selectedCandidate.status)
+        assertEquals(3, result.selectedCandidate?.postNumber)
+        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, result.selectedCandidate?.status)
         assertEquals(4, result.overflowCount)
     }
 
-    /** 全候補がNGなら最初のNGを選択し、未取得候補も残数に含める。 */
+    /** 取得済み候補が全件NGなら最初のNGを選び、未取得範囲は残数から除く。 */
     @Test
     fun selectsNgBeforeUnavailableAndRetainsBothKinds() {
         val posts = listOf(
@@ -325,11 +328,11 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(2).replyTargets.single()
 
-        assertEquals(1, result.selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.NG, result.selectedCandidate.status)
+        assertEquals(1, result.selectedCandidate?.postNumber)
+        assertEquals(ReplyTargetCandidateStatus.NG, result.selectedCandidate?.status)
         assertEquals(ReplyTargetCandidateStatus.NG, result.candidates[1].status)
-        assertEquals(ReplyTargetCandidateStatus.UNAVAILABLE, result.candidates[2].status)
-        assertEquals(2, result.overflowCount)
+        assertEquals(listOf(ReplyTargetUnavailableRange(4, 4)), result.unavailableRanges)
+        assertEquals(1, result.overflowCount)
     }
 
     /** 正常3件とNG2件では最初の正常を選び、ほか4件を候補に含める。 */
@@ -346,7 +349,7 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(6).replyTargets.single()
 
-        assertEquals(1, result.selectedCandidate.postNumber)
+        assertEquals(1, result.selectedCandidate?.postNumber)
         assertEquals(4, result.overflowCount)
         assertEquals(listOf(4, 5), result.candidates
             .filter { it.status == ReplyTargetCandidateStatus.NG }
@@ -367,7 +370,7 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(6).replyTargets.single()
 
-        assertEquals(1, result.selectedCandidate.postNumber)
+        assertEquals(1, result.selectedCandidate?.postNumber)
         assertEquals(4, result.overflowCount)
         assertEquals(4, result.candidates.count { it.status == ReplyTargetCandidateStatus.NG })
     }
@@ -386,14 +389,14 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(4).replyTargets.single()
 
-        assertEquals(1, result.selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.NG, result.selectedCandidate.status)
+        assertEquals(1, result.selectedCandidate?.postNumber)
+        assertEquals(ReplyTargetCandidateStatus.NG, result.selectedCandidate?.status)
         assertEquals(2, result.overflowCount)
     }
 
-    /** 全候補が未取得のときは最初の番号を未取得状態として保持する。 */
+    /** 未取得だけの参照は番号ごとに展開せず一つの範囲状態にする。 */
     @Test
-    fun selectsFirstUnavailableWhenAllCandidatesAreMissing() {
+    fun keepsOnlyUnavailableReferencesAsRanges() {
         val posts = listOf(post("host", "host-id", ">>20-22"))
 
         val result = ThreadReplyPreviewTransformer.derive(
@@ -403,10 +406,32 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(1).replyTargets.single()
 
-        assertEquals(listOf(20, 21, 22), result.referencedNumbers)
-        assertEquals(20, result.selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.UNAVAILABLE, result.selectedCandidate.status)
-        assertEquals(2, result.overflowCount)
+        assertEquals(emptyList<Int>(), result.referencedNumbers)
+        assertEquals(null, result.selectedCandidate)
+        assertEquals(listOf(ReplyTargetUnavailableRange(20, 22)), result.unavailableRanges)
+        assertEquals(0, result.overflowCount)
+    }
+
+    /** 未取得の重複・隣接rangeを統合し、範囲の幅に応じて候補を増やさない。 */
+    @Test
+    fun mergesOverlappingUnavailableRangesWithoutExpandingThem() {
+        val posts = listOf(post("host", "host-id", ">>105-110 >>108-120 >>121-125 >>130"))
+
+        val target = ThreadReplyPreviewTransformer.derive(
+            posts = posts,
+            visibleReplySourceMap = emptyMap(),
+            ngPostNumbers = emptySet(),
+            defaultName = "",
+        ).getValue(1).replyTargets.single()
+
+        assertEquals(emptyList<Int>(), target.referencedNumbers)
+        assertEquals(
+            listOf(
+                ReplyTargetUnavailableRange(105, 125),
+                ReplyTargetUnavailableRange(130, 130),
+            ),
+            target.unavailableRanges,
+        )
     }
 
     /** 先頭候補が未取得でも、後続の正常候補を優先して選択する。 */
@@ -424,13 +449,13 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(2).replyTargets.single()
 
-        assertEquals(listOf(99, 1), result.referencedNumbers)
-        assertEquals(ReplyTargetCandidateStatus.UNAVAILABLE, result.candidates.first().status)
-        assertEquals(1, result.selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, result.selectedCandidate.status)
+        assertEquals(listOf(1), result.referencedNumbers)
+        assertEquals(listOf(ReplyTargetUnavailableRange(99, 99)), result.unavailableRanges)
+        assertEquals(1, result.selectedCandidate?.postNumber)
+        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, result.selectedCandidate?.status)
     }
 
-    /** 一行の候補数は上限内に保ち、後続の別行も独立に変換する。 */
+    /** 取得済みレスだけ候補化し、未取得巨大範囲を保持して後続行も変換する。 */
     @Test
     fun capsEachLineIndependentlyAndProcessesFollowingLines() {
         val posts = (1..1_005).map { number ->
@@ -444,13 +469,16 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(1_005)
 
-        assertEquals(1_000, result.replyTargets[0].candidates.size)
-        assertEquals(true, result.replyTargets[0].hasMoreCandidates)
+        assertEquals(1_005, result.replyTargets[0].candidates.size)
+        assertEquals(
+            listOf(ReplyTargetUnavailableRange(1_006, Int.MAX_VALUE)),
+            result.replyTargets[0].unavailableRanges,
+        )
         assertEquals(listOf(2), result.replyTargets[1].referencedNumbers)
         assertEquals(2, result.bodySegments.filterIsInstance<PostBodySegment.ReplyTarget>().size)
     }
 
-    /** 千件目より後ろに正常候補があっても候補上限外から選ばない。 */
+    /** 旧千件上限より後ろの取得済み正常候補も選択対象とする。 */
     @Test
     fun doesNotSelectAvailableCandidateOutsideRetainedLimit() {
         val posts = (1..1_002).map { number ->
@@ -464,11 +492,10 @@ class ThreadReplyPreviewTransformerTest {
             defaultName = "",
         ).getValue(1_002).replyTargets.single()
 
-        assertEquals(1_000, result.candidates.size)
-        assertEquals(true, result.hasMoreCandidates)
-        assertEquals(1, result.selectedCandidate.postNumber)
-        assertEquals(ReplyTargetCandidateStatus.NG, result.selectedCandidate.status)
-        assertEquals(false, 1_001 in result.referencedNumbers)
+        assertEquals(1_001, result.candidates.size)
+        assertEquals(emptyList<ReplyTargetUnavailableRange>(), result.unavailableRanges)
+        assertEquals(1_001, result.selectedCandidate?.postNumber)
+        assertEquals(ReplyTargetCandidateStatus.AVAILABLE, result.selectedCandidate?.status)
     }
 
     /** 複数対象行の境界改行だけを置換し、空行・不正安価・文中安価を保持する。 */

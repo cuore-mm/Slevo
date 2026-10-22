@@ -24,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStat
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
@@ -84,7 +85,7 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
     onReplyTargetClick: ((Int) -> Unit)? = null,
-    onReplyTargetNumbersClick: ((List<Int>, Boolean) -> Unit)? = null,
+    onReplyTargetNumbersClick: ((List<Int>, List<ReplyTargetUnavailableRange>) -> Unit)? = null,
     onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
@@ -271,13 +272,13 @@ private fun ReplyCardPreview() {
 @Composable
 private fun PostItemWithReplyPreviewsPreview() {
     // --- Preview data ---
-    val body = ">>8\n返信本文の一行目\n返信本文の二行目"
+    val body = ">>8-2147483647\n返信本文の一行目\n返信本文の二行目"
     val replyTarget = ReplyTargetPreviewUiState(
         lineIndex = 0,
         lineStartOffset = 0,
-        lineEndOffset = 3,
-        lineBreakEndOffset = 4,
-        anchorLine = ">>8",
+        lineEndOffset = 14,
+        lineBreakEndOffset = 15,
+        anchorLine = ">>8-2147483647",
         candidates = listOf(
             ReplyTargetCandidateUiModel(
                 postNumber = 8,
@@ -302,7 +303,7 @@ private fun PostItemWithReplyPreviewsPreview() {
                 imageUrls = emptyList(),
             ),
         ),
-        hasMoreCandidates = false,
+        unavailableRanges = listOf(ReplyTargetUnavailableRange(9, Int.MAX_VALUE)),
     )
     val replySources = listOf(13, 14, 16).map { number ->
         ReplyPreviewPostUiModel(
@@ -319,7 +320,7 @@ private fun PostItemWithReplyPreviewsPreview() {
         replySourceNumbers = listOf(13, 14, 16, 18),
         bodySegments = listOf(
             PostBodySegment.ReplyTarget(replyTarget),
-            PostBodySegment.TextRange(startOffset = 4, endOffset = body.length),
+            PostBodySegment.TextRange(startOffset = 15, endOffset = body.length),
         ),
     )
 

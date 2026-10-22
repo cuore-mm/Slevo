@@ -305,12 +305,12 @@ fun ThreadScaffold(
                 onAddPopupForReplyNumber = { postNumber, baseOffset ->
                     routeViewModel.addPopupForReplyNumber(tab.id.value, baseOffset, postNumber)
                 },
-                onAddPopupForReplyTargetNumbers = { replyNumbers, hasMoreCandidates, baseOffset ->
+                onAddPopupForReplyTargetNumbers = { replyNumbers, unavailableRanges, baseOffset ->
                     routeViewModel.addPopupForReplyTargetNumbers(
                         tab.id.value,
                         baseOffset,
                         replyNumbers,
-                        hasMoreCandidates,
+                        unavailableRanges,
                     )
                 },
                 onReplyTargetDisclosureChange = { key, revealed ->

@@ -23,6 +23,12 @@ data class ReplyTargetCandidateUiModel(
     val post: ReplyPreviewPostUiModel?,
 )
 
+/** 取得済みレス数を超える未取得レス番号の連続範囲を表す。 */
+data class ReplyTargetUnavailableRange(
+    val firstPostNumber: Int,
+    val lastPostNumber: Int,
+)
+
 /** NG返信先の一時開示状態を表示箇所ごとに識別する。 */
 data class ReplyTargetDisclosureKey(
     val hostPostNumber: Int,
@@ -39,16 +45,16 @@ data class ReplyTargetPreviewUiState(
     val lineBreakEndOffset: Int,
     val anchorLine: String,
     val candidates: List<ReplyTargetCandidateUiModel>,
-    val selectedCandidate: ReplyTargetCandidateUiModel,
-    val hasMoreCandidates: Boolean,
+    val selectedCandidate: ReplyTargetCandidateUiModel?,
+    val unavailableRanges: List<ReplyTargetUnavailableRange>,
 ) {
-    /** 安価行に含まれる全候補番号を出現順で返す。 */
+    /** 安価行に含まれる取得済み候補番号を出現順で返す。 */
     val referencedNumbers: List<Int>
         get() = candidates.map(ReplyTargetCandidateUiModel::postNumber)
 
-    /** 選択済み候補以外の件数を返す。 */
+    /** 選択済み候補以外の取得済み候補件数を返す。 */
     val overflowCount: Int
-        get() = (candidates.size - 1).coerceAtLeast(0)
+        get() = (candidates.size - if (selectedCandidate == null) 0 else 1).coerceAtLeast(0)
 }
 
 /** 元本文の範囲を参照する、プレビュー挿入前後の本文セグメントを表す。 */
