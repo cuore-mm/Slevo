@@ -31,7 +31,7 @@ internal fun ReplyTargetDisclosureAction(
     )
     TextButton(
         modifier = Modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = 32.dp)
             .semantics { contentDescription = actionDescription }
             .testTag("reply-target-disclosure-button-$postNumber"),
         onClick = onClick,
@@ -43,6 +43,7 @@ internal fun ReplyTargetDisclosureAction(
             text = stringResource(
                 if (isRevealed) R.string.reply_preview_hide else R.string.reply_preview_reveal,
             ),
+            style = MaterialTheme.typography.labelSmall
         )
     }
 }
