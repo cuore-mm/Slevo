@@ -75,7 +75,7 @@
 
 表示/隠すは48dp以上とし、読み上げ名で対象番号と操作を伝える。状態・ボタン・一覧操作・画像操作を独立フォーカスにする。ボタン押下がカードタップへ伝播して別ポップアップを開くことを禁止する。非表示内容は読み上げない。
 
-`PostItemWithReplyPreviewsPreview`と`PostItemBodyWithReplyTargetPreview`を行別stateへ移行する。複数のCompose Previewで、通常幅の取得済み候補＋未取得範囲、狭幅の長い範囲、NGの非表示と開示、未取得範囲だけ、複数の離れた未取得範囲を見比べられるようにする。部品PreviewにもNG非表示、開示と隠す、未取得範囲を用意する。複数挿入と5パターンはCompose testで検証する。
+Preview関数はサンプル専用ファイルへ集めず、表示責務を持つComposableと同じファイルに置く。`PostItemBody.kt`の既存Previewで本文内の複数挿入と取得済み候補＋未取得範囲を確認し、`ReplyPreviewCard.kt`では既存の開示済みNG Previewを維持して分割された未取得範囲の例を追加する。`ReplyTargetStatusRow.kt`では既存のNG Previewに未取得範囲を含め、未取得範囲だけの表示例を追加する。画面幅を狭めたPreviewは設けず、状態ごとの描画と配置は通常幅で確認する。
 
 ## Implementation Contract
 

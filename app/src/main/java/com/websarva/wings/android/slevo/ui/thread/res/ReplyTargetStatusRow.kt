@@ -158,23 +158,10 @@ private fun ReplyTargetNgStatusRowPreview() {
             status = ReplyTargetCandidateStatus.NG,
             overflowCount = 2,
             overflowNumbers = listOf(12, 14, 16),
-            unavailableRanges = emptyList(),
-            onReveal = {},
-            onOpenOverflow = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "NG reply target", widthDp = 220, fontScale = 1.4f)
-@Composable
-private fun ReplyTargetNgNarrowStatusRowPreview() {
-    SlevoTheme {
-        ReplyTargetStatusRow(
-            postNumber = 12,
-            status = ReplyTargetCandidateStatus.NG,
-            overflowCount = 2,
-            overflowNumbers = listOf(12, 14, 16),
-            unavailableRanges = emptyList(),
+            unavailableRanges = listOf(
+                ReplyTargetUnavailableRange(101, 103),
+                ReplyTargetUnavailableRange(105, 200),
+            ),
             onReveal = {},
             onOpenOverflow = {},
         )
@@ -193,6 +180,19 @@ private fun ReplyTargetUnavailableStatusRowPreview() {
             unavailableRanges = emptyList(),
             onReveal = null,
             onOpenOverflow = null,
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Unavailable ranges only")
+@Composable
+private fun ReplyTargetUnavailableRangesRowPreview() {
+    SlevoTheme {
+        ReplyTargetUnavailableRangesRow(
+            ranges = listOf(
+                ReplyTargetUnavailableRange(101, 103),
+                ReplyTargetUnavailableRange(105, 200),
+            ),
         )
     }
 }

@@ -406,6 +406,47 @@ private fun ReplyPreviewCardImageOnlyPreview() {
     }
 }
 
+@Preview(showBackground = true, name = "Reply target with disjoint ranges")
+@Composable
+private fun ReplyPreviewCardWithDisjointUnavailableRangesPreview() {
+    SlevoTheme {
+        SharedTransitionLayout {
+            AnimatedVisibility(visible = true) {
+                ReplyPreviewCard(
+                    post = ReplyPreviewPostUiModel(
+                        postNumber = 8,
+                        name = "返信先の投稿者",
+                        id = "reply-target-id",
+                        body = "取得済み候補の本文です。",
+                        imageUrls = emptyList(),
+                    ),
+                    hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                    unavailableRanges = listOf(
+                        ReplyTargetUnavailableRange(101, 103),
+                        ReplyTargetUnavailableRange(105, 200),
+                    ),
+                    headerTextScale = 1f,
+                    bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
+                    onOpenPost = {},
+                    onOpenOverflow = {},
+                    onImageClick = { _, _, _, _ -> },
+                    onImageLongPress = { _, _ -> },
+                    imageLoadFailureByUrl = emptyMap(),
+                    onImageLoadStart = {},
+                    onImageLoadError = { _, _ -> },
+                    onImageLoadSuccess = {},
+                    onImageRetry = {},
+                    enableSharedElement = true,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                )
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true, name = "Revealed NG reply target")
 @Composable
 private fun RevealedNgReplyPreviewCardPreview() {
