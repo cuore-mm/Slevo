@@ -16,22 +16,22 @@
 
 ## 3. 返信先専用ポップアップと状態管理
 
-- [x] 3.1 `PopupInfo.kt`と`ThreadRouteViewModel`へ取得済み候補番号と未取得範囲を渡す返信先専用入口を接続する。通常リンク等の既存filterは維持する。
-- [x] 3.2 popup stackの返信先モードは取得済み番号または未取得範囲がある限り残し、同一判定へ番号・範囲を含める。更新後の番号解決、通常モードの既存挙動もテストする。
+- [x] 3.1 `PopupInfo.kt`と`ThreadRouteViewModel`へ取得済み候補番号だけを渡す返信先専用入口を接続する。通常リンク等の既存filterは維持する。
+- [x] 3.2 popup stackの返信先モードはNGを含む取得済み候補が残る間だけ維持し、候補がすべて未取得になれば閉じる。同一判定は番号順と表示種別で行い、更新後の番号解決と通常モードの既存挙動をテストする。
 - [x] 3.3 `ThreadUiState`と`ThreadRouteViewModel`へ表示箇所単位のNG開示集合と表示/隠すイベントを追加する。プレビューの行キーと`popupId`を区別し、閉鎖・無効化・NGルール更新時に掃除する。unit testで他箇所への非伝播、再構成時保持、閉じて再表示時のリセット、新たなNGの非表示、NG設定非変更を検証する。
-- [x] 3.4 `ReplyPopup`で取得済み正常レス/NG状態と統合済み未取得範囲行を表示する。選択済みを含む全取得済み候補、更新後の番号解決、巨大rangeの非展開をテストする。
+- [x] 3.4 `ReplyPopup`で選択済みを含む取得済み正常レス/NG状態だけを表示し、未取得候補と範囲行を表示しない。更新後に解決不能な番号を描画せず、全候補消失時に閉じることをテストする。
 
 ## 4. NG表示・隠すUIと未取得範囲表示
 
 - [x] 4.1 状態行に統合済みrange表示を追加し、`strings_reply_preview.xml`へ未取得範囲の文言を追加する。NG/未取得rangeの狭幅・文字拡大PreviewとCompose testを確認する。
 - [x] 4.2 `ReplyPreviewCard`と返信先モードの`ReplyPopup`に開示/隠す状態を接続する。Compose testでプレビューはその場で三行上限のカード、ポップアップは同じ行で通常レスとして開示し、隠すで戻ること、ボタンが別ポップアップを開かないことを確認する。非表示時は本文/名前/IDのsemantics不在、画像ロードコールバック未発火を検証する。
-- [x] 4.3 固定上限と超過通知を取り除き、「ほかN件」の下と返信先一覧に未取得rangeだけを表示する。Compose testで巨大rangeが展開されず、取得済み残数に未来候補を含めないことを検証する。
-- [ ] 4.4 Preview fixtureを未取得range表示へ更新し、複数挿入とNG開示状態を確認する。Studioで描画し、既存の通常本文・返信元Previewも維持する。
+- [x] 4.3 固定上限と超過通知を取り除き、未取得rangeを「ほかN件」の直下のインラインプレビューだけに表示する。返信先一覧は取得済み候補だけとし、未取得だけの行から開かず、更新後に候補がなくなれば閉じる。Compose testで巨大rangeの非展開と取得済み残数の分離、一覧の未取得range非表示を検証する。
+- [x] 4.4 Preview fixtureを未取得range表示へ更新し、通常幅の取得済み候補＋range、狭幅の長いrange、NG非表示／開示、rangeのみ、複数の離れたrangeを個別に確認できるCompose Previewを複数用意する。Studioで描画し、複数挿入と既存の通常本文・返信元Previewも維持する。
 
 ## 5. 統合検証と仕様整合
 
-- [x] 5.1 parser・transformer・ViewModel・Compose各テストでNG/追加取得更新、範囲統合、未取得幅によらない処理量と既存の返信元/通常リンクfilterを統合検証する。
-- [x] 5.2 artifact変更後にdebug build/unit testと接続可能なAndroid testを再実行する。
+- [x] 5.1 parser・transformer・ViewModel・Compose各テストでNG/追加取得更新、範囲統合、ポップアップの未取得除外と既存の返信元/通常リンクfilterを統合検証する。
+- [x] 5.2 artifact変更後にdebug build/unit testを再実行し、接続可能ならAndroid testも実行する。
 - [x] 5.3 strict validation、`git diff --check`、KDoc/Preview規約、永続化や通知への非波及を再確認する。
 
 仕様統合上の注意: 未アーカイブの`add-thread-reply-previews`を基点とするMODIFIED deltaが含まれる。将来の統合順は旧change→本changeであり、本計画作成ではarchiveを行わない。
@@ -54,3 +54,12 @@
 - Studio解析: `ReplyTargetStatusRow`、`PostItemBody`、`ReplyPreviewCard`、`ReplyPopup`はINFO提案のみ。
 - Studio Preview: NG行・狭幅未取得範囲行は描画できた。`PostItemBodyWithReplyTargetPreview`は`ReplyPreviewCard`の呼出しで`NoSuchMethodError`となり未描画。Gradle出力の両クラスのdescriptorは一致していることを`javap`で確認したが、Previewの再描画は未解決。Task 4.4は未完了のまま。
 - `openspec validate preserve-reply-target-references --strict`: valid。先行change依存によりthread-reply-preview / thread-reply-relationsの単独archive不可INFOあり。`git diff --check`: 成功。型・非自明関数のKDocとPreview関数のコメント不在、DB/永続化/通知への非波及を確認した。
+
+## 未取得範囲の表示方針更新後
+
+- 未取得範囲はインラインプレビューだけに表示し、返信先一覧への範囲データ経路を削除した。未取得範囲だけの行は非操作とし、一覧起動を抑止。更新後に取得済み候補が消えた一覧も閉じる。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`: 成功（57 actionable tasksはすべてUP-TO-DATE）。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest`: 成功。Android 17の2台で各118 tests、failure・skipなし。
+- Studio Preview: 新規の5パターン（通常幅の複数範囲、狭幅の長い範囲、NG非表示、NG開示、未取得のみ）をすべて描画。既存の複数返信先、通常本文、返信先本文Previewも描画して確認した。
+- Studio解析: 新規Previewファイルは問題なし。変更対象の既存ファイルには既存のINFO提案・警告のみ。
+- `openspec validate preserve-reply-target-references --strict`と`git diff --check`: 成功。OpenSpecのINFOは先行change依存による単独archive不可のみ。DB・永続化・NGルール・通知の変更なし。

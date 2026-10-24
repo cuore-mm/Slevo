@@ -270,9 +270,6 @@ internal fun ReplyPreviewCard(
                 ReplyTargetUnavailableRangesRow(
                     ranges = unavailableRanges,
                     modifier = Modifier.padding(bottom = 4.dp),
-                    onClick = if (unavailableRanges.isNotEmpty()) {
-                        { onOpenOverflow(overflowNumbers) }
-                    } else null,
                 )
             }
             if (onHide != null) {

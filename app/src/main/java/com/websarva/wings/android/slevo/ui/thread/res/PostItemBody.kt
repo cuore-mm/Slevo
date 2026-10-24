@@ -88,7 +88,7 @@ internal fun PostItemBody(
     replyTargetHostPostNumber: Int = 0,
     revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
     onReplyTargetClick: ((Int) -> Unit)? = null,
-    onReplyTargetNumbersClick: ((List<Int>, List<ReplyTargetUnavailableRange>) -> Unit)? = null,
+    onReplyTargetNumbersClick: ((List<Int>) -> Unit)? = null,
     onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
     maxPostNumber: Int,
     replyPreviewState: PostReplyPreviewUiState?,
@@ -168,17 +168,12 @@ internal fun PostItemBody(
                     val visibilityScope = animatedVisibilityScope ?: return@forEach
                     val selected = target.selectedCandidate
                     val openCandidates = {
-                        onReplyTargetNumbersClick?.invoke(
-                            target.referencedNumbers,
-                            target.unavailableRanges,
-                        ) ?: onReplyNumbersClick?.invoke(target.referencedNumbers)
+                        onReplyTargetNumbersClick?.invoke(target.referencedNumbers)
+                            ?: onReplyNumbersClick?.invoke(target.referencedNumbers)
                     }
                     if (selected == null) {
                         ReplyTargetUnavailableRangesRow(
                             ranges = target.unavailableRanges,
-                            onClick = if (onReplyTargetNumbersClick != null || onReplyNumbersClick != null) {
-                                { openCandidates() }
-                            } else null,
                         )
                     } else {
                         val disclosureKey = ReplyTargetDisclosureKey(
@@ -267,9 +262,7 @@ internal fun PostItemBody(
                                 onReveal = if (selected.status == ReplyTargetCandidateStatus.NG) {
                                     { onReplyTargetDisclosureChange?.invoke(disclosureKey, true) }
                                 } else null,
-                                onOpenOverflow = if (
-                                    target.overflowCount > 0 || target.unavailableRanges.isNotEmpty()
-                                ) {
+                                onOpenOverflow = if (target.overflowCount > 0) {
                                     { openCandidates() }
                                 } else null,
                             )
@@ -725,7 +718,7 @@ private fun PostItemBodyWithMultipleReplyTargetsPreview() {
                 onReplyNumbersClick = {},
                 replyTargetHostPostNumber = 9,
                 onReplyTargetClick = {},
-                onReplyTargetNumbersClick = { _, _ -> },
+                onReplyTargetNumbersClick = { _ -> },
                 onReplyTargetDisclosureChange = { _, _ -> },
                 maxPostNumber = 9,
                 replyPreviewState = state,

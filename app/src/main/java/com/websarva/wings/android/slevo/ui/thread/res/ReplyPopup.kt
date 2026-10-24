@@ -67,7 +67,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.calculateTreeIndentWidths
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
@@ -105,73 +104,6 @@ private data class PopupRow(
     val status: ReplyTargetCandidateStatus,
     val indentWidth: Dp,
 )
-
-/** 取得済み投稿数に応じて返信先範囲を実レス番号と未取得範囲へ分ける。 */
-private data class ResolvedReplyTargetList(
-    val postNumbers: List<Int>,
-    val unavailableRanges: List<ReplyTargetUnavailableRange>,
-)
-
-/** 返信先一覧を最新投稿数に追従させ、範囲内の取得済み番号だけを展開する。 */
-private fun resolveReplyTargetList(
-    info: PopupInfo,
-    postCount: Int,
-): ResolvedReplyTargetList {
-    val postNumbers = LinkedHashSet<Int>()
-    val unavailableRanges = mutableListOf<ReplyTargetUnavailableRange>()
-
-    // --- 解決可能な候補を維持し、古い番号を未取得へ戻す ---
-    info.postNumbers.forEach { number ->
-        if (number in 1..postCount) {
-            postNumbers += number
-        } else if (number > postCount && number > 0) {
-            unavailableRanges += ReplyTargetUnavailableRange(number, number)
-        }
-    }
-
-    // --- 取得済みになった範囲内番号を候補へ移す ---
-    info.unavailableRanges.forEach { range ->
-        val availableEnd = minOf(range.lastPostNumber.toLong(), postCount.toLong())
-        if (range.firstPostNumber.toLong() <= availableEnd) {
-            for (number in range.firstPostNumber..availableEnd.toInt()) {
-                postNumbers += number
-            }
-        }
-        val nextUnavailable = maxOf(range.firstPostNumber.toLong(), postCount.toLong() + 1L)
-        if (nextUnavailable <= range.lastPostNumber.toLong()) {
-            unavailableRanges += ReplyTargetUnavailableRange(
-                firstPostNumber = nextUnavailable.toInt(),
-                lastPostNumber = range.lastPostNumber,
-            )
-        }
-    }
-    return ResolvedReplyTargetList(
-        postNumbers = postNumbers.toList(),
-        unavailableRanges = mergeUnavailableRanges(unavailableRanges),
-    )
-}
-
-/** 重複・隣接するポップアップ未取得範囲を昇順で統合する。 */
-private fun mergeUnavailableRanges(
-    ranges: List<ReplyTargetUnavailableRange>,
-): List<ReplyTargetUnavailableRange> {
-    if (ranges.isEmpty()) return emptyList()
-    val sortedRanges = ranges.sortedBy(ReplyTargetUnavailableRange::firstPostNumber)
-    val merged = mutableListOf<ReplyTargetUnavailableRange>()
-    var first = sortedRanges.first().firstPostNumber
-    var last = sortedRanges.first().lastPostNumber
-    sortedRanges.drop(1).forEach { range ->
-        if (range.firstPostNumber.toLong() <= last.toLong() + 1L) {
-            last = maxOf(last, range.lastPostNumber)
-        } else {
-            merged += ReplyTargetUnavailableRange(first, last)
-            first = range.firstPostNumber
-            last = range.lastPostNumber
-        }
-    }
-    merged += ReplyTargetUnavailableRange(first, last)
-    return merged
-}
 
 /**
  * 返信ポップアップの表示と操作イベントを管理する。
@@ -622,11 +554,11 @@ private fun PopupPostLazyColumn(
     maxWidth: Dp,
     listState: LazyListState,
 ) {
-    // --- Resolve stored ranges against the latest fetched post list ---
-    val replyTargetList = if (info.contentType == PopupContentType.REPLY_TARGETS) {
-        resolveReplyTargetList(info, posts.size)
+    // --- Resolve stored post numbers against the latest fetched post list ---
+    val popupPostNumbers = if (info.contentType == PopupContentType.REPLY_TARGETS) {
+        info.postNumbers.distinct().filter { number -> number in 1..posts.size }
     } else {
-        ResolvedReplyTargetList(info.postNumbers, emptyList())
+        info.postNumbers
     }
 
     // --- Tree indent calculation ---
@@ -646,18 +578,16 @@ private fun PopupPostLazyColumn(
             )
         }
     } else {
-        List(replyTargetList.postNumbers.size) { 0.dp }
+        List(popupPostNumbers.size) { 0.dp }
     }
 
     // 最新の posts から表示可能な行を解決する。
     // 元のポップアップ内インデックスを保持して indentWidths と整合させる。
-    val rows = replyTargetList.postNumbers.mapIndexedNotNull { i, postNum ->
+    val rows = popupPostNumbers.mapIndexedNotNull { i, postNum ->
         if (info.contentType == PopupContentType.REPLY_TARGETS) {
-            // Guard: 候補番号が正でなければ投稿一覧や派生情報へ添字アクセスしない。
-            if (postNum <= 0) return@mapIndexedNotNull null
-            val post = posts.getOrNull(postNum - 1)
+            // Guard: 更新後に投稿がなくなった候補は一覧に表示しない。
+            val post = posts.getOrNull(postNum - 1) ?: return@mapIndexedNotNull null
             val status = when {
-                post == null -> ReplyTargetCandidateStatus.UNAVAILABLE
                 postNum in ngPostNumbers -> ReplyTargetCandidateStatus.NG
                 else -> ReplyTargetCandidateStatus.AVAILABLE
             }
@@ -789,14 +719,6 @@ private fun PopupPostLazyColumn(
                 HorizontalDivider(
                     modifier = Modifier.padding(start = minOf(indentWidth, nextVisibleIndentWidth))
                 )
-            }
-        }
-        if (replyTargetList.unavailableRanges.isNotEmpty()) {
-            val rangeKey = replyTargetList.unavailableRanges.joinToString("-") {
-                "${it.firstPostNumber}-${it.lastPostNumber}"
-            }
-            item(key = "unavailable-ranges-$rangeKey") {
-                ReplyTargetUnavailableRangesRow(ranges = replyTargetList.unavailableRanges)
             }
         }
     }

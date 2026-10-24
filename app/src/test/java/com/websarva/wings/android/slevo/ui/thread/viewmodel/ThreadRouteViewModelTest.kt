@@ -636,9 +636,9 @@ class ThreadRouteViewModelTest {
         )
     }
 
-    /** 返信先一覧は取得済みNG番号と統合済み未取得範囲を保持する。 */
+    /** 返信先一覧は取得済みNG番号だけを保持する。 */
     @Test
-    fun addPopupForReplyTargetsRetainsNgAndUnavailableCandidates() = runTest {
+    fun addPopupForReplyTargetsShowsAcquiredNgCandidatesOnly() = runTest {
         val threadId = ThreadId.of("example.com", "test", "reply-targets")
         val ngRules = MutableStateFlow(
             listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
@@ -662,16 +662,39 @@ class ThreadRouteViewModelTest {
             tabKey = threadId.value,
             baseOffset = IntOffset(10, 20),
             replyNumbers = listOf(1),
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
 
         val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
         assertEquals(listOf(1), popup.postNumbers)
         assertEquals(PopupContentType.REPLY_TARGETS, popup.contentType)
-        assertEquals(listOf(ReplyTargetUnavailableRange(99, 99)), popup.unavailableRanges)
         assertEquals(listOf(1), uiState.value.popupStack.single().postNumbers)
         assertEquals(setOf(1), uiState.value.ngPostNumbers)
+    }
+
+    /** 参照先が未取得番号だけの場合は返信先一覧を作らない。 */
+    @Test
+    fun addPopupForReplyTargetsDoesNotOpenWithoutAcquiredCandidates() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-targets-unavailable-only")
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            loadResults = listOf(contentLoadResult(listOf(threadPost(1, "body")))),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.addPopupForReplyTargetNumbers(
+            tabKey = threadId.value,
+            baseOffset = IntOffset.Zero,
+            replyNumbers = listOf(2, 99),
+        )
+        advanceUntilIdle()
+
+        assertTrue(uiState.value.popupStack.isEmpty())
+        assertTrue(dependencies.sessionStates.value.getValue(threadId.value).popupStack.isEmpty())
     }
 
     /** 再取得で投稿数が減り、残り候補がNG・未取得になっても一覧番号を維持する。 */
@@ -701,7 +724,6 @@ class ThreadRouteViewModelTest {
             threadId.value,
             IntOffset.Zero,
             listOf(1, 2),
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
         viewModel.reloadThread(threadId.value)
@@ -711,8 +733,43 @@ class ThreadRouteViewModelTest {
         assertTrue(uiState.value.ngPostNumbers.isEmpty())
         val popup = uiState.value.popupStack.single { it.contentType == PopupContentType.REPLY_TARGETS }
         assertEquals(listOf(1, 2), popup.postNumbers)
-        assertEquals(listOf(ReplyTargetUnavailableRange(99, 99)), popup.unavailableRanges)
         assertEquals(1, dependencies.sessionStates.value.getValue(threadId.value).popupStack.size)
+    }
+
+    /** 更新後に候補がすべて未取得となった返信先一覧を閉じる。 */
+    @Test
+    fun replyTargetPopupClosesWhenAllCandidatesBecomeUnavailable() = runTest {
+        val threadId = ThreadId.of("example.com", "test", "reply-target-close-after-refresh")
+        val initialPosts = listOf(
+            threadPost(1, "first post"),
+            threadPost(2, "second post"),
+        )
+        val dependencies = mockDependencies(
+            tabs = listOf(threadTab(threadId, "title")),
+            selectedTabKey = threadId.value,
+            loadResults = listOf(
+                contentLoadResult(initialPosts),
+                contentLoadResult(listOf(threadPost(1, "remaining post"))),
+            ),
+        )
+        val viewModel = dependencies.createViewModel()
+        val uiState = viewModel.uiStateFor(threadId.value)
+        backgroundScope.launch { uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.addPopupForReplyTargetNumbers(
+            tabKey = threadId.value,
+            baseOffset = IntOffset.Zero,
+            replyNumbers = listOf(2),
+        )
+        advanceUntilIdle()
+        assertEquals(1, uiState.value.popupStack.size)
+
+        viewModel.reloadThread(threadId.value)
+        advanceUntilIdle()
+
+        assertTrue(uiState.value.popupStack.isEmpty())
+        assertTrue(dependencies.sessionStates.value.getValue(threadId.value).popupStack.isEmpty())
     }
 
     /** NG・追加取得の変化を反映しつつ、行候補順と残数を維持する。 */
@@ -797,7 +854,6 @@ class ThreadRouteViewModelTest {
             threadId.value,
             IntOffset.Zero,
             listOf(1),
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
         val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
@@ -819,7 +875,6 @@ class ThreadRouteViewModelTest {
             threadId.value,
             IntOffset.Zero,
             listOf(1),
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, 99)),
         )
         advanceUntilIdle()
         val reopenedPopup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()

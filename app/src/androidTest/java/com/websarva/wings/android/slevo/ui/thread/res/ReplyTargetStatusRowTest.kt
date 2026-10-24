@@ -2,6 +2,7 @@ package com.websarva.wings.android.slevo.ui.thread.res
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -93,7 +94,7 @@ class ReplyTargetStatusRowTest {
         assertEquals(1, overflowCount)
     }
 
-    /** 候補がない場合も巨大未取得範囲を単一状態文言で表示する。 */
+    /** 候補がない場合も巨大未取得範囲を非操作の状態文言で表示する。 */
     @Test
     fun unavailableRangeIsShownWithoutEnumeratingItsNumbers() {
         composeRule.setContent {
@@ -104,7 +105,9 @@ class ReplyTargetStatusRowTest {
             }
         }
 
-        composeRule.onNodeWithText("レス101〜2147483647は未取得のため参照できません").assertExists()
+        val unavailableRow = composeRule.onNodeWithText("レス101〜2147483647は未取得のため参照できません")
+        unavailableRow.assertExists()
+        unavailableRow.assertHasNoClickAction()
         composeRule.onAllNodesWithText("ほか", substring = true).assertCountEquals(0)
     }
 }

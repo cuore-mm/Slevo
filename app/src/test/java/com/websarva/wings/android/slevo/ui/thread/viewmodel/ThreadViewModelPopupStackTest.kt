@@ -4,7 +4,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -117,35 +116,33 @@ class ThreadViewModelPopupStackTest {
         assertEquals(listOf(1L, 2L), result.map { it.popupId })
     }
 
-    /** 未取得範囲が異なる返信先一覧を別内容として扱う。 */
+    /** 取得済み候補の順序が異なる返信先一覧を別内容として扱う。 */
     @Test
-    fun appendPopupIfDistinctSeparatesUnavailableRanges() {
-        val complete = popup(
+    fun appendPopupIfDistinctSeparatesReplyTargetCandidateOrder() {
+        val forward = popup(
             popupId = 1L,
             postNumbers = listOf(1, 2),
             contentType = PopupContentType.REPLY_TARGETS,
         )
-        val differentRange = popup(
+        val reversed = popup(
             popupId = 2L,
-            postNumbers = listOf(1, 2),
+            postNumbers = listOf(2, 1),
             contentType = PopupContentType.REPLY_TARGETS,
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(101, 200)),
         )
 
-        val result = appendPopupIfDistinct(appendPopupIfDistinct(emptyList(), complete), differentRange)
+        val result = appendPopupIfDistinct(appendPopupIfDistinct(emptyList(), forward), reversed)
 
         assertEquals(listOf(1L, 2L), result.map { it.popupId })
     }
 
-    /** 通常一覧は描画可能レスなしで閉じるが、返信先range-only一覧は維持する。 */
+    /** 通常一覧はNG投稿で閉じ、取得済みNG返信先は状態行として維持する。 */
     @Test
-    fun prunePopupStackRetainsReplyTargetStatusRows() {
+    fun prunePopupStackRetainsAcquiredNgReplyTargetCandidates() {
         val standard = popup(popupId = 1L, postNumbers = listOf(2))
         val replyTargets = popup(
             popupId = 2L,
             postNumbers = listOf(2),
             contentType = PopupContentType.REPLY_TARGETS,
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(99, Int.MAX_VALUE)),
         )
 
         val result = prunePopupStackWithoutRenderablePosts(
@@ -157,12 +154,29 @@ class ThreadViewModelPopupStackTest {
         assertEquals(listOf(2L), result.map { it.popupId })
     }
 
+    /** 取得済み候補が一件も残らない返信先一覧を閉じる。 */
+    @Test
+    fun prunePopupStackDropsReplyTargetPopupWithoutAcquiredCandidates() {
+        val missingReplyTargets = popup(
+            popupId = 1L,
+            postNumbers = listOf(99),
+            contentType = PopupContentType.REPLY_TARGETS,
+        )
+
+        val result = prunePopupStackWithoutRenderablePosts(
+            popupStack = listOf(missingReplyTargets),
+            postCount = 3,
+            ngPostNumbers = emptySet(),
+        )
+
+        assertEquals(emptyList<PopupInfo>(), result)
+    }
+
     private fun popup(
         popupId: Long,
         postNumbers: List<Int>,
         indentLevels: List<Int> = emptyList(),
         contentType: PopupContentType = PopupContentType.STANDARD,
-        unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
         offset: IntOffset = IntOffset.Zero,
         size: IntSize = IntSize.Zero,
     ): PopupInfo {
@@ -173,7 +187,6 @@ class ThreadViewModelPopupStackTest {
             size = size,
             indentLevels = indentLevels,
             contentType = contentType,
-            unavailableRanges = unavailableRanges,
         )
     }
 }

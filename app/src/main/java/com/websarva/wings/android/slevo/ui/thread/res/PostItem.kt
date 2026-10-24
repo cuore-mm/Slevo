@@ -85,7 +85,7 @@ fun PostItem(
     onReplyClick: ((Int) -> Unit)? = null,
     revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
     onReplyTargetClick: ((Int) -> Unit)? = null,
-    onReplyTargetNumbersClick: ((List<Int>, List<ReplyTargetUnavailableRange>) -> Unit)? = null,
+    onReplyTargetNumbersClick: ((List<Int>) -> Unit)? = null,
     onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,

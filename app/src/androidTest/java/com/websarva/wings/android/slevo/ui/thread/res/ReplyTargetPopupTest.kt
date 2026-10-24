@@ -21,7 +21,6 @@ import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -49,7 +48,6 @@ class ReplyTargetPopupTest {
             offset = IntOffset.Zero,
             size = IntSize.Zero,
             contentType = PopupContentType.REPLY_TARGETS,
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(3, Int.MAX_VALUE)),
         )
         val key = ReplyTargetDisclosureKey(
             hostPostNumber = 0,
@@ -92,10 +90,6 @@ class ReplyTargetPopupTest {
 
         composeRule.onNodeWithText("normal candidate", substring = true).assertExists()
         composeRule.onNodeWithText("NGで非表示", substring = true).assertExists()
-        composeRule.onNodeWithText(
-            "レス3〜2147483647は未取得のため参照できません",
-            substring = true,
-        ).assertExists()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("name2", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("ID:id2", substring = true).assertCountEquals(0)
@@ -114,11 +108,18 @@ class ReplyTargetPopupTest {
             currentNgPostNumbersState.value = emptySet()
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText(
-            "レス4〜2147483647は未取得のため参照できません",
-            substring = true,
-        ).assertExists()
-        composeRule.onNodeWithText("newly fetched candidate", substring = true).assertExists()
+        composeRule.onNodeWithText("normal candidate", substring = true).assertExists()
+        composeRule.onAllNodesWithText("newly fetched candidate", substring = true).assertCountEquals(0)
+
+        // --- Missing stored candidates stay out of the popup ---
+        composeRule.runOnIdle {
+            currentPostsState.value = posts.take(1)
+            currentNgPostNumbersState.value = setOf(2)
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("normal candidate", substring = true).assertExists()
+        composeRule.onAllNodesWithText("NGで非表示", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("name2", substring = true).assertCountEquals(0)
     }
 }
 

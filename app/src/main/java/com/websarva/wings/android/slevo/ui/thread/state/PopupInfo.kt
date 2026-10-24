@@ -10,15 +10,16 @@ enum class PopupContentType {
 }
 
 /**
- * Holds the post numbers and layout info needed for reply popup rendering.
+ * 返信先一覧または通常のレス群ポップアップに表示する取得済みレス番号と配置情報を保持する。
+ * [postNumbers]は最新の投稿一覧から解決し、未取得範囲は返信先一覧へ含めない。
  *
- * [popupId] is a stable identifier allocated when the popup is appended.
- * [postNumbers] stores the 1-based post numbers to render, resolved against
- * the latest [ThreadUiState.posts] at composition time.
- * Offset and size are used to position and measure the popup, while [indentLevels]
- * aligns with [postNumbers] to describe tree indentation.
- *
- * ルート番号はポップアップ内のツリー境界を判断するために保持する。
+ * @property popupId ポップアップ表示箇所を識別する安定ID。
+ * @property postNumbers 表示候補の1始まりのレス番号。
+ * @property offset ポップアップの基準座標。
+ * @property size ポップアップの計測済みサイズ。
+ * @property indentLevels [postNumbers]に対応するツリーインデント。
+ * @property rootNumbers ポップアップ内のツリー境界を判断するルート番号。
+ * @property contentType 通常表示と返信先候補表示の区別。
  */
 data class PopupInfo(
     val popupId: Long,
@@ -28,5 +29,4 @@ data class PopupInfo(
     val indentLevels: List<Int> = emptyList(),
     val rootNumbers: List<Int> = emptyList(),
     val contentType: PopupContentType = PopupContentType.STANDARD,
-    val unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
 )

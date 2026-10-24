@@ -24,7 +24,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -60,9 +59,8 @@ fun LazyListScope.threadPostListContent(
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyTargetNumbers: (
         replyNumbers: List<Int>,
-        unavailableRanges: List<ReplyTargetUnavailableRange>,
         baseOffset: IntOffset,
-    ) -> Unit = { _, _, _ -> },
+    ) -> Unit = { _, _ -> },
     onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -184,11 +182,11 @@ fun LazyListScope.threadPostListContent(
                 },
                 onReplyTargetClick = { num ->
                     val offset = resolvePopupBaseOffset(itemOffset.value, popupStack)
-                    onAddPopupForReplyTargetNumbers(listOf(num), emptyList(), offset)
+                    onAddPopupForReplyTargetNumbers(listOf(num), offset)
                 },
-                onReplyTargetNumbersClick = { numbers, unavailableRanges ->
+                onReplyTargetNumbersClick = { numbers ->
                     val offset = resolvePopupBaseOffset(itemOffset.value, popupStack)
-                    onAddPopupForReplyTargetNumbers(numbers, unavailableRanges, offset)
+                    onAddPopupForReplyTargetNumbers(numbers, offset)
                 },
                 onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
                 onIdClick = { id ->

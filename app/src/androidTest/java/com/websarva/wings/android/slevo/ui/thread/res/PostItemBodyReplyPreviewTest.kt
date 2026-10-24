@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -263,6 +264,42 @@ class PostItemBodyReplyPreviewTest {
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         assertEquals(listOf(disclosureKey to true, disclosureKey to false), disclosureChanges)
         assertTrue(openedPosts.isEmpty())
+    }
+
+    /** 未取得範囲だけの行はインライン表示し、返信先一覧を開く操作を持たない。 */
+    @Test
+    fun unavailableOnlyInlineTargetDoesNotOpenPopup() {
+        val posts = listOf(
+            post(1, "ordinary post"),
+            post(2, ">>3-2147483647"),
+        )
+        val openedNumbers = mutableListOf<List<Int>>()
+
+        composeRule.setContent {
+            SlevoTheme {
+                SharedTransitionLayout {
+                    val sharedScope = this
+                    AnimatedVisibility(visible = true) {
+                        PostBodyHarness(
+                            post = posts[1],
+                            previewState = derivePreview(posts),
+                            sharedTransitionScope = sharedScope,
+                            animatedVisibilityScope = this,
+                            onReplyClick = {},
+                            onReplyNumbersClick = { openedNumbers += it },
+                            maxPostNumber = posts.size,
+                        )
+                    }
+                }
+            }
+        }
+
+        val unavailableRow = composeRule.onNodeWithText(
+            "レス3〜2147483647は未取得のため参照できません",
+        )
+        unavailableRow.assertExists()
+        unavailableRow.assertHasNoClickAction()
+        assertTrue(openedNumbers.isEmpty())
     }
 
     /** 取得済み千件はそのまま保持し、未取得範囲だけを別表示する。 */

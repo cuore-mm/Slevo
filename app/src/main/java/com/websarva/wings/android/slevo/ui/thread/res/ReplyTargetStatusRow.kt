@@ -1,6 +1,5 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -113,7 +111,6 @@ internal fun ReplyTargetStatusRow(
         }
         ReplyTargetUnavailableRangesRow(
             ranges = unavailableRanges,
-            onClick = onOpenOverflow,
         )
     }
 }
@@ -123,7 +120,6 @@ internal fun ReplyTargetStatusRow(
 internal fun ReplyTargetUnavailableRangesRow(
     ranges: List<ReplyTargetUnavailableRange>,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
 ) {
     if (ranges.isEmpty()) return
 
@@ -137,22 +133,11 @@ internal fun ReplyTargetUnavailableRangesRow(
     }
     val unavailableText = stringResource(R.string.reply_preview_unavailable_ranges, rangeText)
 
-    // --- 任意で一覧を開ける状態行を描画 ---
+    // --- 非操作の未取得状態を描画 ---
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .then(
-                if (onClick == null) {
-                    Modifier
-                } else {
-                    Modifier.clickable(
-                        role = Role.Button,
-                        onClickLabel = unavailableText,
-                        onClick = onClick,
-                    )
-                },
-            )
             .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
