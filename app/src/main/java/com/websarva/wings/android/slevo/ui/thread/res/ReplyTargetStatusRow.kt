@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,8 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -164,7 +164,7 @@ internal fun ReplyTargetUnavailableRangesRow(
     }
 }
 
-@Preview(showBackground = true, name = "NG reply target", widthDp = 220, fontScale = 1.4f)
+@Preview(showBackground = true, name = "NG reply target")
 @Composable
 private fun ReplyTargetNgStatusRowPreview() {
     SlevoTheme {
@@ -180,18 +180,18 @@ private fun ReplyTargetNgStatusRowPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Narrow unavailable reply target", widthDp = 220, fontScale = 1.4f)
+@Preview(showBackground = true, name = "NG reply target", widthDp = 220, fontScale = 1.4f)
 @Composable
-private fun ReplyTargetUnavailableNarrowStatusRowPreview() {
+private fun ReplyTargetNgNarrowStatusRowPreview() {
     SlevoTheme {
         ReplyTargetStatusRow(
-            postNumber = 99,
-            status = ReplyTargetCandidateStatus.UNAVAILABLE,
-            overflowCount = 0,
-            overflowNumbers = emptyList(),
-            unavailableRanges = listOf(ReplyTargetUnavailableRange(100, 200)),
-            onReveal = null,
-            onOpenOverflow = null,
+            postNumber = 12,
+            status = ReplyTargetCandidateStatus.NG,
+            overflowCount = 2,
+            overflowNumbers = listOf(12, 14, 16),
+            unavailableRanges = emptyList(),
+            onReveal = {},
+            onOpenOverflow = {},
         )
     }
 }
