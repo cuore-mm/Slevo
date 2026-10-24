@@ -1,14 +1,23 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
+import android.R.attr.contentDescription
 import android.os.Build
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -25,10 +36,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -40,9 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.NgType
-import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.idColor
 import com.websarva.wings.android.slevo.ui.theme.replyCountColor
+import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import kotlinx.coroutines.CoroutineScope
 import java.time.LocalDate
 import java.util.Calendar
@@ -94,20 +103,32 @@ internal fun ReplyTargetDisclosureAction(
     )
 
     // --- Bordered disclosure button ---
+
+
     TextButton(
         modifier = Modifier
-            .heightIn(min = 48.dp)
+            .height(32.dp)
             .semantics { contentDescription = actionDescription }
             .testTag("reply-target-disclosure-button-$postNumber"),
         onClick = onClick,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = ButtonDefaults.textButtonColors(
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentColor = MaterialTheme.colorScheme.primary,
         ),
     ) {
+        Icon(
+            imageVector = if (isRevealed) {
+                Icons.Outlined.VisibilityOff
+            } else {
+                Icons.Outlined.Visibility
+            },
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(4.dp))
         Text(
             text = stringResource(
-                if (isRevealed) R.string.reply_preview_hide else R.string.reply_preview_reveal,
+                if (isRevealed) R.string.reply_preview_hide
+                else R.string.reply_preview_reveal,
             ),
             style = MaterialTheme.typography.labelSmall,
         )
@@ -242,6 +263,7 @@ private fun PostNumberText(
         onHeaderClick != null -> modifier.pointerInput(Unit) {
             detectTapGestures(onTap = { onHeaderClick.invoke() })
         }
+
         else -> modifier
     }
     Text(
@@ -314,6 +336,7 @@ private fun PostHeaderAnnotatedText(
                             PostHeaderPart.Name -> {
                                 // 名前タップは従来通り反応させない。
                             }
+
                             else -> onHeaderClick?.invoke()
                         }
                     },
@@ -476,6 +499,7 @@ private fun buildHeaderText(
         }
     }
 }
+
 /**
  * 投稿日時の表示用テキストを整形する。
  *

@@ -180,7 +180,6 @@ private fun ReplyPreviewHiddenHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
                 .testTag("reply-preview-header-$postNumber"),
             verticalAlignment = Alignment.CenterVertically,
         ) {
