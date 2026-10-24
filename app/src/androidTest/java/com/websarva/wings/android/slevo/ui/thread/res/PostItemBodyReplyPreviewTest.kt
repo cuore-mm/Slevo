@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -253,13 +254,27 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Privacy and local toggle assertions ---
+        composeRule.onNodeWithText("#1").assertExists()
         composeRule.onNodeWithText("NGで非表示", substring = true).assertExists()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("name1", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("ID:id1", substring = true).assertCountEquals(0)
         assertEquals(0, imageLoadStartCount)
+        val cardTag = "reply-target-disclosure-card-1"
+        val headerTag = "reply-target-disclosure-header-1"
+        val numberTag = "reply-target-disclosure-number-1"
+        val buttonTag = "reply-target-disclosure-button-1"
+        val hiddenCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
+        val hiddenHeaderBounds = composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot
+        val hiddenNumberBounds = composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot
+        val hiddenButtonBounds = composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot
         composeRule.onNodeWithText("表示").performClick()
         composeRule.onNodeWithText(privateBody, substring = true).assertExists()
+        val revealedCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
+        assertEquals(hiddenHeaderBounds, composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot)
+        assertEquals(hiddenNumberBounds, composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot)
+        assertEquals(hiddenButtonBounds, composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot)
+        assertTrue(revealedCardBounds.height > hiddenCardBounds.height)
         composeRule.onNodeWithText("隠す").performClick()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         assertEquals(listOf(disclosureKey to true, disclosureKey to false), disclosureChanges)

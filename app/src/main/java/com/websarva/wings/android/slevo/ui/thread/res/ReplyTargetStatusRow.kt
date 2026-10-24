@@ -3,12 +3,9 @@ package com.websarva.wings.android.slevo.ui.thread.res
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,41 +47,65 @@ internal fun ReplyTargetStatusRow(
         postNumber,
         stateText,
     )
+    // --- NG disclosure card or unavailable row ---
+    if (status == ReplyTargetCandidateStatus.NG && onReveal != null) {
+        ReplyTargetDisclosureCard(
+            postNumber = postNumber,
+            isRevealed = false,
+            statusLabel = stateText,
+            statusDescription = stateDescription,
+            onToggleDisclosure = onReveal,
+        ) {
+            ReplyTargetStatusDetails(
+                overflowCount = overflowCount,
+                overflowNumbers = overflowNumbers,
+                unavailableRanges = unavailableRanges,
+                onOpenOverflow = onOpenOverflow,
+            )
+        }
+    } else {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "$postNumber  $stateText",
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = stateDescription },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            ReplyTargetStatusDetails(
+                overflowCount = overflowCount,
+                overflowNumbers = overflowNumbers,
+                unavailableRanges = unavailableRanges,
+                onOpenOverflow = onOpenOverflow,
+            )
+        }
+    }
+}
+
+/** 開示操作の下に取得済み候補と未取得範囲を表示する。 */
+@Composable
+private fun ReplyTargetStatusDetails(
+    overflowCount: Int,
+    overflowNumbers: List<Int>,
+    unavailableRanges: List<ReplyTargetUnavailableRange>,
+    onOpenOverflow: (() -> Unit)?,
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "$postNumber  $stateText",
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { contentDescription = stateDescription },
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            if (status == ReplyTargetCandidateStatus.NG && onReveal != null) {
-                val revealDescription = stringResource(
-                    R.string.reply_preview_reveal_target,
-                    postNumber,
-                )
-                Spacer(Modifier.width(4.dp))
-                Button(
-                    modifier = Modifier
-                        .heightIn(min = 48.dp)
-                        .semantics { contentDescription = revealDescription },
-                    onClick = onReveal,
-                ) {
-                    Text(stringResource(R.string.reply_preview_reveal))
-                }
-            }
-        }
         // --- Remaining acquired candidates ---
         if (overflowCount > 0 && overflowNumbers.isNotEmpty() && onOpenOverflow != null) {
             val overflowDescription = stringResource(
@@ -109,6 +130,7 @@ internal fun ReplyTargetStatusRow(
                 )
             }
         }
+        // --- Unavailable ranges ---
         ReplyTargetUnavailableRangesRow(
             ranges = unavailableRanges,
         )

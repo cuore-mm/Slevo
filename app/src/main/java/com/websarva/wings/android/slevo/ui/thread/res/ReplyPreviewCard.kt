@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -105,11 +104,11 @@ internal fun ReplyPreviewCard(
 
     // --- Preview surface and reply-source rail ---
     val isReplySource = previewType == ImageReplyPreviewType.REPLY_SOURCE
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
-        color = if (isReplySource) Color.Transparent else colors.surfaceVariant.copy(alpha = 0.35f),
-    ) {
+    val hideDescription = onHide?.let {
+        stringResource(R.string.reply_preview_hide_target, post.postNumber)
+    }
+    val cardContent: @Composable () -> Unit = {
+        // --- Shared disclosure header and post content ---
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -131,6 +130,14 @@ internal fun ReplyPreviewCard(
                     },
                 ),
         ) {
+            if (onHide != null && hideDescription != null) {
+                ReplyTargetDisclosureHeader(
+                    postNumber = post.postNumber,
+                    isRevealed = true,
+                    actionDescription = hideDescription,
+                    onToggleDisclosure = onHide,
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -143,8 +150,9 @@ internal fun ReplyPreviewCard(
                     .padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                // --- Post metadata ---
                 val header = buildList {
-                    add(post.postNumber.toString())
+                    if (onHide == null) add(post.postNumber.toString())
                     if (post.name.isNotBlank()) add(post.name)
                     if (post.id.isNotBlank()) add("ID:${post.id}")
                 }.joinToString("  ")
@@ -156,6 +164,7 @@ internal fun ReplyPreviewCard(
                     lineHeight = lineHeightEm.em,
                     color = colors.onSurfaceVariant,
                 )
+                // --- Text and media preview ---
                 if (post.imageUrls.isEmpty()) {
                     if (post.body.isNotBlank()) {
                         Text(
@@ -266,28 +275,31 @@ internal fun ReplyPreviewCard(
                     )
                 }
             }
+            // --- Unavailable target ranges ---
             if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
                 ReplyTargetUnavailableRangesRow(
                     ranges = unavailableRanges,
                     modifier = Modifier.padding(bottom = 4.dp),
                 )
             }
-            if (onHide != null) {
-                val hideDescription = stringResource(
-                    R.string.reply_preview_hide_target,
-                    post.postNumber,
-                )
-                TextButton(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .semantics { contentDescription = hideDescription },
-                    onClick = onHide,
-                ) {
-                    Text(stringResource(R.string.reply_preview_hide))
-                }
-            }
         }
+    }
+    // --- Shared NG disclosure frame or regular preview frame ---
+    if (onHide != null) {
+        ReplyTargetDisclosureSurface(postNumber = post.postNumber) {
+            cardContent()
+        }
+    } else {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
+            color = if (isReplySource) {
+                Color.Transparent
+            } else {
+                colors.surfaceVariant.copy(alpha = 0.35f)
+            },
+            content = cardContent,
+        )
     }
 }
 

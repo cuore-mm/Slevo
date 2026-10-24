@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.IntOffset
@@ -23,6 +24,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -95,8 +97,22 @@ class ReplyTargetPopupTest {
         composeRule.onAllNodesWithText("ID:id2", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("参照先が上限を超えたため、一部を省略しています").assertCountEquals(0)
 
+        val cardTag = "reply-target-disclosure-card-2"
+        val headerTag = "reply-target-disclosure-header-2"
+        val numberTag = "reply-target-disclosure-number-2"
+        val buttonTag = "reply-target-disclosure-button-2"
+        val hiddenCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
+        val hiddenHeaderBounds = composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot
+        val hiddenNumberBounds = composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot
+        val hiddenButtonBounds = composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot
         composeRule.onNodeWithText("表示").performClick()
         composeRule.onNodeWithText(privateBody, substring = true).assertExists()
+        val revealedCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
+        assertEquals(hiddenHeaderBounds, composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot)
+        assertEquals(hiddenNumberBounds, composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot)
+        assertEquals(hiddenButtonBounds, composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot)
+        composeRule.onAllNodesWithText("#2").assertCountEquals(1)
+        assertTrue(revealedCardBounds.height > hiddenCardBounds.height)
         composeRule.onNodeWithText("隠す").performClick()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         assertEquals(listOf(key to true, key to false), changes)

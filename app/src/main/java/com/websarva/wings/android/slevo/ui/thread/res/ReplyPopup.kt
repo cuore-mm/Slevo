@@ -19,7 +19,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -49,8 +48,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -638,9 +635,7 @@ private fun PopupPostLazyColumn(
                 popupId = info.popupId,
                 postNumber = postNum,
             )
-            if (row.status != ReplyTargetCandidateStatus.AVAILABLE &&
-                !(row.status == ReplyTargetCandidateStatus.NG && isRevealed)
-            ) {
+            if (row.status != ReplyTargetCandidateStatus.AVAILABLE && !isRevealed) {
                 ReplyTargetStatusRow(
                     postNumber = postNum,
                     status = row.status,
@@ -653,65 +648,66 @@ private fun PopupPostLazyColumn(
                     onOpenOverflow = null,
                 )
             } else {
-            // Guard: 状態行でない投稿にも更新中に解決不能となる場合がある。
-            val resolvedPost = row.post ?: return@itemsIndexed
-            PostItem(
-                modifier = Modifier.onGloballyPositioned { coords ->
-                    val position = coords.positionInRoot()
-                    postOffset = IntOffset(position.x.toInt(), position.y.toInt())
-                    isPostOffsetMeasured = true
-                },
-                post = resolvedPost,
-                postNum = postNum,
-                idIndex = idIndexList.getOrElse(postIndex) { 1 },
-                idTotal = if (resolvedPost.header.id.isBlank()) 1 else idCountMap[resolvedPost.header.id] ?: 1,
-                maxPostNumber = posts.size,
-                headerTextScale = headerTextScale,
-                bodyTextScale = bodyTextScale,
-                lineHeight = lineHeight,
-                indentWidth = indentWidth,
-                searchQuery = searchQuery,
-                onUrlClick = onUrlClick,
-                onThreadUrlClick = onThreadUrlClick,
-                transitionNamespace = transitionNamespace,
-                onImageClick = onImageClick,
-                onImageLongPress = onImageLongPress,
-                imageLoadFailureByUrl = imageLoadFailureByUrl,
-                onImageLoadStart = onImageLoadStart,
-                onImageLoadError = onImageLoadError,
-                onImageLoadSuccess = onImageLoadSuccess,
-                onImageRetry = onImageRetry,
-                onRequestMenu = onRequestMenu,
-                onShowTextMenu = onShowTextMenu,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope,
-                isMyPost = postNum in myPostNumbers,
-                replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
-                    ?: emptyList(),
-                onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
-                revealedReplyTargetKeys = revealedReplyTargetKeys,
-                onReplyClick = { number -> onReplyClick(number, baseOffset) },
-                onIdClick = { id -> onIdClick(id, baseOffset) },
-                onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
-            )
-            }
-            if (row.status == ReplyTargetCandidateStatus.NG && isRevealed) {
-                val hideDescription = androidx.compose.ui.res.stringResource(
-                    com.websarva.wings.android.slevo.R.string.reply_preview_hide_target,
-                    postNum,
-                )
-                androidx.compose.material3.TextButton(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .semantics { contentDescription = hideDescription },
-                    onClick = { onReplyTargetDisclosureChange(disclosureKey, false) },
-                ) {
-                    androidx.compose.material3.Text(
-                        text = androidx.compose.ui.res.stringResource(
-                            com.websarva.wings.android.slevo.R.string.reply_preview_hide,
-                        ),
+                // Guard: 更新中に投稿を解決できない行は一覧から除外する。
+                val resolvedPost = row.post ?: return@itemsIndexed
+                val renderPostItem: @Composable (Boolean) -> Unit = { showPostNumber ->
+                    PostItem(
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val position = coords.positionInRoot()
+                            postOffset = IntOffset(position.x.toInt(), position.y.toInt())
+                            isPostOffsetMeasured = true
+                        },
+                        post = resolvedPost,
+                        postNum = postNum,
+                        idIndex = idIndexList.getOrElse(postIndex) { 1 },
+                        idTotal = if (resolvedPost.header.id.isBlank()) {
+                            1
+                        } else {
+                            idCountMap[resolvedPost.header.id] ?: 1
+                        },
+                        maxPostNumber = posts.size,
+                        showPostNumber = showPostNumber,
+                        headerTextScale = headerTextScale,
+                        bodyTextScale = bodyTextScale,
+                        lineHeight = lineHeight,
+                        indentWidth = indentWidth,
+                        searchQuery = searchQuery,
+                        onUrlClick = onUrlClick,
+                        onThreadUrlClick = onThreadUrlClick,
+                        transitionNamespace = transitionNamespace,
+                        onImageClick = onImageClick,
+                        onImageLongPress = onImageLongPress,
+                        imageLoadFailureByUrl = imageLoadFailureByUrl,
+                        onImageLoadStart = onImageLoadStart,
+                        onImageLoadError = onImageLoadError,
+                        onImageLoadSuccess = onImageLoadSuccess,
+                        onImageRetry = onImageRetry,
+                        onRequestMenu = onRequestMenu,
+                        onShowTextMenu = onShowTextMenu,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        isMyPost = postNum in myPostNumbers,
+                        replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
+                            ?: emptyList(),
+                        onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
+                        revealedReplyTargetKeys = revealedReplyTargetKeys,
+                        onReplyClick = { number -> onReplyClick(number, baseOffset) },
+                        onIdClick = { id -> onIdClick(id, baseOffset) },
+                        onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
                     )
+                }
+                if (row.status == ReplyTargetCandidateStatus.NG) {
+                    ReplyTargetDisclosureCard(
+                        postNumber = postNum,
+                        isRevealed = true,
+                        onToggleDisclosure = {
+                            onReplyTargetDisclosureChange(disclosureKey, false)
+                        },
+                    ) {
+                        renderPostItem(false)
+                    }
+                } else {
+                    renderPostItem(true)
                 }
             }
             if (i < rows.size - 1) {

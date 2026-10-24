@@ -44,6 +44,7 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
  * @param replyFromNumbers 返信元番号の一覧。
  * @param replyPreviewState 本体番号順の返信先・返信元プレビューstate。
  * @param maxPostNumber 安価参照を解決する取得済みレスの上限。
+ * @param showPostNumber 投稿ヘッダーにレス番号を表示するか。
  * @param isMyPost 自分の投稿かどうか。
  * @param dimmed 文字を薄く表示するかどうか。
  * @param searchQuery ハイライト対象の検索文字列。
@@ -78,6 +79,7 @@ fun PostItem(
     replyFromNumbers: List<Int> = emptyList(),
     replyPreviewState: PostReplyPreviewUiState? = null,
     maxPostNumber: Int = postNum,
+    showPostNumber: Boolean = true,
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
     searchQuery: String = "",
@@ -132,6 +134,7 @@ fun PostItem(
                 idTotal = idTotal,
                 replyFromNumbers = replyFromNumbers,
             ),
+            showPostNumber = showPostNumber,
             headerTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = headerFontSize),
             lineHeightEm = lineHeight,
             pressedHeaderPart = interactionState.pressedHeaderPart,

@@ -27,12 +27,15 @@
 - [x] 4.2 `ReplyPreviewCard`と返信先モードの`ReplyPopup`に開示/隠す状態を接続する。Compose testでプレビューはその場で三行上限のカード、ポップアップは同じ行で通常レスとして開示し、隠すで戻ること、ボタンが別ポップアップを開かないことを確認する。非表示時は本文/名前/IDのsemantics不在、画像ロードコールバック未発火を検証する。
 - [x] 4.3 固定上限と超過通知を取り除き、未取得rangeを「ほかN件」の直下のインラインプレビューだけに表示する。返信先一覧は取得済み候補だけとし、未取得だけの行から開かず、更新後に候補がなくなれば閉じる。Compose testで巨大rangeの非展開と取得済み残数の分離、一覧の未取得range非表示を検証する。
 - [x] 4.4 `ReplyTargetUiSamples.kt`を削除し、Previewを担当Composableのファイルへ配置する。`PostItemBody.kt`の既存本文・複数挿入Previewを維持し、`ReplyPreviewCard.kt`に分割された複数range例、`ReplyTargetStatusRow.kt`にNG＋rangeとrangeのみの例を置く。狭幅Previewは作らず、Studioで各Previewを描画確認する。
+- [x] 4.5 `ReplyTargetDisclosureCard.kt`に共有カード枠・固定レス番号ヘッダー・右上の控えめなTextButtonを実装し、`ReplyPreviewCard`、`ReplyTargetStatusRow`、返信先モードの`ReplyPopup`から利用する。非表示中は本文/名前/ID/画像をcompositionへ入れず、開示中は本文を番号の下へ配置する。ポップアップの`PostItem`では番号の二重表示を抑止し、NGルールや開示state所有者は変更しない。
+- [x] 4.6 Compose testでインライン・ポップアップそれぞれの表示/隠す操作について、カード枠と番号・ボタンの位置/サイズが同じであること、操作が右上で控えめな同一外観であること、開示時だけ本文が加わり高さが伸縮すること、非表示時の内容非露出を確認する。
 
 ## 5. 統合検証と仕様整合
 
 - [x] 5.1 parser・transformer・ViewModel・Compose各テストでNG/追加取得更新、範囲統合、ポップアップの未取得除外と既存の返信元/通常リンクfilterを統合検証する。
 - [x] 5.2 Preview配置変更後にdebug build/unit testを再実行し、接続可能ならAndroid testも実行する。
 - [x] 5.3 strict validation、`git diff --check`、KDoc/Preview規約、Preview描画結果と永続化や通知への非波及を再確認する。
+- [x] 5.4 共通開示カードのCompose PreviewをStudio描画し、`mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`と接続可能なAndroid testを再実行する。strict validation、`git diff --check`、番号/操作位置と高さ変化、NG情報の非露出を確認する。
 
 仕様統合上の注意: 未アーカイブの`add-thread-reply-previews`を基点とするMODIFIED deltaが含まれる。将来の統合順は旧change→本changeであり、本計画作成ではarchiveを行わない。
 
@@ -73,3 +76,15 @@
 - Studio解析: `ReplyPreviewCard.kt`と`ReplyTargetStatusRow.kt`にコンパイル阻害エラーなし。IDEのINFO提案のみ。
 - Android instrumentation test: 今回は実行せず。`android info`で接続端末を確認できず、AVDは定義済みだが実行中端末はなかった。前回の118件ずつの成功は今回のPreview配置変更より前の結果。
 - `openspec validate preserve-reply-target-references --strict`と`git diff --check`: 成功。既知のINFOは先行change依存による単独archive不可のみ。今回の差分はPreviewと計画記述だけで、永続化・通知への変更なし。
+
+## NG返信先の開示カード統一後
+
+- `ReplyTargetDisclosureCard.kt`へ共通surfaceとヘッダーを実装した。左上の番号・右上のTextButtonは両状態で固定し、onSurfaceVariant系の文字色で塗りつぶしを抑え、操作領域は48dp以上とした。
+- インラインの`ReplyPreviewCard`/`ReplyTargetStatusRow`と返信先`ReplyPopup`で共通カード枠を使用する。非表示時は投稿内容を描画せず、開示時だけ本文を下へ追加する。ポップアップでは`PostItem`の番号表示を抑えて重複を防ぐ。
+- Compose testでインラインとポップアップの開閉前後の番号・ヘッダー・操作ボタンの座標不変、カード高さの増加、番号重複なし、非表示内容の非露出を確認した。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`: 成功（57 actionable tasks、6 executed・51 UP-TO-DATE）。
+- `mise exec -- ./gradlew :app:compileDebugAndroidTestKotlin`: 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest`: 成功。Android 17の`OpenCode_Mobile_Test`と`Medium_Phone`で各118 tests、失敗/skipなし。
+- Studio解析: 変更ファイルにコンパイル阻害エラーなし。既存のIDE INFO提案のみ。
+- Studio Preview: 共通カードの非表示/開示、開示済みインラインカード、NG状態行を描画し、操作が右上にあり、番号位置とカード枠が共通で、本文追加で高さが伸びることを目視確認した。既存`ReplyPopupPreview`の描画結果は白紙だったためポップアップのStudio Preview確認はスキップし、返信先ポップアップはCompose instrumentation testで検証した。
+- `openspec validate preserve-reply-target-references --strict`と`git diff --check`: 成功。先行change依存による単独archive不可のINFOのみ。永続化、NG設定、ViewModelの開示状態所有者、通知経路に変更なし。

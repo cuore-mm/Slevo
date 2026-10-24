@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,8 +41,10 @@ class ReplyTargetStatusRowTest {
             }
         }
 
-        composeRule.onNodeWithText("12  NGで非表示").assertExists()
-        val revealButton = composeRule.onNodeWithText("表示")
+        composeRule.onNodeWithText("#12").assertExists()
+        composeRule.onNodeWithText("NGで非表示").assertExists()
+        composeRule.onNodeWithTag("reply-target-disclosure-card-12").assertExists()
+        val revealButton = composeRule.onNodeWithTag("reply-target-disclosure-button-12")
         revealButton.assertExists()
         assertTrue(revealButton.fetchSemanticsNode().boundsInRoot.height >= composeRule.density.density * 48f)
         revealButton.performClick()

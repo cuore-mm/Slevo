@@ -86,10 +86,12 @@ private data class HeaderHit(
  * 投稿のヘッダー行を表示する。
  *
  * 投稿番号とヘッダーテキストを並べ、押下/長押しの結果を親へ通知する。
+ * @param showPostNumber 投稿番号をこのヘッダー行へ含めるか。
  */
 @Composable
 internal fun PostItemHeader(
     uiModel: PostHeaderUiModel,
+    showPostNumber: Boolean = true,
     headerTextStyle: TextStyle,
     lineHeightEm: Float,
     pressedHeaderPart: PostHeaderPart?,
@@ -112,14 +114,16 @@ internal fun PostItemHeader(
 
     Row {
         // --- 投稿番号 ---
-        PostNumberText(
-            modifier = Modifier.alignByBaseline(),
-            postNum = uiModel.postNum,
-            replyFromNumbers = uiModel.replyFromNumbers,
-            headerTextStyle = headerTextStyle,
-            onReplyFromClick = onReplyFromClick,
-            onHeaderClick = onHeaderClick,
-        )
+        if (showPostNumber) {
+            PostNumberText(
+                modifier = Modifier.alignByBaseline(),
+                postNum = uiModel.postNum,
+                replyFromNumbers = uiModel.replyFromNumbers,
+                headerTextStyle = headerTextStyle,
+                onReplyFromClick = onReplyFromClick,
+                onHeaderClick = onHeaderClick,
+            )
+        }
 
         // --- ヘッダー本文 ---
         val headerText = remember(uiModel, pressedHeaderPart, colors) {
@@ -463,6 +467,7 @@ private fun PostItemHeaderPreview() {
             idTotal = 3,
             replyFromNumbers = listOf(1, 2, 3),
         ),
+        showPostNumber = true,
         headerTextStyle = MaterialTheme.typography.bodyMedium,
         lineHeightEm = 1.4f,
         pressedHeaderPart = pressedHeaderPart,
