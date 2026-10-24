@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -97,24 +98,36 @@ class ReplyTargetPopupTest {
         composeRule.onAllNodesWithText("ID:id2", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("参照先が上限を超えたため、一部を省略しています").assertCountEquals(0)
 
-        val cardTag = "reply-target-disclosure-card-2"
-        val headerTag = "reply-target-disclosure-header-2"
-        val numberTag = "reply-target-disclosure-number-2"
+        val headerTag = "post-item-header-2"
+        val numberTag = "post-item-number-2"
         val buttonTag = "reply-target-disclosure-button-2"
-        val hiddenCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
+        val normalNumberBounds = composeRule.onNodeWithTag("post-item-number-1")
+            .fetchSemanticsNode().boundsInRoot
+        val normalHeaderTextBounds = composeRule.onNodeWithTag("post-item-header-text-1")
+            .fetchSemanticsNode().boundsInRoot
         val hiddenHeaderBounds = composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot
         val hiddenNumberBounds = composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot
         val hiddenButtonBounds = composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot
+        assertTrue(hiddenButtonBounds.height >= composeRule.density.density * 48f)
+        assertEquals(normalNumberBounds.left, hiddenNumberBounds.left)
+        assertEquals(normalNumberBounds.width, hiddenNumberBounds.width)
         composeRule.onNodeWithText("表示").performClick()
         composeRule.onNodeWithText(privateBody, substring = true).assertExists()
-        val revealedCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
+        composeRule.onNodeWithText("name2", substring = true).assertExists()
+        composeRule.onNodeWithText("id2", substring = true).assertExists()
+        composeRule.onNodeWithText("date2", substring = true).assertExists()
         assertEquals(hiddenHeaderBounds, composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot)
         assertEquals(hiddenNumberBounds, composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot)
         assertEquals(hiddenButtonBounds, composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot)
-        composeRule.onAllNodesWithText("#2").assertCountEquals(1)
-        assertTrue(revealedCardBounds.height > hiddenCardBounds.height)
+        val revealedHeaderTextBounds = composeRule.onNodeWithTag("post-item-header-text-2")
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(normalHeaderTextBounds.left, revealedHeaderTextBounds.left)
+        composeRule.onAllNodesWithTag(headerTag).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(numberTag).assertCountEquals(1)
         composeRule.onNodeWithText("隠す").performClick()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("name2", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("ID:id2", substring = true).assertCountEquals(0)
         assertEquals(listOf(key to true, key to false), changes)
         assertEquals(0, nestedPopupCount)
 
@@ -187,7 +200,7 @@ private fun post(number: Int, content: String): ThreadPostUiModel = ThreadPostUi
     header = ThreadPostUiModel.Header(
         name = "name$number",
         email = "",
-        date = "",
+        date = "date$number",
         id = "id$number",
     ),
     body = ThreadPostUiModel.Body(content = content),

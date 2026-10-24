@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.SpanStyle
@@ -86,12 +88,12 @@ private data class HeaderHit(
  * 投稿のヘッダー行を表示する。
  *
  * 投稿番号とヘッダーテキストを並べ、押下/長押しの結果を親へ通知する。
- * @param showPostNumber 投稿番号をこのヘッダー行へ含めるか。
+ * @param headerAction ヘッダー右端に表示する任意の操作。
+ * @param hiddenStatusLabel 非表示中にヘッダー情報の代わりに表示する状態文言。
  */
 @Composable
 internal fun PostItemHeader(
     uiModel: PostHeaderUiModel,
-    showPostNumber: Boolean = true,
     headerTextStyle: TextStyle,
     lineHeightEm: Float,
     pressedHeaderPart: PostHeaderPart?,
@@ -103,6 +105,8 @@ internal fun PostItemHeader(
     onIdClick: ((String) -> Unit),
     onHeaderClick: (() -> Unit)?,
     onShowTextMenu: (text: String, type: NgType) -> Unit,
+    headerAction: (@Composable () -> Unit)? = null,
+    hiddenStatusLabel: String? = null,
 ) {
     // --- 色設定 ---
     val userIdColor = idColor(uiModel.idTotal)
@@ -112,41 +116,60 @@ internal fun PostItemHeader(
         userId = userIdColor
     )
 
-    Row {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("post-item-header-${uiModel.postNum}"),
+    ) {
         // --- 投稿番号 ---
-        if (showPostNumber) {
-            PostNumberText(
-                modifier = Modifier.alignByBaseline(),
-                postNum = uiModel.postNum,
-                replyFromNumbers = uiModel.replyFromNumbers,
-                headerTextStyle = headerTextStyle,
-                onReplyFromClick = onReplyFromClick,
-                onHeaderClick = onHeaderClick,
-            )
-        }
-
-        // --- ヘッダー本文 ---
-        val headerText = remember(uiModel, pressedHeaderPart, colors) {
-            buildHeaderText(
-                uiModel = uiModel,
-                pressedHeaderPart = pressedHeaderPart,
-                colors = colors
-            )
-        }
-        PostHeaderAnnotatedText(
+        PostNumberText(
             modifier = Modifier.alignByBaseline(),
-            headerText = headerText,
+            postNum = uiModel.postNum,
+            replyFromNumbers = uiModel.replyFromNumbers,
             headerTextStyle = headerTextStyle,
-            lineHeightEm = lineHeightEm,
-            id = uiModel.header.id,
-            scope = scope,
-            onPressedHeaderPartChange = onPressedHeaderPartChange,
-            onContentPressedChange = onContentPressedChange,
-            onRequestMenu = onRequestMenu,
-            onIdClick = onIdClick,
+            onReplyFromClick = onReplyFromClick,
             onHeaderClick = onHeaderClick,
-            onShowTextMenu = onShowTextMenu
         )
+
+        if (hiddenStatusLabel != null) {
+            Text(
+                text = hiddenStatusLabel,
+                modifier = Modifier
+                    .alignByBaseline()
+                    .weight(1f)
+                    .testTag("post-item-hidden-status-${uiModel.postNum}"),
+                style = headerTextStyle,
+                lineHeight = lineHeightEm.em,
+                color = colors.onSurfaceVariant,
+            )
+        } else {
+            // --- ヘッダー本文 ---
+            val headerText = remember(uiModel, pressedHeaderPart, colors) {
+                buildHeaderText(
+                    uiModel = uiModel,
+                    pressedHeaderPart = pressedHeaderPart,
+                    colors = colors
+                )
+            }
+            PostHeaderAnnotatedText(
+                modifier = Modifier
+                    .alignByBaseline()
+                    .then(if (headerAction != null) Modifier.weight(1f) else Modifier)
+                    .testTag("post-item-header-text-${uiModel.postNum}"),
+                headerText = headerText,
+                headerTextStyle = headerTextStyle,
+                lineHeightEm = lineHeightEm,
+                id = uiModel.header.id,
+                scope = scope,
+                onPressedHeaderPartChange = onPressedHeaderPartChange,
+                onContentPressedChange = onContentPressedChange,
+                onRequestMenu = onRequestMenu,
+                onIdClick = onIdClick,
+                onHeaderClick = onHeaderClick,
+                onShowTextMenu = onShowTextMenu
+            )
+        }
+        headerAction?.invoke()
     }
 }
 
@@ -175,7 +198,7 @@ private fun PostNumberText(
         else -> modifier
     }
     Text(
-        modifier = tapModifier,
+        modifier = tapModifier.testTag("post-item-number-$postNum"),
         text = if (replyCount > 0) "$postNum ($replyCount) " else "$postNum ",
         style = headerTextStyle,
         fontWeight = FontWeight.Bold,
@@ -444,9 +467,6 @@ private fun currentYearPrefix(): String {
     return "$year/"
 }
 
-/**
- * 投稿ヘッダーのプレビューを表示する。
- */
 @Preview(showBackground = true)
 @Composable
 private fun PostItemHeaderPreview() {
@@ -467,7 +487,6 @@ private fun PostItemHeaderPreview() {
             idTotal = 3,
             replyFromNumbers = listOf(1, 2, 3),
         ),
-        showPostNumber = true,
         headerTextStyle = MaterialTheme.typography.bodyMedium,
         lineHeightEm = 1.4f,
         pressedHeaderPart = pressedHeaderPart,
@@ -479,5 +498,53 @@ private fun PostItemHeaderPreview() {
         onIdClick = {},
         onHeaderClick = null,
         onShowTextMenu = { _, _ -> },
+        headerAction = {
+            ReplyTargetDisclosureAction(
+                postNumber = 12,
+                isRevealed = true,
+                onClick = {},
+            )
+        },
+    )
+}
+
+@Preview(showBackground = true, name = "Hidden NG post header")
+@Composable
+private fun HiddenNgPostItemHeaderPreview() {
+    val scope = rememberCoroutineScope()
+    var pressedHeaderPart by remember { mutableStateOf<PostHeaderPart?>(null) }
+
+    PostItemHeader(
+        uiModel = PostHeaderUiModel(
+            header = ThreadPostUiModel.Header(
+                name = "非表示中の名前",
+                email = "sage",
+                date = "2025/12/16(火) 12:34:56.78",
+                id = "hidden-id",
+            ),
+            postNum = 12,
+            idIndex = 1,
+            idTotal = 1,
+            replyFromNumbers = emptyList(),
+        ),
+        headerTextStyle = MaterialTheme.typography.bodyMedium,
+        lineHeightEm = 1.4f,
+        pressedHeaderPart = pressedHeaderPart,
+        scope = scope,
+        onPressedHeaderPartChange = {},
+        onContentPressedChange = {},
+        onRequestMenu = {},
+        onReplyFromClick = {},
+        onIdClick = {},
+        onHeaderClick = null,
+        onShowTextMenu = { _, _ -> },
+        headerAction = {
+            ReplyTargetDisclosureAction(
+                postNumber = 12,
+                isRevealed = false,
+                onClick = {},
+            )
+        },
+        hiddenStatusLabel = "NGで非表示",
     )
 }

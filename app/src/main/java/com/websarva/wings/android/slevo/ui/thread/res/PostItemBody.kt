@@ -183,88 +183,49 @@ internal fun PostItemBody(
                         )
                         val isRevealed = disclosureKey in revealedReplyTargetKeys
                         val selectedPost = selected.post
-                        when {
-                            selected.status == ReplyTargetCandidateStatus.AVAILABLE && selectedPost != null -> {
-                                ReplyPreviewCard(
-                                    post = selectedPost,
-                                    hostNamespace = transitionNamespace,
-                                    previewType = ImageReplyPreviewType.REPLY_TARGET,
-                                    overflowCount = target.overflowCount,
-                                    overflowNumbers = target.referencedNumbers,
-                                    unavailableRanges = target.unavailableRanges,
-                                    headerTextScale = headerTextScale,
-                                    bodyTextScale = bodyTextStyle.fontSize.value /
-                                        MaterialTheme.typography.bodyMedium.fontSize.value,
-                                    lineHeightEm = lineHeightEm,
-                                    onOpenPost = {
-                                        if (onReplyTargetClick != null) {
-                                            onReplyTargetClick(selected.postNumber)
-                                        } else {
-                                            onReplyClick?.invoke(selected.postNumber)
-                                        }
-                                    },
-                                    onOpenOverflow = { openCandidates() },
-                                    onImageClick = onImageClick,
-                                    onImageLongPress = onImageLongPress,
-                                    imageLoadFailureByUrl = imageLoadFailureByUrl,
-                                    onImageLoadStart = onImageLoadStart,
-                                    onImageLoadError = onImageLoadError,
-                                    onImageLoadSuccess = onImageLoadSuccess,
-                                    onImageRetry = onImageRetry,
-                                    enableSharedElement = enableSharedElement,
-                                    sharedTransitionScope = transitionScope,
-                                    animatedVisibilityScope = visibilityScope,
-                                )
-                            }
-
-                            selected.status == ReplyTargetCandidateStatus.NG && isRevealed && selectedPost != null -> {
-                                ReplyPreviewCard(
-                                    post = selectedPost,
-                                    hostNamespace = transitionNamespace,
-                                    previewType = ImageReplyPreviewType.REPLY_TARGET,
-                                    overflowCount = target.overflowCount,
-                                    overflowNumbers = target.referencedNumbers,
-                                    unavailableRanges = target.unavailableRanges,
-                                    onHide = {
-                                        onReplyTargetDisclosureChange?.invoke(disclosureKey, false)
-                                    },
-                                    headerTextScale = headerTextScale,
-                                    bodyTextScale = bodyTextStyle.fontSize.value /
-                                        MaterialTheme.typography.bodyMedium.fontSize.value,
-                                    lineHeightEm = lineHeightEm,
-                                    onOpenPost = {
-                                        if (onReplyTargetClick != null) {
-                                            onReplyTargetClick(selected.postNumber)
-                                        } else {
-                                            onReplyClick?.invoke(selected.postNumber)
-                                        }
-                                    },
-                                    onOpenOverflow = { openCandidates() },
-                                    onImageClick = onImageClick,
-                                    onImageLongPress = onImageLongPress,
-                                    imageLoadFailureByUrl = imageLoadFailureByUrl,
-                                    onImageLoadStart = onImageLoadStart,
-                                    onImageLoadError = onImageLoadError,
-                                    onImageLoadSuccess = onImageLoadSuccess,
-                                    onImageRetry = onImageRetry,
-                                    enableSharedElement = enableSharedElement,
-                                    sharedTransitionScope = transitionScope,
-                                    animatedVisibilityScope = visibilityScope,
-                                )
-                            }
-
-                            else -> ReplyTargetStatusRow(
-                                postNumber = selected.postNumber,
-                                status = selected.status,
+                        if (selectedPost != null && selected.status != ReplyTargetCandidateStatus.UNAVAILABLE) {
+                            val isNgTarget = selected.status == ReplyTargetCandidateStatus.NG
+                            ReplyPreviewCard(
+                                post = selectedPost,
+                                hostNamespace = transitionNamespace,
+                                previewType = ImageReplyPreviewType.REPLY_TARGET,
                                 overflowCount = target.overflowCount,
                                 overflowNumbers = target.referencedNumbers,
                                 unavailableRanges = target.unavailableRanges,
-                                onReveal = if (selected.status == ReplyTargetCandidateStatus.NG) {
+                                onHide = if (isNgTarget && isRevealed) {
+                                    { onReplyTargetDisclosureChange?.invoke(disclosureKey, false) }
+                                } else null,
+                                isNgHidden = isNgTarget && !isRevealed,
+                                onReveal = if (isNgTarget && !isRevealed) {
                                     { onReplyTargetDisclosureChange?.invoke(disclosureKey, true) }
                                 } else null,
-                                onOpenOverflow = if (target.overflowCount > 0) {
-                                    { openCandidates() }
-                                } else null,
+                                headerTextScale = headerTextScale,
+                                bodyTextScale = bodyTextStyle.fontSize.value /
+                                    MaterialTheme.typography.bodyMedium.fontSize.value,
+                                lineHeightEm = lineHeightEm,
+                                onOpenPost = {
+                                    if (onReplyTargetClick != null) {
+                                        onReplyTargetClick(selected.postNumber)
+                                    } else {
+                                        onReplyClick?.invoke(selected.postNumber)
+                                    }
+                                },
+                                onOpenOverflow = { openCandidates() },
+                                onImageClick = onImageClick,
+                                onImageLongPress = onImageLongPress,
+                                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                                onImageLoadStart = onImageLoadStart,
+                                onImageLoadError = onImageLoadError,
+                                onImageLoadSuccess = onImageLoadSuccess,
+                                onImageRetry = onImageRetry,
+                                enableSharedElement = enableSharedElement,
+                                sharedTransitionScope = transitionScope,
+                                animatedVisibilityScope = visibilityScope,
+                            )
+                        } else {
+                            // Guard: 未取得候補は本文へ追加せず、未取得範囲だけを表示する。
+                            ReplyTargetUnavailableRangesRow(
+                                ranges = target.unavailableRanges,
                             )
                         }
                     }

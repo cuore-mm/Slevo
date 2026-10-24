@@ -211,7 +211,7 @@ class PostItemBodyReplyPreviewTest {
     @Test
     fun ngTargetContentIsRevealedAndHiddenInPlace() {
         // --- Fixture and disclosure key ---
-        val privateBody = "private NG reply body"
+        val privateBody = "private NG reply body\nsecond NG line\nthird NG line\nfourth NG line"
         val privateImageUrl = "https://example.com/private-ng.jpg"
         var imageLoadStartCount = 0
         val posts = listOf(
@@ -254,25 +254,39 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Privacy and local toggle assertions ---
-        composeRule.onNodeWithText("#1").assertExists()
+        composeRule.onNodeWithText("1  NGで非表示", substring = true).assertExists()
         composeRule.onNodeWithText("NGで非表示", substring = true).assertExists()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("name1", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("ID:id1", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("date1", substring = true).assertCountEquals(0)
         assertEquals(0, imageLoadStartCount)
-        val cardTag = "reply-target-disclosure-card-1"
-        val headerTag = "reply-target-disclosure-header-1"
-        val numberTag = "reply-target-disclosure-number-1"
+        val cardTag = "reply-preview-target-1"
+        val headerTag = "reply-preview-header-1"
         val buttonTag = "reply-target-disclosure-button-1"
         val hiddenCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
-        val hiddenHeaderBounds = composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot
-        val hiddenNumberBounds = composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot
+        val hiddenHeaderBounds = composeRule.onNodeWithTag(
+            headerTag,
+            useUnmergedTree = true,
+        ).fetchSemanticsNode().boundsInRoot
         val hiddenButtonBounds = composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot
+        assertTrue(hiddenButtonBounds.height >= composeRule.density.density * 48f)
+        assertTrue(hiddenButtonBounds.left > hiddenHeaderBounds.left)
         composeRule.onNodeWithText("表示").performClick()
-        composeRule.onNodeWithText(privateBody, substring = true).assertExists()
+        composeRule.onNodeWithText("private NG reply body", substring = true).assertExists()
+        composeRule.onNodeWithText("1  name1  ID:id1", substring = true).assertExists()
+        composeRule.onAllNodesWithText("date1", substring = true).assertCountEquals(0)
+        val revealedBodyBounds = composeRule.onNodeWithTag(
+            "reply-preview-body-1",
+            useUnmergedTree = true,
+        ).fetchSemanticsNode().boundsInRoot
+        assertTrue(revealedBodyBounds.height < composeRule.density.density * 64f)
         val revealedCardBounds = composeRule.onNodeWithTag(cardTag).fetchSemanticsNode().boundsInRoot
-        assertEquals(hiddenHeaderBounds, composeRule.onNodeWithTag(headerTag).fetchSemanticsNode().boundsInRoot)
-        assertEquals(hiddenNumberBounds, composeRule.onNodeWithTag(numberTag).fetchSemanticsNode().boundsInRoot)
+        assertEquals(
+            hiddenHeaderBounds,
+            composeRule.onNodeWithTag(headerTag, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot,
+        )
         assertEquals(hiddenButtonBounds, composeRule.onNodeWithTag(buttonTag).fetchSemanticsNode().boundsInRoot)
         assertTrue(revealedCardBounds.height > hiddenCardBounds.height)
         composeRule.onNodeWithText("隠す").performClick()
@@ -460,6 +474,11 @@ private fun derivePreview(
 
 /** テスト対象の投稿番号と本文から、表示に必要なモデルを構成する。 */
 private fun post(number: Int, content: String): ThreadPostUiModel = ThreadPostUiModel(
-    header = ThreadPostUiModel.Header(name = "name$number", email = "", date = "", id = "id$number"),
+    header = ThreadPostUiModel.Header(
+        name = "name$number",
+        email = "",
+        date = "date$number",
+        id = "id$number",
+    ),
     body = ThreadPostUiModel.Body(content = content),
 )

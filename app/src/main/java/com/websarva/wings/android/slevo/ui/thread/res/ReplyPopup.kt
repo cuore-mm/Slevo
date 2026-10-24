@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.SlevoLazyColumnScrollbar
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
@@ -635,81 +637,71 @@ private fun PopupPostLazyColumn(
                 popupId = info.popupId,
                 postNumber = postNum,
             )
-            if (row.status != ReplyTargetCandidateStatus.AVAILABLE && !isRevealed) {
-                ReplyTargetStatusRow(
-                    postNumber = postNum,
-                    status = row.status,
-                    overflowCount = 0,
-                    overflowNumbers = emptyList(),
-                    unavailableRanges = emptyList(),
-                    onReveal = if (row.status == ReplyTargetCandidateStatus.NG) {
-                        { onReplyTargetDisclosureChange(disclosureKey, true) }
-                    } else null,
-                    onOpenOverflow = null,
-                )
-            } else {
-                // Guard: 更新中に投稿を解決できない行は一覧から除外する。
-                val resolvedPost = row.post ?: return@itemsIndexed
-                val renderPostItem: @Composable (Boolean) -> Unit = { showPostNumber ->
-                    PostItem(
-                        modifier = Modifier.onGloballyPositioned { coords ->
-                            val position = coords.positionInRoot()
-                            postOffset = IntOffset(position.x.toInt(), position.y.toInt())
-                            isPostOffsetMeasured = true
+            // Guard: 更新中に投稿を解決できない行は一覧から除外する。
+            val resolvedPost = row.post ?: return@itemsIndexed
+            val isNgTarget = row.status == ReplyTargetCandidateStatus.NG
+            val headerAction: (@Composable () -> Unit)? = if (isNgTarget) {
+                {
+                    ReplyTargetDisclosureAction(
+                        postNumber = postNum,
+                        isRevealed = isRevealed,
+                        onClick = {
+                            onReplyTargetDisclosureChange(disclosureKey, !isRevealed)
                         },
-                        post = resolvedPost,
-                        postNum = postNum,
-                        idIndex = idIndexList.getOrElse(postIndex) { 1 },
-                        idTotal = if (resolvedPost.header.id.isBlank()) {
-                            1
-                        } else {
-                            idCountMap[resolvedPost.header.id] ?: 1
-                        },
-                        maxPostNumber = posts.size,
-                        showPostNumber = showPostNumber,
-                        headerTextScale = headerTextScale,
-                        bodyTextScale = bodyTextScale,
-                        lineHeight = lineHeight,
-                        indentWidth = indentWidth,
-                        searchQuery = searchQuery,
-                        onUrlClick = onUrlClick,
-                        onThreadUrlClick = onThreadUrlClick,
-                        transitionNamespace = transitionNamespace,
-                        onImageClick = onImageClick,
-                        onImageLongPress = onImageLongPress,
-                        imageLoadFailureByUrl = imageLoadFailureByUrl,
-                        onImageLoadStart = onImageLoadStart,
-                        onImageLoadError = onImageLoadError,
-                        onImageLoadSuccess = onImageLoadSuccess,
-                        onImageRetry = onImageRetry,
-                        onRequestMenu = onRequestMenu,
-                        onShowTextMenu = onShowTextMenu,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        isMyPost = postNum in myPostNumbers,
-                        replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
-                            ?: emptyList(),
-                        onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
-                        revealedReplyTargetKeys = revealedReplyTargetKeys,
-                        onReplyClick = { number -> onReplyClick(number, baseOffset) },
-                        onIdClick = { id -> onIdClick(id, baseOffset) },
-                        onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
                     )
                 }
-                if (row.status == ReplyTargetCandidateStatus.NG) {
-                    ReplyTargetDisclosureCard(
-                        postNumber = postNum,
-                        isRevealed = true,
-                        onToggleDisclosure = {
-                            onReplyTargetDisclosureChange(disclosureKey, false)
-                        },
-                    ) {
-                        renderPostItem(false)
-                    }
-                } else {
-                    renderPostItem(true)
-                }
+            } else {
+                null
             }
+            PostItem(
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    val position = coords.positionInRoot()
+                    postOffset = IntOffset(position.x.toInt(), position.y.toInt())
+                    isPostOffsetMeasured = true
+                },
+                post = resolvedPost,
+                postNum = postNum,
+                idIndex = idIndexList.getOrElse(postIndex) { 1 },
+                idTotal = if (resolvedPost.header.id.isBlank()) {
+                    1
+                } else {
+                    idCountMap[resolvedPost.header.id] ?: 1
+                },
+                maxPostNumber = posts.size,
+                headerAction = headerAction,
+                hiddenHeaderStatus = if (isNgTarget && !isRevealed) {
+                    stringResource(R.string.reply_preview_ng_hidden)
+                } else {
+                    null
+                },
+                headerTextScale = headerTextScale,
+                bodyTextScale = bodyTextScale,
+                lineHeight = lineHeight,
+                indentWidth = indentWidth,
+                searchQuery = searchQuery,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                transitionNamespace = transitionNamespace,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                onRequestMenu = onRequestMenu,
+                onShowTextMenu = onShowTextMenu,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                isMyPost = postNum in myPostNumbers,
+                replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
+                    ?: emptyList(),
+                onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
+                revealedReplyTargetKeys = revealedReplyTargetKeys,
+                onReplyClick = { number -> onReplyClick(number, baseOffset) },
+                onIdClick = { id -> onIdClick(id, baseOffset) },
+                onContentClick = { onContentClick?.invoke(postNum, baseOffset) },
+            )
             if (i < rows.size - 1) {
                 val nextVisibleIndentWidth = rows[i + 1].indentWidth
                 HorizontalDivider(

@@ -44,7 +44,8 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
  * @param replyFromNumbers 返信元番号の一覧。
  * @param replyPreviewState 本体番号順の返信先・返信元プレビューstate。
  * @param maxPostNumber 安価参照を解決する取得済みレスの上限。
- * @param showPostNumber 投稿ヘッダーにレス番号を表示するか。
+ * @param headerAction ヘッダー右端に表示する任意の操作。
+ * @param hiddenHeaderStatus 投稿情報と本文を隠してヘッダーへ表示する状態文言。
  * @param isMyPost 自分の投稿かどうか。
  * @param dimmed 文字を薄く表示するかどうか。
  * @param searchQuery ハイライト対象の検索文字列。
@@ -79,7 +80,8 @@ fun PostItem(
     replyFromNumbers: List<Int> = emptyList(),
     replyPreviewState: PostReplyPreviewUiState? = null,
     maxPostNumber: Int = postNum,
-    showPostNumber: Boolean = true,
+    headerAction: (@Composable () -> Unit)? = null,
+    hiddenHeaderStatus: String? = null,
     isMyPost: Boolean = false,
     dimmed: Boolean = false,
     searchQuery: String = "",
@@ -122,9 +124,11 @@ fun PostItem(
         isPressed = interactionState.isContentPressed,
         scope = scope,
         onContentPressedChange = { interactionState.isContentPressed = it },
-        onRequestMenu = { onRequestMenu(menuTarget) },
+        onRequestMenu = {
+            if (hiddenHeaderStatus == null) onRequestMenu(menuTarget)
+        },
         showMyPostIndicator = isMyPost,
-        onContentClick = onContentClick,
+        onContentClick = if (hiddenHeaderStatus == null) onContentClick else null,
     ) {
         PostItemHeader(
             uiModel = PostHeaderUiModel(
@@ -132,9 +136,8 @@ fun PostItem(
                 postNum = postNum,
                 idIndex = idIndex,
                 idTotal = idTotal,
-                replyFromNumbers = replyFromNumbers,
+                replyFromNumbers = if (hiddenHeaderStatus == null) replyFromNumbers else emptyList(),
             ),
-            showPostNumber = showPostNumber,
             headerTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = headerFontSize),
             lineHeightEm = lineHeight,
             pressedHeaderPart = interactionState.pressedHeaderPart,
@@ -144,71 +147,37 @@ fun PostItem(
             onRequestMenu = { onRequestMenu(menuTarget) },
             onReplyFromClick = onReplyFromClick,
             onIdClick = onIdClick,
-            onHeaderClick = onContentClick,
+            onHeaderClick = if (hiddenHeaderStatus == null) onContentClick else null,
             onShowTextMenu = { text, type -> onShowTextMenu(text, type) },
+            headerAction = headerAction,
+            hiddenStatusLabel = hiddenHeaderStatus,
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        PostItemBody(
-            post = post,
-            bodyTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = bodyFontSize),
-            headerTextScale = headerTextScale,
-            lineHeightEm = lineHeight,
-            searchQuery = searchQuery,
-            pressedUrl = interactionState.pressedUrl,
-            pressedReply = interactionState.pressedReply,
-            scope = scope,
-            onPressedUrlChange = { interactionState.pressedUrl = it },
-            onPressedReplyChange = { interactionState.pressedReply = it },
-            onContentPressedChange = { interactionState.isContentPressed = it },
-            onRequestMenu = { onRequestMenu(menuTarget) },
-            onReplyClick = onReplyClick,
-            onReplyNumbersClick = onReplyFromClick,
-            replyTargetHostPostNumber = postNum,
-            revealedReplyTargetKeys = revealedReplyTargetKeys,
-            onReplyTargetClick = onReplyTargetClick,
-            onReplyTargetNumbersClick = onReplyTargetNumbersClick,
-            onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
-            maxPostNumber = maxPostNumber,
-            replyPreviewState = replyPreviewState,
-            transitionNamespace = transitionNamespace,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            imageLoadFailureByUrl = imageLoadFailureByUrl,
-            onImageLoadStart = onImageLoadStart,
-            onImageLoadError = onImageLoadError,
-            onImageLoadSuccess = onImageLoadSuccess,
-            onImageRetry = onImageRetry,
-            enableSharedElement = enableSharedElement,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-            onUrlClick = onUrlClick,
-            onThreadUrlClick = onThreadUrlClick,
-            onBodyClick = onContentClick,
-        )
-
-        PostItemMedia(
-            post = post,
-            transitionNamespace = transitionNamespace,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            imageLoadFailureByUrl = imageLoadFailureByUrl,
-            onImageLoadStart = onImageLoadStart,
-            onImageLoadError = onImageLoadError,
-            onImageLoadSuccess = onImageLoadSuccess,
-            onImageRetry = onImageRetry,
-            enableSharedElement = enableSharedElement,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope
-        )
-        replyPreviewState?.let { previewState ->
-            PostReplyPreviews(
-                state = previewState,
-                hostNamespace = transitionNamespace,
+        // --- Hidden NG targets compose only the header and disclosure control ---
+        if (hiddenHeaderStatus == null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            PostItemBody(
+                post = post,
+                bodyTextStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = bodyFontSize),
                 headerTextScale = headerTextScale,
-                bodyTextScale = bodyTextScale,
                 lineHeightEm = lineHeight,
-                onReplyClick = { number -> onReplyClick?.invoke(number) },
+                searchQuery = searchQuery,
+                pressedUrl = interactionState.pressedUrl,
+                pressedReply = interactionState.pressedReply,
+                scope = scope,
+                onPressedUrlChange = { interactionState.pressedUrl = it },
+                onPressedReplyChange = { interactionState.pressedReply = it },
+                onContentPressedChange = { interactionState.isContentPressed = it },
+                onRequestMenu = { onRequestMenu(menuTarget) },
+                onReplyClick = onReplyClick,
                 onReplyNumbersClick = onReplyFromClick,
+                replyTargetHostPostNumber = postNum,
+                revealedReplyTargetKeys = revealedReplyTargetKeys,
+                onReplyTargetClick = onReplyTargetClick,
+                onReplyTargetNumbersClick = onReplyTargetNumbersClick,
+                onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,
+                maxPostNumber = maxPostNumber,
+                replyPreviewState = replyPreviewState,
+                transitionNamespace = transitionNamespace,
                 onImageClick = onImageClick,
                 onImageLongPress = onImageLongPress,
                 imageLoadFailureByUrl = imageLoadFailureByUrl,
@@ -219,7 +188,46 @@ fun PostItem(
                 enableSharedElement = enableSharedElement,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                onBodyClick = onContentClick,
             )
+
+            PostItemMedia(
+                post = post,
+                transitionNamespace = transitionNamespace,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                enableSharedElement = enableSharedElement,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope
+            )
+            replyPreviewState?.let { previewState ->
+                PostReplyPreviews(
+                    state = previewState,
+                    hostNamespace = transitionNamespace,
+                    headerTextScale = headerTextScale,
+                    bodyTextScale = bodyTextScale,
+                    lineHeightEm = lineHeight,
+                    onReplyClick = { number -> onReplyClick?.invoke(number) },
+                    onReplyNumbersClick = onReplyFromClick,
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                    onImageLoadStart = onImageLoadStart,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
+                    enableSharedElement = enableSharedElement,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                )
+            }
         }
     }
 }

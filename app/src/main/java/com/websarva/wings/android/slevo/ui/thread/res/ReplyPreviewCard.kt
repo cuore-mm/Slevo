@@ -50,7 +50,7 @@ import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRa
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 
-/** 返信先または返信元一件を小型ヘッダー・本文・画像で表示する。 */
+/** 返信先または返信元一件を既存の小型ヘッダー・本文・画像形式で表示する。 */
 @Composable
 internal fun ReplyPreviewCard(
     post: ReplyPreviewPostUiModel,
@@ -60,6 +60,8 @@ internal fun ReplyPreviewCard(
     overflowNumbers: List<Int> = emptyList(),
     unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
     onHide: (() -> Unit)? = null,
+    isNgHidden: Boolean = false,
+    onReveal: (() -> Unit)? = null,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeightEm: Float,
@@ -78,6 +80,79 @@ internal fun ReplyPreviewCard(
 ) {
     // --- Accessibility labels and display scale ---
     val colors = MaterialTheme.colorScheme
+    if (isNgHidden) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("reply-preview-target-${post.postNumber}"),
+            shape = RoundedCornerShape(8.dp),
+            color = colors.surfaceVariant.copy(alpha = 0.35f),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .padding(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("reply-preview-header-${post.postNumber}"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${post.postNumber}  ${stringResource(R.string.reply_preview_ng_hidden)}",
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("reply-preview-hidden-status-${post.postNumber}"),
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f,
+                        lineHeight = lineHeightEm.em,
+                        color = colors.onSurfaceVariant,
+                    )
+                    onReveal?.let { reveal ->
+                        ReplyTargetDisclosureAction(
+                            postNumber = post.postNumber,
+                            isRevealed = false,
+                            onClick = reveal,
+                        )
+                    }
+                }
+                if (overflowCount > 0 && overflowNumbers.isNotEmpty()) {
+                    val overflowDescription = stringResource(
+                        R.string.reply_preview_open_target_list,
+                        overflowNumbers.size,
+                    )
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable(
+                                role = Role.Button,
+                                onClickLabel = overflowDescription,
+                                onClick = { onOpenOverflow(overflowNumbers) },
+                            )
+                            .semantics { contentDescription = overflowDescription },
+                        color = colors.surfaceVariant,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.reply_preview_other_count, overflowCount),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f,
+                            lineHeight = lineHeightEm.em,
+                            color = colors.primary,
+                        )
+                    }
+                }
+                ReplyTargetUnavailableRangesRow(
+                    ranges = unavailableRanges,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+        }
+        return
+    }
+
     val progressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val openPostDescription = stringResource(
         if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
@@ -104,11 +179,8 @@ internal fun ReplyPreviewCard(
 
     // --- Preview surface and reply-source rail ---
     val isReplySource = previewType == ImageReplyPreviewType.REPLY_SOURCE
-    val hideDescription = onHide?.let {
-        stringResource(R.string.reply_preview_hide_target, post.postNumber)
-    }
     val cardContent: @Composable () -> Unit = {
-        // --- Shared disclosure header and post content ---
+        // --- Existing preview metadata and post content ---
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -130,14 +202,6 @@ internal fun ReplyPreviewCard(
                     },
                 ),
         ) {
-            if (onHide != null && hideDescription != null) {
-                ReplyTargetDisclosureHeader(
-                    postNumber = post.postNumber,
-                    isRevealed = true,
-                    actionDescription = hideDescription,
-                    onToggleDisclosure = onHide,
-                )
-            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -150,25 +214,42 @@ internal fun ReplyPreviewCard(
                     .padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                // --- Post metadata ---
+                // --- Post metadata and disclosure action ---
                 val header = buildList {
-                    if (onHide == null) add(post.postNumber.toString())
+                    add(post.postNumber.toString())
                     if (post.name.isNotBlank()) add(post.name)
                     if (post.id.isNotBlank()) add("ID:${post.id}")
                 }.joinToString("  ")
-                Text(
-                    text = header,
-                    modifier = Modifier.fillMaxWidth(),
-                    fontSize = previewHeaderTextSize,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = lineHeightEm.em,
-                    color = colors.onSurfaceVariant,
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reply-preview-header-${post.postNumber}"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = header,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("reply-preview-metadata-${post.postNumber}"),
+                        fontSize = previewHeaderTextSize,
+                        fontWeight = FontWeight.Normal,
+                        lineHeight = lineHeightEm.em,
+                        color = colors.onSurfaceVariant,
+                    )
+                    onHide?.let { hide ->
+                        ReplyTargetDisclosureAction(
+                            postNumber = post.postNumber,
+                            isRevealed = true,
+                            onClick = hide,
+                        )
+                    }
+                }
                 // --- Text and media preview ---
                 if (post.imageUrls.isEmpty()) {
                     if (post.body.isNotBlank()) {
                         Text(
                             text = post.body,
+                            modifier = Modifier.testTag("reply-preview-body-${post.postNumber}"),
                             fontSize = previewBodyTextSize,
                             lineHeight = lineHeightEm.em,
                             maxLines = 3,
@@ -185,7 +266,9 @@ internal fun ReplyPreviewCard(
                         if (post.body.isNotBlank()) {
                             Text(
                                 text = post.body,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("reply-preview-body-${post.postNumber}"),
                                 fontSize = previewBodyTextSize,
                                 lineHeight = lineHeightEm.em,
                                 maxLines = 3,
@@ -284,23 +367,25 @@ internal fun ReplyPreviewCard(
             }
         }
     }
-    // --- Shared NG disclosure frame or regular preview frame ---
-    if (onHide != null) {
-        ReplyTargetDisclosureSurface(postNumber = post.postNumber) {
-            cardContent()
-        }
-    } else {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
-            color = if (isReplySource) {
-                Color.Transparent
-            } else {
-                colors.surfaceVariant.copy(alpha = 0.35f)
-            },
-            content = cardContent,
-        )
-    }
+    // --- Existing preview surface ---
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+                    Modifier.testTag("reply-preview-target-${post.postNumber}")
+                } else {
+                    Modifier
+                },
+            ),
+        shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
+        color = if (isReplySource) {
+            Color.Transparent
+        } else {
+            colors.surfaceVariant.copy(alpha = 0.35f)
+        },
+        content = cardContent,
+    )
 }
 
 @Preview(showBackground = true)
@@ -479,6 +564,45 @@ private fun RevealedNgReplyPreviewCardPreview() {
                     overflowNumbers = listOf(14, 16, 18),
                     unavailableRanges = listOf(ReplyTargetUnavailableRange(15, Int.MAX_VALUE)),
                     onHide = {},
+                    headerTextScale = 1f,
+                    bodyTextScale = 1f,
+                    lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
+                    onOpenPost = {},
+                    onOpenOverflow = {},
+                    onImageClick = { _, _, _, _ -> },
+                    onImageLongPress = { _, _ -> },
+                    imageLoadFailureByUrl = emptyMap(),
+                    onImageLoadStart = {},
+                    onImageLoadError = { _, _ -> },
+                    onImageLoadSuccess = {},
+                    onImageRetry = {},
+                    enableSharedElement = true,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Hidden NG reply target")
+@Composable
+private fun HiddenNgReplyPreviewCardPreview() {
+    SlevoTheme {
+        SharedTransitionLayout {
+            AnimatedVisibility(visible = true) {
+                ReplyPreviewCard(
+                    post = ReplyPreviewPostUiModel(
+                        postNumber = 14,
+                        name = "非表示中の投稿者",
+                        id = "hidden-id",
+                        body = "この本文は非表示中にcompositionへ入りません。",
+                        imageUrls = emptyList(),
+                    ),
+                    hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                    isNgHidden = true,
+                    onReveal = {},
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
