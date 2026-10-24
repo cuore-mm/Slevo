@@ -32,6 +32,7 @@ import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import org.junit.Assert.assertEquals
@@ -123,6 +124,84 @@ class ReplyPreviewCardTest {
         assertEquals(listOf(12), openedPosts)
         assertEquals(listOf(listOf(2, 4, 6, 8, 10)), openedLists)
         assertEquals(listOf(imageUrl), retriedImages)
+    }
+
+    /** 開閉で共通Footerの水平位置を変えず、候補数と未取得範囲を両状態に表示する。 */
+    @Test
+    fun footerKeepsSameHorizontalPositionWhenReplyTargetIsHidden() {
+        val hidden = mutableStateOf(true)
+        composeRule.setContent {
+            PreviewCardHarness(
+                post = ReplyPreviewPostUiModel(
+                    postNumber = 1,
+                    name = "返信先",
+                    id = "target-id",
+                    body = "開示本文",
+                    imageUrls = emptyList(),
+                ),
+                previewType = ImageReplyPreviewType.REPLY_TARGET,
+                isNgHidden = hidden.value,
+                onReveal = { hidden.value = false },
+                onHide = { hidden.value = true },
+                overflowCount = 2,
+                overflowNumbers = listOf(1, 2, 3),
+                unavailableRanges = listOf(ReplyTargetUnavailableRange(101, 103)),
+                onOpenPost = {},
+            )
+        }
+
+        val overflow = composeRule.onNodeWithText("ほか2件")
+        val unavailable = composeRule.onNodeWithText(
+            "レス101〜103は未取得のため参照できません",
+        )
+        val hiddenOverflowLeft = overflow.fetchSemanticsNode().boundsInRoot.left
+        val hiddenUnavailableLeft = unavailable.fetchSemanticsNode().boundsInRoot.left
+        composeRule.onNodeWithText("表示").performClick()
+        composeRule.onNodeWithText("開示本文").assertExists()
+        assertEquals(
+            hiddenOverflowLeft,
+            overflow.fetchSemanticsNode().boundsInRoot.left,
+        )
+        assertEquals(
+            hiddenUnavailableLeft,
+            unavailable.fetchSemanticsNode().boundsInRoot.left,
+        )
+
+        composeRule.onNodeWithText("隠す").performClick()
+        composeRule.onNodeWithText("開示本文").assertDoesNotExist()
+        assertEquals(
+            hiddenOverflowLeft,
+            overflow.fetchSemanticsNode().boundsInRoot.left,
+        )
+        assertEquals(
+            hiddenUnavailableLeft,
+            unavailable.fetchSemanticsNode().boundsInRoot.left,
+        )
+    }
+
+    /** 返信元Footerは省略件数だけを表示し、返信先専用の未取得範囲を描画しない。 */
+    @Test
+    fun replySourceFooterOmitsUnavailableTargetRanges() {
+        composeRule.setContent {
+            PreviewCardHarness(
+                post = ReplyPreviewPostUiModel(
+                    postNumber = 4,
+                    name = "返信元",
+                    id = "source-id",
+                    body = "返信本文",
+                    imageUrls = emptyList(),
+                ),
+                previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                overflowCount = 1,
+                overflowNumbers = listOf(4, 5),
+                unavailableRanges = listOf(ReplyTargetUnavailableRange(101, 103)),
+                onOpenPost = {},
+            )
+        }
+
+        composeRule.onNodeWithText("ほか1件").assertExists()
+        composeRule.onNodeWithText("レス101〜103は未取得のため参照できません")
+            .assertDoesNotExist()
     }
 
     /** 画像なしでは本文がカードの全幅を使う。 */
@@ -341,6 +420,10 @@ private fun PreviewCardHarness(
     lineHeightEm: Float = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
+    unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
+    isNgHidden: Boolean = false,
+    onReveal: (() -> Unit)? = null,
+    onHide: (() -> Unit)? = null,
     imageFailures: Map<String, ImageLoadFailureType> = emptyMap(),
     insidePostItemContainer: Boolean = false,
     onOpenPost: () -> Unit,
@@ -365,6 +448,10 @@ private fun PreviewCardHarness(
                             previewType = previewType,
                             overflowCount = overflowCount,
                             overflowNumbers = overflowNumbers,
+                            unavailableRanges = unavailableRanges,
+                            isNgHidden = isNgHidden,
+                            onReveal = onReveal,
+                            onHide = onHide,
                             headerTextScale = headerTextScale,
                             bodyTextScale = bodyTextScale,
                             lineHeightEm = lineHeightEm,

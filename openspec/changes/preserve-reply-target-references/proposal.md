@@ -12,7 +12,7 @@
 - 返信先一覧ポップアップには選択済み一件を含む取得済み候補だけを番号と状態で表示する。未取得範囲はポップアップに表示せず、未取得範囲しかない行からポップアップを開かない。
 - NGの非表示中は既存ヘッダーの番号・「NGで非表示」と「表示」ボタンだけを表示し、開示中は通常の返信先プレビュー/投稿表示に「隠す」ボタンだけを追加する。インラインは既存プレビューと同じ日時省略・三行上限を保ち、ポップアップは通常レスの番号・名前・日時・IDの並びと本文表示を保つ。独自のカード枠や番号ヘッダーを追加せず、NG設定は変更しない。
 - 共有の「表示／隠す」ボタンに細い枠線を加える。既存ボタンのサイズ・文字スタイル・開示操作を維持し、新しいカード面のタップ動作は追加しない。
-- `ReplyPreviewCard`を表示分岐、非表示状態、ヘッダー、本文・画像の責務に分割し、既存の表示・操作・アクセシビリティを保つ。
+- `ReplyPreviewCard`の内部Composableを同じファイル内で表示責務ごとに分け、「ほかN件」と未取得範囲は共通の`ReplyPreviewFooter.kt`へまとめる。共有の開示ボタンは`PostItemHeader.kt`に置き、専用の一関数ファイルを作らない。
 - 返信先候補に固定件数上限を設けない。取得済み範囲だけを実レス数に応じて列挙し、未取得範囲は区間のまま保持する。
 - 返信元の件数・一覧・プレビュー、通知は引き続きNGを除外する。ID・ツリー一覧と通常の安価リンクの対象選別は変えない。
 
@@ -33,7 +33,7 @@
 ## Impact
 
 - `app`の`ReplyAnchorParser`、`ThreadReplyPreviewTransformer`、`ReplyPreviewUiState`、`ThreadUiState`、`PopupInfo`、`ThreadRouteViewModel`。
-- `PostItemBody`、分割後の`ReplyPreviewCard`表示部品、共有開示ボタン、`ReplyPopup`、`ThreadScaffold`のイベント接続、状態行用のCompose部品・日本語文字列・複数パターンのCompose Preview。
+- `PostItemBody`、`ReplyPreviewCard`、共通の`ReplyPreviewFooter.kt`、`PostItemHeader.kt`内の共有開示ボタン、`ReplyPopup`、`ThreadScaffold`のイベント接続、日本語文字列・複数パターンのCompose Preview。
 - parser/transformer/ViewModelのunit test、本文挿入と一覧・開示操作のCompose test。
 - DB・永続設定・通信API・通知判定の変更、新規ライブラリは不要。UIの表示契約変更であり、既存の「複数安価行を残す」「レス全体で一件」「全件参照不可なら枠なし」の期待値を置換する。
 - 本文とカード間の余白量変更は未確定のため対象外。

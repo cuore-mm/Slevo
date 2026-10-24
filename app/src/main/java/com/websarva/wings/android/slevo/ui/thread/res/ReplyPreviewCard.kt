@@ -4,14 +4,51 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
+import com.websarva.wings.android.slevo.ui.common.ImageThumbnail
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
+import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
+import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 
 /** 返信先または返信元一件を既存の小型ヘッダー・本文・画像形式で表示する。 */
 @Composable
@@ -41,36 +78,208 @@ internal fun ReplyPreviewCard(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    // 非表示経路には番号だけを渡し、投稿情報・本文・画像をComposableへ渡さない。
-    if (isNgHidden) {
-        ReplyPreviewCardHiddenContent(
-            postNumber = post.postNumber,
-            overflowCount = overflowCount,
-            overflowNumbers = overflowNumbers,
-            unavailableRanges = unavailableRanges,
-            onReveal = onReveal,
-            bodyTextScale = bodyTextScale,
-            headerTextScale = headerTextScale,
-            lineHeightEm = lineHeightEm,
-            onOpenOverflow = onOpenOverflow,
-        )
-    } else {
-        ReplyPreviewCardVisibleContent(
+    val colors = MaterialTheme.colorScheme
+    val isReplySource = previewType == ImageReplyPreviewType.REPLY_SOURCE
+
+    // --- Existing card surface and reply-source rail ---
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+                    Modifier.testTag("reply-preview-target-${post.postNumber}")
+                } else {
+                    Modifier
+                },
+            ),
+        shape = if (isReplySource) RectangleShape else RoundedCornerShape(8.dp),
+        color = if (isReplySource) Color.Transparent else colors.surfaceVariant.copy(alpha = 0.35f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (isReplySource) {
+                        val railWidth = 2.dp
+                        Modifier
+                            .drawBehind {
+                                val strokeWidth = railWidth.toPx()
+                                drawLine(
+                                    color = colors.outlineVariant,
+                                    start = Offset(x = strokeWidth / 2, y = 0f),
+                                    end = Offset(x = strokeWidth / 2, y = size.height),
+                                    strokeWidth = strokeWidth,
+                                )
+                            }
+                            .testTag("reply-preview-source-rail-${post.postNumber}")
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
+            // --- State-specific header and post content ---
+            if (isNgHidden) {
+                ReplyPreviewHiddenHeader(
+                    postNumber = post.postNumber,
+                    onReveal = onReveal,
+                    headerTextScale = headerTextScale,
+                    lineHeightEm = lineHeightEm,
+                )
+            } else {
+                ReplyPreviewCardContent(
+                    post = post,
+                    hostNamespace = hostNamespace,
+                    previewType = previewType,
+                    onHide = onHide,
+                    headerTextScale = headerTextScale,
+                    bodyTextScale = bodyTextScale,
+                    lineHeightEm = lineHeightEm,
+                    onOpenPost = onOpenPost,
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                    onImageLoadStart = onImageLoadStart,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
+                    enableSharedElement = enableSharedElement,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                )
+            }
+
+            // --- Shared overflow and unavailable-range footer ---
+            ReplyPreviewFooter(
+                previewType = previewType,
+                overflowCount = overflowCount,
+                overflowNumbers = overflowNumbers,
+                unavailableRanges = unavailableRanges,
+                bodyTextScale = bodyTextScale,
+                lineHeightEm = lineHeightEm,
+                onOpenOverflow = onOpenOverflow,
+            )
+        }
+    }
+}
+
+/** 非表示中は投稿モデルを受け取らず、番号・状態・開示操作だけを構成する。 */
+@Composable
+private fun ReplyPreviewHiddenHeader(
+    postNumber: Int,
+    onReveal: (() -> Unit)?,
+    headerTextScale: Float,
+    lineHeightEm: Float,
+) {
+    // --- Hidden status and disclosure row ---
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .testTag("reply-preview-header-$postNumber"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "$postNumber  ${stringResource(R.string.reply_preview_ng_hidden)}",
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("reply-preview-hidden-status-$postNumber"),
+                fontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f,
+                lineHeight = lineHeightEm.em,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            onReveal?.let { reveal ->
+                ReplyTargetDisclosureAction(
+                    postNumber = postNumber,
+                    isRevealed = false,
+                    onClick = reveal,
+                )
+            }
+        }
+    }
+}
+
+/** 通常表示・開示表示のヘッダーと本文・画像を既存のカード形式で構成する。 */
+@Composable
+private fun ReplyPreviewCardContent(
+    post: ReplyPreviewPostUiModel,
+    hostNamespace: String,
+    previewType: ImageReplyPreviewType,
+    onHide: (() -> Unit)?,
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeightEm: Float,
+    onOpenPost: () -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
+    enableSharedElement: Boolean,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+) {
+    // --- Content semantics and transition metadata ---
+    val progressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
+    val openPostDescription = stringResource(
+        if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+            R.string.reply_preview_open_target_post
+        } else {
+            R.string.reply_preview_open_source_post
+        },
+        post.postNumber,
+    )
+    val imageDescription = stringResource(
+        R.string.reply_preview_image_description,
+        post.imageUrls.size,
+        (post.imageUrls.size - 1).coerceAtLeast(0),
+        post.postNumber,
+    )
+    val imageNamespace = ImageSharedTransitionKeyFactory.replyPreviewNamespace(
+        hostNamespace = hostNamespace,
+        previewType = previewType,
+        targetPostNumber = post.postNumber,
+    )
+    val previewHeaderTextSize =
+        MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f
+    val previewBodyTextSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f
+
+    // --- Existing clickable post content and inner spacing ---
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                role = Role.Button,
+                onClickLabel = openPostDescription,
+                onClick = onOpenPost,
+            )
+            .heightIn(min = 48.dp)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        ReplyPreviewCardPostHeader(
             post = post,
-            hostNamespace = hostNamespace,
-            previewType = previewType,
-            overflowCount = overflowCount,
-            overflowNumbers = overflowNumbers,
-            unavailableRanges = unavailableRanges,
-            onHide = onHide,
-            headerTextScale = headerTextScale,
-            bodyTextScale = bodyTextScale,
+            headerTextSize = previewHeaderTextSize,
             lineHeightEm = lineHeightEm,
-            onOpenPost = onOpenPost,
-            onOpenOverflow = onOpenOverflow,
+            onHide = onHide,
+        )
+        ReplyPreviewCardPostContent(
+            post = post,
+            imageNamespace = imageNamespace,
+            imageDescription = imageDescription,
+            progressByUrl = progressByUrl,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
+            textSize = previewBodyTextSize,
+            lineHeightEm = lineHeightEm,
             onImageClick = onImageClick,
             onImageLongPress = onImageLongPress,
-            imageLoadFailureByUrl = imageLoadFailureByUrl,
             onImageLoadStart = onImageLoadStart,
             onImageLoadError = onImageLoadError,
             onImageLoadSuccess = onImageLoadSuccess,
@@ -79,6 +288,151 @@ internal fun ReplyPreviewCard(
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
         )
+    }
+}
+
+/** 番号・名前・IDと開示操作を既存の一行ヘッダーに表示する。 */
+@Composable
+private fun ReplyPreviewCardPostHeader(
+    post: ReplyPreviewPostUiModel,
+    headerTextSize: TextUnit,
+    lineHeightEm: Float,
+    onHide: (() -> Unit)?,
+) {
+    // --- Metadata mapping ---
+    val header = buildList {
+        add(post.postNumber.toString())
+        if (post.name.isNotBlank()) add(post.name)
+        if (post.id.isNotBlank()) add("ID:${post.id}")
+    }.joinToString("  ")
+    // --- Existing header layout ---
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("reply-preview-header-${post.postNumber}"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = header,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("reply-preview-metadata-${post.postNumber}"),
+            fontSize = headerTextSize,
+            fontWeight = FontWeight.Normal,
+            lineHeight = lineHeightEm.em,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        onHide?.let { hide ->
+            ReplyTargetDisclosureAction(
+                postNumber = post.postNumber,
+                isRevealed = true,
+                onClick = hide,
+            )
+        }
+    }
+}
+
+/** 本文と先頭画像を表示し、画像操作を既存の共有遷移へ接続する。 */
+@Composable
+private fun ReplyPreviewCardPostContent(
+    post: ReplyPreviewPostUiModel,
+    imageNamespace: String,
+    imageDescription: String,
+    progressByUrl: Map<String, ImageLoadProgressState>,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    textSize: TextUnit,
+    lineHeightEm: Float,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    onImageLoadStart: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
+    enableSharedElement: Boolean,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+) {
+    // --- Text-only preview ---
+    // Guard: 画像がない場合は本文だけを描画して画像行へ進まない。
+    if (post.imageUrls.isEmpty()) {
+        if (post.body.isNotBlank()) {
+            Text(
+                text = post.body,
+                modifier = Modifier.testTag("reply-preview-body-${post.postNumber}"),
+                fontSize = textSize,
+                lineHeight = lineHeightEm.em,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        return
+    }
+
+    // --- Text and thumbnail preview ---
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        if (post.body.isNotBlank()) {
+            Text(
+                text = post.body,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("reply-preview-body-${post.postNumber}"),
+                fontSize = textSize,
+                lineHeight = lineHeightEm.em,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        Box(modifier = Modifier.size(56.dp)) {
+            ImageThumbnail(
+                url = post.imageUrls.first(),
+                imageUrls = post.imageUrls,
+                imageIndex = 0,
+                transitionNamespace = imageNamespace,
+                modifier = Modifier.size(56.dp),
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                loadProgressByUrl = progressByUrl,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                enableSharedElement = enableSharedElement,
+                imageContentDescription = imageDescription,
+                cacheKeyPrefix = "reply-preview-${post.postNumber}",
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+            if (post.imageUrls.size > 1) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .clearAndSetSemantics { },
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(topStart = 6.dp),
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.reply_preview_image_more,
+                            post.imageUrls.size - 1,
+                        ),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -69,19 +69,23 @@
 
 ### 5. 文言・アクセシビリティ・Preview
 
-`PostItemHeader`には通常の投稿番号・名前・日時・IDの並びを変えずに末尾操作を追加できるようにし、開示中の返信先ポップアップの「隠す」に使用する。非表示状態は同ファイルの投稿ヘッダー書式を使って番号・状態・「表示」だけを描画する。インラインは`ReplyPreviewCard`の既存ヘッダーへ同じ操作を配置する。NG非表示時の本文・名前・ID・画像はcompositionへ入れない。`ReplyTargetStatusRow.kt`のNG表示を廃止し、未取得範囲表示だけを`ReplyTargetUnavailableRangesRow.kt`へ分離する。
+`PostItemHeader`には通常の投稿番号・名前・日時・IDの並びを変えずに末尾操作を追加できるようにし、開示中の返信先ポップアップの「隠す」に使用する。非表示状態は同ファイルの投稿ヘッダー書式を使って番号・状態・「表示」だけを描画する。インラインは`ReplyPreviewCard`の既存ヘッダーへ同じ操作を配置する。NG非表示時の本文・名前・ID・画像はcompositionへ入れない。`ReplyTargetStatusRow.kt`を廃止し、未取得範囲は「ほかN件」と共通の`ReplyPreviewFooter.kt`内に配置する。
 
 `strings_reply_preview.xml`へ「NGで非表示」「表示」「隠す」と未取得範囲の表示文言を追加する。未取得範囲は非操作テキストとしてインラインカード内の「ほかN件」直下だけに配置する。「ほかN件」は選択を除く取得済み候補だけを数える。返信先一覧は取得済み候補だけを表示する。
 
 表示/隠すは48dp以上とし、読み上げ名で対象番号と操作を伝える。状態・ボタン・一覧操作・画像操作を独立フォーカスにする。ボタン押下がカードタップへ伝播して別ポップアップを開くことを禁止する。非表示内容は読み上げない。Compose testで通常ヘッダーと開示中ヘッダーの投稿情報の位置・書式を比較し、末尾操作以外が一致すること、インラインの日時省略・三行上限、非表示内容の非露出を確認する。
 
-Preview関数はサンプル専用ファイルへ集めず、表示責務を持つComposableと同じファイルに置く。`PostItemBody.kt`の既存Previewと`ReplyPreviewCard.kt`のNG非表示/開示Preview、`PostItemHeader.kt`の通常投稿ヘッダー/末尾操作Previewを使い、既存の日時省略・番号/名前/IDの配置を保つ。未取得範囲行は`ReplyTargetUnavailableRangesRow.kt`のPreviewで確認する。画面幅を狭めたPreviewは設けない。
+Preview関数はサンプル専用ファイルへ集めず、表示責務を持つComposableと同じファイルに置く。`PostItemBody.kt`の既存Previewと`ReplyPreviewCard.kt`のNG非表示/開示Preview、`PostItemHeader.kt`の通常投稿ヘッダー/末尾操作Previewを使い、既存の日時省略・番号/名前/IDの配置を保つ。未取得範囲行は共通Footerを持つ`ReplyPreviewFooter.kt`のPreviewで確認する。画面幅を狭めたPreviewは設けない。
 
 ### 6. 返信先プレビューの内部構成と開示ボタンの外観
 
-`ReplyPreviewCard`は表示分岐と既存カード面の構成を調整役にし、NG非表示状態、投稿ヘッダー、本文・画像をそれぞれ独立したComposable責務へ分ける。既存のoverflow操作と未取得範囲の配置、画像共有遷移、クリック／画像操作のコールバック、test tag、semanticsを保つ。これは内部構造の整理であり、表示順・寸法・内容・状態遷移に変更を加えない。
+`ReplyPreviewCard.kt`にカード外枠と表示分岐を置き、非表示ヘッダー、通常ヘッダー、本文・画像はファイル内のprivate Composableへ分ける。表示状態別のファイルは作らず、NG非表示分岐から投稿モデルの名前・ID・本文・画像を子Composableへ渡さない。
 
-共有の`ReplyTargetDisclosureAction`にはテーマの`outlineVariant`を使った細い角丸枠線を設ける。現在のコンパクトな高さ下限と`labelSmall`文字スタイル、色、アクセシビリティ表現、表示／隠すの操作は維持する。カード面や非表示カードのタップ動作は追加しない。
+「ほかN件」と未取得範囲は`ReplyPreviewFooter.kt`の共通`ReplyPreviewFooter`で表示する。返信先/返信元の一覧操作文言・背景の差は`previewType`で分岐し、未取得範囲行もこのファイルに含める。`PostItemBody.kt`から使う未取得範囲Composableはinternalのまま保つ。親のColumnでヘッダー/本文の余白付き領域とFooterを兄弟に配置し、開閉でFooterの位置・水平余白を変えない。返信元では未取得範囲を描画しない。
+
+共有開示ボタンの`ReplyTargetDisclosureAction`は`PostItemHeader.kt`に置く。同Composableは`PostItemHeader`、返信先ポップアップ、インラインプレビューから利用し、専用の一関数ファイルを作らない。テーマの`outlineVariant`による1dp枠線を設け、高さ下限、`labelSmall`文字スタイル、色、アクセシビリティ表現、表示/隠す操作を維持する。カード面に新しいタップ動作は追加しない。
+
+これらは内部構造の整理であり、表示順・寸法・内容・状態遷移を変えない。既存の画像共有遷移、クリック/画像操作callback、test tag、semanticsも維持する。
 
 ## Implementation Contract
 

@@ -1,12 +1,16 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
 import android.os.Build
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +22,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.SpanStyle
@@ -29,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.model.NgType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.theme.idColor
@@ -65,6 +74,44 @@ internal data class PostHeaderUiModel(
     // 複数ID表示時にインデックス/総数を付与したID文字列。
     val idText: String
         get() = if (idTotal > 1) "${header.id} ($idIndex/$idTotal)" else header.id
+}
+
+/** NG返信先の一時開示を切り替える控えめな操作ボタンを表示する。 */
+@Composable
+internal fun ReplyTargetDisclosureAction(
+    postNumber: Int,
+    isRevealed: Boolean,
+    onClick: () -> Unit,
+) {
+    // --- Accessible action label ---
+    val actionDescription = stringResource(
+        if (isRevealed) {
+            R.string.reply_preview_hide_target
+        } else {
+            R.string.reply_preview_reveal_target
+        },
+        postNumber,
+    )
+
+    // --- Bordered disclosure button ---
+    TextButton(
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .semantics { contentDescription = actionDescription }
+            .testTag("reply-target-disclosure-button-$postNumber"),
+        onClick = onClick,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ) {
+        Text(
+            text = stringResource(
+                if (isRevealed) R.string.reply_preview_hide else R.string.reply_preview_reveal,
+            ),
+            style = MaterialTheme.typography.labelSmall,
+        )
+    }
 }
 
 /**

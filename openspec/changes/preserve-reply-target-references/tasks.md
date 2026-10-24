@@ -26,11 +26,13 @@
 - [x] 4.1 返信先プレビューの下に未取得範囲だけを表示する部品を追加し、`strings_reply_preview.xml`へ未取得範囲の文言を追加する。Compose testで統合範囲とアクセシビリティを確認する。
 - [x] 4.2 `ReplyPreviewCard`と返信先モードの`ReplyPopup`に開示/隠す状態を接続する。Compose testでプレビューはその場で三行上限のカード、ポップアップは同じ行で通常レスとして開示し、隠すで戻ること、ボタンが別ポップアップを開かないことを確認する。非表示時は本文/名前/IDのsemantics不在、画像ロードコールバック未発火を検証する。
 - [x] 4.3 固定上限と超過通知を取り除き、未取得rangeを「ほかN件」の直下のインラインプレビューだけに表示する。返信先一覧は取得済み候補だけとし、未取得だけの行から開かず、更新後に候補がなくなれば閉じる。Compose testで巨大rangeの非展開と取得済み残数の分離、一覧の未取得range非表示を検証する。
-- [x] 4.4 `ReplyTargetUiSamples.kt`を削除し、Previewを担当Composableのファイルへ配置する。`PostItemBody.kt`の既存本文・複数挿入Previewを維持し、`ReplyPreviewCard.kt`に分割された複数range例、`ReplyTargetUnavailableRangesRow.kt`に範囲例を置く。狭幅Previewは作らず、Studioで各Previewを描画確認する。
+- [x] 4.4 `ReplyTargetUiSamples.kt`を削除し、Previewを担当Composableのファイルへ配置する。`PostItemBody.kt`の既存本文・複数挿入Previewを維持し、`ReplyPreviewCard.kt`に複数range例、`ReplyPreviewFooter.kt`に範囲例を置く。狭幅Previewは作らず、Studioで各Previewを描画確認する。
 - [x] 4.5 `ReplyTargetDisclosureCard.kt`を削除し、NG開示中の`ReplyPreviewCard`は既存の番号・名前・IDヘッダーと日時省略・三行本文を保って末尾へ「隠す」を配置する。返信先`ReplyPopup`では`PostItemHeader`の投稿番号・名前・日時・IDの同じ並びへ「隠す」を追加し、非表示行は同じ投稿番号/状態/操作の書式で本文情報を構成しない。`showPostNumber`による番号位置変更と独自カード枠を廃止する。
-- [x] 4.6 `ReplyTargetStatusRow.kt`を削除し、未取得範囲だけを`ReplyTargetUnavailableRangesRow.kt`へ移す。Compose testで通常投稿と開示中NG投稿のヘッダー/本文書式が同じで末尾操作だけが異なること、インラインの日付省略・三行上限、非表示内容の非露出を確認する。
+- [x] 4.6 `ReplyTargetStatusRow.kt`を削除し、未取得範囲を独立ファイルではなく`ReplyPreviewFooter.kt`内のComposableにまとめる。Compose testで通常投稿と開示中NG投稿のヘッダー/本文書式が同じで末尾操作だけが異なること、インラインの日付省略・三行上限、非表示内容の非露出を確認する。
 - [x] 4.7 共有`ReplyTargetDisclosureAction`に細いテーマ枠線を追加し、既存の高さ下限・文字スタイル・表示／隠す操作を維持する。カード面タップ動作は追加しない。
-- [x] 4.8 `ReplyPreviewCard`を状態分岐、非表示状態、ヘッダー、本文・画像のComposable責務に分割し、既存のレイアウト、semantics、test tag、画像遷移、操作callbackを維持する。
+- [x] 4.8 `ReplyPreviewCardHiddenContent.kt`と`ReplyPreviewCardVisibleContent.kt`を削除し、表示分岐・非表示ヘッダー・通常ヘッダー・本文/画像のprivate Composableを`ReplyPreviewCard.kt`へ統合する。非表示時に投稿情報を構成しないこと、既存レイアウト・semantics・test tag・画像遷移・callbackが保たれることを対象Compose testで確認する。
+- [x] 4.9 `ReplyPreviewFooter.kt`へ共通の「ほかN件」と未取得範囲表示をまとめ、`ReplyTargetUnavailableRangesRow.kt`を削除する。`PostItemBody.kt`から同ファイル内のinternal未取得範囲Composableを呼び、`ReplyPreviewCard.kt`ではFooterを本文領域の兄弟に配置する。開閉前後でfooter位置・水平余白が同じで、返信元には範囲行が出ないことをCompose testとPreviewで確認する。
+- [x] 4.10 共有Composable `ReplyTargetDisclosureAction`を`PostItemHeader.kt`へ移し、`ReplyTargetDisclosureAction.kt`を削除する。インライン・投稿ヘッダー・返信先ポップアップの3箇所で枠線、semantics、表示/隠す操作が変わらないことをbuildと既存Compose testで確認する。
 
 ## 5. 統合検証と仕様整合
 
@@ -38,7 +40,7 @@
 - [x] 5.2 Preview配置変更後にdebug build/unit testを再実行し、接続可能ならAndroid testも実行する。
 - [x] 5.3 strict validation、`git diff --check`、KDoc/Preview規約、Preview描画結果と永続化や通知への非波及を再確認する。
 - [x] 5.4 既存`ReplyPreviewCard`/`PostItemHeader`の変更PreviewをStudio描画し、`mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`と接続可能なAndroid testを再実行する。strict validation、`git diff --check`、通常投稿との配置一致、インライン日時省略/三行上限、NG情報の非露出を確認する。
-- [x] 5.5 枠線と分割後のComposable Previewを確認し、開示操作・表示構成・レイアウトに意図しない差がないこと、カード面タップ動作を新設していないことを確認する。strict validation、`git diff --check`、debug build/unit testも実行する。
+- [x] 5.5 最終ファイル構成を確認し、開示/非表示Previewで共有Footerの位置・余白、ボタン枠線、本文三行上限を検証する。strict validation、`git diff --check`、debug build/unit testを実行し、端末接続時はAndroid testも実行する。
 
 仕様統合上の注意: 未アーカイブの`add-thread-reply-previews`を基点とするMODIFIED deltaが含まれる。将来の統合順は旧change→本changeであり、本計画作成ではarchiveを行わない。
 
@@ -100,7 +102,7 @@
 - Studio: 対象worktreeが`READY`。変更した`PostItemHeader.kt`、`PostItem.kt`、`PostItemBody.kt`、`ReplyPreviewCard.kt`、`ReplyPopup.kt`、開示操作・未取得範囲部品を解析し、コンパイル阻害なし（INFO提案のみ）。Preview 7件（開示/非表示プレビュー、開示/非表示投稿ヘッダー、未取得範囲、複数返信先本文、通常返信先プレビュー）を描画確認した。
 - `openspec validate preserve-reply-target-references --strict`: valid。先行change依存のため`thread-reply-preview`/`thread-reply-relations`は単独archive不可とのINFOのみ。`git diff --check`: 成功。
 
-## 返信プレビュー分割・開示ボタン枠線後
+## 返信プレビュー状態別分割・開示ボタン枠線後（後続整理前）
 
 - `ReplyTargetDisclosureAction`に`outlineVariant`の1dp枠線を追加し、高さ下限32dp・`labelSmall`・既存の開示操作を維持した。カード面の新しいタップ操作は追加していない。
 - `ReplyPreviewCard`は表示分岐の調整役とし、NG非表示状態、通常表示、ヘッダー、本文・画像、overflow操作をComposable責務に分割した。既存のtest tag、semantics、画像共有遷移、操作callbackを維持した。
@@ -109,3 +111,12 @@
 - Studio Preview: NG非表示・開示の2件を描画し、両状態のボタン枠線、既存のヘッダー・本文配置、三行上限を確認した。
 - Android instrumentation test: 接続端末がないためスキップ。`android info`にはSDKとCLI versionのみが表示された。
 - `openspec validate preserve-reply-target-references --strict`: valid。先行change依存による単独archive不可のINFOのみ。`git diff --check`: 成功。
+
+## 返信プレビュー共通Footer・責務統合後
+
+- `ReplyPreviewCardHiddenContent.kt`、`ReplyPreviewCardVisibleContent.kt`、`ReplyTargetDisclosureAction.kt`、`ReplyTargetUnavailableRangesRow.kt`を削除し、カードの状態別描画を`ReplyPreviewCard.kt`、共通「ほかN件」/未取得範囲を`ReplyPreviewFooter.kt`、開示操作を`PostItemHeader.kt`へ統合した。
+- Compose testで開閉後のFooter水平位置、返信元Footerの未取得範囲非表示、非表示中の本文/名前/ID/画像の非露出、本文3行上限、画像と一覧操作、ポップアップの表示/隠すを確認した。
+- 1回目の`connectedDebugAndroidTest`では開示ボタンのアクセシビリティ領域が48dp未満というassertionが両AVDで失敗した。ボタンの最小高さを48dpに明示し、再実行ではAndroid 17の2台で各117 tests、失敗・skipなし。
+- Studio解析: `ReplyPreviewCard.kt`、`ReplyPreviewFooter.kt`、`PostItemHeader.kt`、`PostItemBody.kt`にコンパイル阻害エラーなし。INFO提案のみ。
+- Studio Preview: Gradle再ビルド後、NG非表示、開示中NG、複数未取得範囲、Footerの4件を描画。開閉ボタン、3行本文、「ほかN件」と未取得範囲の並びを確認した。
+- 最終確認: `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`成功（57 actionable tasks、13 executed・44 UP-TO-DATE）。`mise exec -- ./gradlew :app:connectedDebugAndroidTest`成功（Android 17の2台で各117 tests、失敗・skipなし）。`openspec validate preserve-reply-target-references --strict`はvalid、`git diff --check`成功。
