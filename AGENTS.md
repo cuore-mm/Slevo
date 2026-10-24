@@ -15,7 +15,11 @@
 ## Coding Style & Naming
 - Language: Kotlin (official style). Use Android Studio formatter.
 - Indentation: 4 spaces. Prefer ~100–120 column soft wrapping where helpful.
-- Files: one top-level class/composable per file when reasonable.
+- File organization:
+    - Related classes, composables, and functions may share a file. Prefer keeping related helpers in an existing file.
+    - Decide function extraction and file extraction separately. Extract functions as needed for readability and responsibility, but do not create a new file solely because a function was extracted.
+    - Split files only when there is a clear benefit, such as an independent responsibility, reuse, or clearer dependencies.
+    - Do not split files mechanically based only on file length or the number of functions.
 - Naming:
     - `PascalCase` for classes/composables
     - `camelCase` for methods/variables
