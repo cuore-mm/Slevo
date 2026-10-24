@@ -174,12 +174,12 @@ private fun ReplyPreviewHiddenHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
             .padding(8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 32.dp)
                 .testTag("reply-preview-header-$postNumber"),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -259,7 +259,6 @@ private fun ReplyPreviewCardContent(
                 onClickLabel = openPostDescription,
                 onClick = onOpenPost,
             )
-            .heightIn(min = 48.dp)
             .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -308,6 +307,7 @@ private fun ReplyPreviewCardPostHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 32.dp)
             .testTag("reply-preview-header-${post.postNumber}"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
