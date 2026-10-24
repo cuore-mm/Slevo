@@ -50,6 +50,9 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 
+private val REPLY_PREVIEW_HEADER_MIN_HEIGHT = 32.dp
+private val REPLY_PREVIEW_CONTENT_PADDING = 8.dp
+
 /** 返信先または返信元一件を既存の小型ヘッダー・本文・画像形式で表示する。 */
 @Composable
 internal fun ReplyPreviewCard(
@@ -174,12 +177,12 @@ private fun ReplyPreviewHiddenHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .padding(REPLY_PREVIEW_CONTENT_PADDING),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 32.dp)
+                .heightIn(min = REPLY_PREVIEW_HEADER_MIN_HEIGHT)
                 .testTag("reply-preview-header-$postNumber"),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -259,7 +262,7 @@ private fun ReplyPreviewCardContent(
                 onClickLabel = openPostDescription,
                 onClick = onOpenPost,
             )
-            .padding(8.dp),
+            .padding(REPLY_PREVIEW_CONTENT_PADDING),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ReplyPreviewCardPostHeader(
@@ -307,7 +310,7 @@ private fun ReplyPreviewCardPostHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 32.dp)
+            .heightIn(min = REPLY_PREVIEW_HEADER_MIN_HEIGHT)
             .testTag("reply-preview-header-${post.postNumber}"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
