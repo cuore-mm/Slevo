@@ -29,6 +29,8 @@
 - [x] 4.4 `ReplyTargetUiSamples.kt`を削除し、Previewを担当Composableのファイルへ配置する。`PostItemBody.kt`の既存本文・複数挿入Previewを維持し、`ReplyPreviewCard.kt`に分割された複数range例、`ReplyTargetUnavailableRangesRow.kt`に範囲例を置く。狭幅Previewは作らず、Studioで各Previewを描画確認する。
 - [x] 4.5 `ReplyTargetDisclosureCard.kt`を削除し、NG開示中の`ReplyPreviewCard`は既存の番号・名前・IDヘッダーと日時省略・三行本文を保って末尾へ「隠す」を配置する。返信先`ReplyPopup`では`PostItemHeader`の投稿番号・名前・日時・IDの同じ並びへ「隠す」を追加し、非表示行は同じ投稿番号/状態/操作の書式で本文情報を構成しない。`showPostNumber`による番号位置変更と独自カード枠を廃止する。
 - [x] 4.6 `ReplyTargetStatusRow.kt`を削除し、未取得範囲だけを`ReplyTargetUnavailableRangesRow.kt`へ移す。Compose testで通常投稿と開示中NG投稿のヘッダー/本文書式が同じで末尾操作だけが異なること、インラインの日付省略・三行上限、非表示内容の非露出を確認する。
+- [x] 4.7 共有`ReplyTargetDisclosureAction`に細いテーマ枠線を追加し、既存の高さ下限・文字スタイル・表示／隠す操作を維持する。カード面タップ動作は追加しない。
+- [x] 4.8 `ReplyPreviewCard`を状態分岐、非表示状態、ヘッダー、本文・画像のComposable責務に分割し、既存のレイアウト、semantics、test tag、画像遷移、操作callbackを維持する。
 
 ## 5. 統合検証と仕様整合
 
@@ -36,6 +38,7 @@
 - [x] 5.2 Preview配置変更後にdebug build/unit testを再実行し、接続可能ならAndroid testも実行する。
 - [x] 5.3 strict validation、`git diff --check`、KDoc/Preview規約、Preview描画結果と永続化や通知への非波及を再確認する。
 - [x] 5.4 既存`ReplyPreviewCard`/`PostItemHeader`の変更PreviewをStudio描画し、`mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`と接続可能なAndroid testを再実行する。strict validation、`git diff --check`、通常投稿との配置一致、インライン日時省略/三行上限、NG情報の非露出を確認する。
+- [x] 5.5 枠線と分割後のComposable Previewを確認し、開示操作・表示構成・レイアウトに意図しない差がないこと、カード面タップ動作を新設していないことを確認する。strict validation、`git diff --check`、debug build/unit testも実行する。
 
 仕様統合上の注意: 未アーカイブの`add-thread-reply-previews`を基点とするMODIFIED deltaが含まれる。将来の統合順は旧change→本changeであり、本計画作成ではarchiveを行わない。
 
@@ -96,3 +99,13 @@
 - `mise exec -- ./gradlew :app:connectedDebugAndroidTest`: 成功。Android 17の`OpenCode_Mobile_Test`と`Medium_Phone`で各115 tests、skip・failureなし。開閉時のヘッダー/番号/操作位置、本文非露出、インライン日時省略と三行上限を確認した。
 - Studio: 対象worktreeが`READY`。変更した`PostItemHeader.kt`、`PostItem.kt`、`PostItemBody.kt`、`ReplyPreviewCard.kt`、`ReplyPopup.kt`、開示操作・未取得範囲部品を解析し、コンパイル阻害なし（INFO提案のみ）。Preview 7件（開示/非表示プレビュー、開示/非表示投稿ヘッダー、未取得範囲、複数返信先本文、通常返信先プレビュー）を描画確認した。
 - `openspec validate preserve-reply-target-references --strict`: valid。先行change依存のため`thread-reply-preview`/`thread-reply-relations`は単独archive不可とのINFOのみ。`git diff --check`: 成功。
+
+## 返信プレビュー分割・開示ボタン枠線後
+
+- `ReplyTargetDisclosureAction`に`outlineVariant`の1dp枠線を追加し、高さ下限32dp・`labelSmall`・既存の開示操作を維持した。カード面の新しいタップ操作は追加していない。
+- `ReplyPreviewCard`は表示分岐の調整役とし、NG非表示状態、通常表示、ヘッダー、本文・画像、overflow操作をComposable責務に分割した。既存のtest tag、semantics、画像共有遷移、操作callbackを維持した。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`: 成功（57 actionable tasks、13 executed・44 UP-TO-DATE）。
+- Studio解析: 分割した`ReplyPreviewCard.kt`、`ReplyPreviewCardHiddenContent.kt`、`ReplyPreviewCardVisibleContent.kt`、`ReplyTargetDisclosureAction.kt`にコンパイル阻害エラーなし。IDE INFO提案のみ。
+- Studio Preview: NG非表示・開示の2件を描画し、両状態のボタン枠線、既存のヘッダー・本文配置、三行上限を確認した。
+- Android instrumentation test: 接続端末がないためスキップ。`android info`にはSDKとCLI versionのみが表示された。
+- `openspec validate preserve-reply-target-references --strict`: valid。先行change依存による単独archive不可のINFOのみ。`git diff --check`: 成功。

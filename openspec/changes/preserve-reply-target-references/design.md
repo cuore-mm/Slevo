@@ -77,6 +77,12 @@
 
 Preview関数はサンプル専用ファイルへ集めず、表示責務を持つComposableと同じファイルに置く。`PostItemBody.kt`の既存Previewと`ReplyPreviewCard.kt`のNG非表示/開示Preview、`PostItemHeader.kt`の通常投稿ヘッダー/末尾操作Previewを使い、既存の日時省略・番号/名前/IDの配置を保つ。未取得範囲行は`ReplyTargetUnavailableRangesRow.kt`のPreviewで確認する。画面幅を狭めたPreviewは設けない。
 
+### 6. 返信先プレビューの内部構成と開示ボタンの外観
+
+`ReplyPreviewCard`は表示分岐と既存カード面の構成を調整役にし、NG非表示状態、投稿ヘッダー、本文・画像をそれぞれ独立したComposable責務へ分ける。既存のoverflow操作と未取得範囲の配置、画像共有遷移、クリック／画像操作のコールバック、test tag、semanticsを保つ。これは内部構造の整理であり、表示順・寸法・内容・状態遷移に変更を加えない。
+
+共有の`ReplyTargetDisclosureAction`にはテーマの`outlineVariant`を使った細い角丸枠線を設ける。現在のコンパクトな高さ下限と`labelSmall`文字スタイル、色、アクセシビリティ表現、表示／隠すの操作は維持する。カード面や非表示カードのタップ動作は追加しない。
+
 ## Implementation Contract
 
 1. 新型・API名を確定する前に上表の実コードと呼出元を確認する。提案名は既存APIだと仮定しない。

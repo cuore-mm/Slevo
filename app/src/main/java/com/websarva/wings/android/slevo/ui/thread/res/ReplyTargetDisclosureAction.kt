@@ -1,5 +1,6 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ internal fun ReplyTargetDisclosureAction(
             .semantics { contentDescription = actionDescription }
             .testTag("reply-target-disclosure-button-$postNumber"),
         onClick = onClick,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = ButtonDefaults.textButtonColors(
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
@@ -43,7 +45,7 @@ internal fun ReplyTargetDisclosureAction(
             text = stringResource(
                 if (isRevealed) R.string.reply_preview_hide else R.string.reply_preview_reveal,
             ),
-            style = MaterialTheme.typography.labelSmall
+            style = MaterialTheme.typography.labelSmall,
         )
     }
 }
