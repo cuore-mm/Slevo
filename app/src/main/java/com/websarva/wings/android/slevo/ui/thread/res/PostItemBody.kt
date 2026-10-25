@@ -2,12 +2,12 @@ package com.websarva.wings.android.slevo.ui.thread.res
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -186,6 +186,7 @@ internal fun PostItemBody(
                         if (selectedPost != null && selected.status != ReplyTargetCandidateStatus.UNAVAILABLE) {
                             val isNgTarget = selected.status == ReplyTargetCandidateStatus.NG
                             ReplyPreviewCard(
+                                modifier = Modifier.padding(vertical = 4.dp),
                                 post = selectedPost,
                                 hostNamespace = transitionNamespace,
                                 previewType = ImageReplyPreviewType.REPLY_TARGET,
@@ -201,7 +202,7 @@ internal fun PostItemBody(
                                 } else null,
                                 headerTextScale = headerTextScale,
                                 bodyTextScale = bodyTextStyle.fontSize.value /
-                                    MaterialTheme.typography.bodyMedium.fontSize.value,
+                                        MaterialTheme.typography.bodyMedium.fontSize.value,
                                 lineHeightEm = lineHeightEm,
                                 onOpenPost = {
                                     if (onReplyTargetClick != null) {
@@ -258,22 +259,24 @@ private fun PostBodyTextSegment(
     var contentLayout by remember(text) { mutableStateOf<TextLayoutResult?>(null) }
     // --- Existing annotated text interactions ---
     Text(
-        modifier = Modifier.fillMaxWidth().postBodyGestures(
-            highlightedText = text,
-            layoutProvider = { contentLayout },
-            scope = scope,
-            haptic = haptic,
-            onPressedUrlChange = onPressedUrlChange,
-            onPressedReplyChange = onPressedReplyChange,
-            onContentPressedChange = onContentPressedChange,
-            onRequestMenu = onRequestMenu,
-            onReplyClick = onReplyClick,
-            onReplyNumbersClick = onReplyNumbersClick,
-            maxPostNumber = maxPostNumber,
-            onUrlClick = onUrlClick,
-            onThreadUrlClick = onThreadUrlClick,
-            onBodyClick = onBodyClick,
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .postBodyGestures(
+                highlightedText = text,
+                layoutProvider = { contentLayout },
+                scope = scope,
+                haptic = haptic,
+                onPressedUrlChange = onPressedUrlChange,
+                onPressedReplyChange = onPressedReplyChange,
+                onContentPressedChange = onContentPressedChange,
+                onRequestMenu = onRequestMenu,
+                onReplyClick = onReplyClick,
+                onReplyNumbersClick = onReplyNumbersClick,
+                maxPostNumber = maxPostNumber,
+                onUrlClick = onUrlClick,
+                onThreadUrlClick = onThreadUrlClick,
+                onBodyClick = onBodyClick,
+            ),
         text = text,
         style = bodyTextStyle.copy(color = MaterialTheme.colorScheme.onSurface),
         lineHeight = lineHeightEm.em,
@@ -501,7 +504,6 @@ private fun PostItemBodyPreview() {
     )
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true, name = "Post body with reply target preview")
 @Composable
 private fun PostItemBodyWithReplyTargetPreview() {
@@ -596,7 +598,6 @@ private fun PostItemBodyWithReplyTargetPreview() {
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true, name = "Multiple reply target lines and NG state")
 @Composable
 private fun PostItemBodyWithMultipleReplyTargetsPreview() {
