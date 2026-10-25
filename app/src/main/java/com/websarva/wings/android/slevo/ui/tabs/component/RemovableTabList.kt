@@ -91,10 +91,6 @@ internal fun <T> RemovableTabList(
     ) { from, to ->
         val fromItem = tabItems.getOrNull(from.index)
         val toItem = tabItems.getOrNull(to.index)
-        logTabReorder {
-            "REORDERABLE_MOVE fromIndex=${from.index} toIndex=${to.index} " +
-                "fromFound=${fromItem != null} toFound=${toItem != null}"
-        }
         if (fromItem != null && toItem != null) {
             onReorderMoved(fromItem, toItem)
         }
@@ -178,7 +174,6 @@ internal fun <T> RemovableTabList(
                             enabled = reorderEnabled && !isRemoving,
                             dragGestureDetector = detector,
                             onDragStarted = {
-                                logTabReorder { "REORDERABLE_STARTED key=$itemKey" }
                                 onReorderStarted(item)
                             },
                         )
@@ -191,10 +186,8 @@ internal fun <T> RemovableTabList(
                                 onRemoveConfirmed(item)
                             }
                         }, isDragging, reorderHandle, {
-                            logTabReorder { "REORDERABLE_FINISHED key=$itemKey" }
                             onReorderFinished(item)
                         }, {
-                            logTabReorder { "REORDERABLE_CANCELLED key=$itemKey" }
                             onReorderCancelled(item)
                         })
                         if (hasVisibleItemAfter) {

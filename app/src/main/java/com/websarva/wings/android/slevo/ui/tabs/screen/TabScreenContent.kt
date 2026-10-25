@@ -1,6 +1,9 @@
 package com.websarva.wings.android.slevo.ui.tabs.screen
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -27,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -51,8 +55,8 @@ import com.websarva.wings.android.slevo.data.model.ThreadInfo
 import com.websarva.wings.android.slevo.data.util.ThreadInfoDerivedCalculator
 import com.websarva.wings.android.slevo.ui.board.screen.BoardInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
-import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
-import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
+import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenFromTabs
+import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenFromTabs
 import com.websarva.wings.android.slevo.ui.tabs.TabListUiState
 import com.websarva.wings.android.slevo.ui.tabs.TabListViewModel
 import com.websarva.wings.android.slevo.ui.tabs.UrlOpenResult
@@ -71,6 +75,7 @@ import com.websarva.wings.android.slevo.ui.tabs.model.filterThreadTabsByQuery
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.common.addPaddingValues
 import com.websarva.wings.android.slevo.ui.common.mergeScaffoldPaddingValues
+import com.websarva.wings.android.slevo.ui.common.scroll.centerLazyListItemAtIndex
 import com.websarva.wings.android.slevo.ui.theme.bookmarkColor
 import com.websarva.wings.android.slevo.ui.thread.sheet.ThreadInfoBottomSheet
 import com.websarva.wings.android.slevo.ui.util.parseServiceName
@@ -85,7 +90,7 @@ import kotlin.math.roundToInt
  *
  * URL入力は検証に失敗した場合、ダイアログ内にエラーを表示する。
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun TabScreenContent(
     modifier: Modifier = Modifier,
@@ -93,13 +98,19 @@ fun TabScreenContent(
     tabSessionStore: TabSessionStore,
     tabListViewModel: TabListViewModel,
     navController: NavHostController,
-    closeDrawer: () -> Unit,
     initialPage: Int = TabPage.BOARD.index,
     onPageChanged: (Int) -> Unit = {},
-    currentScreenRoute: AppRoute? = null,
+    sourceRoute: AppRoute? = null,
+    tabsEntryId: String,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onBoardSelected: ((AppRoute.Board) -> Unit)? = null,
+    onThreadSelected: ((AppRoute.Thread) -> Unit)? = null,
 ) {
     val openBoardTabs by tabSessionStore.openBoardTabs.collectAsStateWithLifecycle()
     val openThreadTabs by tabSessionStore.openThreadTabs.collectAsStateWithLifecycle()
+    val selectedBoardTabKey by tabSessionStore.selectedBoardTabKey.collectAsStateWithLifecycle()
+    val selectedThreadTabKey by tabSessionStore.selectedThreadTabKey.collectAsStateWithLifecycle()
     val boardLoaded by tabSessionStore.boardLoaded.collectAsStateWithLifecycle()
     val threadLoaded by tabSessionStore.threadLoaded.collectAsStateWithLifecycle()
     val isRefreshing by tabSessionStore.isRefreshing.collectAsStateWithLifecycle()
@@ -117,10 +128,8 @@ fun TabScreenContent(
 
     // --- Pager state ---
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { TabPage.count })
-    val boardNormalListState = rememberLazyListState()
-    val boardSearchListState = rememberLazyListState()
-    val threadNormalListState = rememberLazyListState()
-    val threadSearchListState = rememberLazyListState()
+    var boardInitialScrollApplied by rememberSaveable { mutableStateOf(false) }
+    var threadInitialScrollApplied by rememberSaveable { mutableStateOf(false) }
 
     // --- Search state delegation ---
     val isSearchMode = listUiState.isSearchMode
@@ -130,6 +139,28 @@ fun TabScreenContent(
     val filteredThreadTabs = filterThreadTabsByQuery(openThreadTabs, searchQuery)
     val displayedBoardTabs = applyReorderDraft(openBoardTabs, listUiState.boardReorderDraft, BoardTabInfo::boardUrl)
     val displayedThreadTabs = applyReorderDraft(openThreadTabs, listUiState.threadReorderDraft) { it.id.value }
+    val boardInitialScrollIndex = resolveInitialTabListIndex(
+        items = displayedBoardTabs,
+        selectedKey = selectedBoardTabKey,
+        keyOf = BoardTabInfo::boardUrl,
+    )
+    val threadInitialScrollIndex = resolveInitialTabListIndex(
+        items = displayedThreadTabs,
+        selectedKey = selectedThreadTabKey,
+        keyOf = { tab -> tab.id.value },
+    )
+    val boardNormalListState = if (isLoading) {
+        null
+    } else {
+        rememberLazyListState(initialFirstVisibleItemIndex = boardInitialScrollIndex ?: 0)
+    }
+    val boardSearchListState = if (isLoading) null else rememberLazyListState()
+    val threadNormalListState = if (isLoading) {
+        null
+    } else {
+        rememberLazyListState(initialFirstVisibleItemIndex = threadInitialScrollIndex ?: 0)
+    }
+    val threadSearchListState = if (isLoading) null else rememberLazyListState()
     val isSelectionMode = listUiState.isInSelectionMode
     val selectionPage = listUiState.selectionModePage
     val allSelectedPinned = when (selectionPage) {
@@ -207,13 +238,13 @@ fun TabScreenContent(
         when (TabPage.fromIndex(request.page)) {
             TabPage.BOARD -> {
                 if (filteredBoardTabs.isNotEmpty()) {
-                    boardSearchListState.requestScrollToItem(0)
+                    boardSearchListState?.requestScrollToItem(0)
                 }
             }
 
             TabPage.THREAD -> {
                 if (filteredThreadTabs.isNotEmpty()) {
-                    threadSearchListState.requestScrollToItem(0)
+                    threadSearchListState?.requestScrollToItem(0)
                 }
             }
 
@@ -221,6 +252,78 @@ fun TabScreenContent(
         }
 
         tabListViewModel.consumePendingScrollToTopRequest()
+    }
+
+    LaunchedEffect(
+        isLoading,
+        isShowingSearchResults,
+        pagerState.currentPage,
+        displayedBoardTabs,
+        selectedBoardTabKey,
+    ) {
+        if (
+            isLoading ||
+            isShowingSearchResults ||
+            pagerState.currentPage != TabPage.BOARD.index ||
+            boardInitialScrollApplied
+        ) {
+            return@LaunchedEffect
+        }
+
+        val targetIndex = resolveInitialTabListIndex(
+            items = displayedBoardTabs,
+            selectedKey = selectedBoardTabKey,
+            keyOf = BoardTabInfo::boardUrl,
+        )
+        if (targetIndex == null) {
+            // 空一覧にはスクロール対象がないため、待機せず初期化完了として扱う。
+            boardInitialScrollApplied = true
+            return@LaunchedEffect
+        }
+
+        val listState = boardNormalListState ?: return@LaunchedEffect
+        centerLazyListItemAtIndex(
+            listState = listState,
+            index = targetIndex,
+            animate = false,
+        )
+        boardInitialScrollApplied = true
+    }
+
+    LaunchedEffect(
+        isLoading,
+        isShowingSearchResults,
+        pagerState.currentPage,
+        displayedThreadTabs,
+        selectedThreadTabKey,
+    ) {
+        if (
+            isLoading ||
+            isShowingSearchResults ||
+            pagerState.currentPage != TabPage.THREAD.index ||
+            threadInitialScrollApplied
+        ) {
+            return@LaunchedEffect
+        }
+
+        val targetIndex = resolveInitialTabListIndex(
+            items = displayedThreadTabs,
+            selectedKey = selectedThreadTabKey,
+            keyOf = { tab -> tab.id.value },
+        )
+        if (targetIndex == null) {
+            // 空一覧にはスクロール対象がないため、待機せず初期化完了として扱う。
+            threadInitialScrollApplied = true
+            return@LaunchedEffect
+        }
+
+        val listState = threadNormalListState ?: return@LaunchedEffect
+        centerLazyListItemAtIndex(
+            listState = listState,
+            index = targetIndex,
+            animate = false,
+        )
+        threadInitialScrollApplied = true
     }
 
     LaunchedEffect(pagerState) {
@@ -283,18 +386,21 @@ fun TabScreenContent(
                         CircularWavyProgressIndicator()
                     }
                     } else {
-                    TabsPagerContent(
+                        val readyBoardNormalListState = requireNotNull(boardNormalListState)
+                        val readyBoardSearchListState = requireNotNull(boardSearchListState)
+                        val readyThreadNormalListState = requireNotNull(threadNormalListState)
+                        val readyThreadSearchListState = requireNotNull(threadSearchListState)
+                        TabsPagerContent(
                         modifier = Modifier,
                         pagerState = pagerState,
                         navController = navController,
-                         closeDrawer = closeDrawer,
-                         listContentPadding = listPadding,
+                          listContentPadding = listPadding,
                          isShowingSearchResults = isShowingSearchResults,
                          isSearchMode = isSearchMode,
-                         boardNormalListState = boardNormalListState,
-                        boardSearchListState = boardSearchListState,
-                        threadNormalListState = threadNormalListState,
-                        threadSearchListState = threadSearchListState,
+                          boardNormalListState = readyBoardNormalListState,
+                         boardSearchListState = readyBoardSearchListState,
+                         threadNormalListState = readyThreadNormalListState,
+                         threadSearchListState = readyThreadSearchListState,
                          openBoardTabs = displayedBoardTabs,
                         filteredBoardTabs = filteredBoardTabs,
                          openThreadTabs = displayedThreadTabs,
@@ -364,8 +470,13 @@ fun TabScreenContent(
                         removingThreadTabKeys = listUiState.removingThreadTabKeys,
                         tabSessionStore = tabSessionStore,
                          isInLongPressSelectionMode = listUiState.isTabGestureLocked || isSelectionMode,
-                        currentScreenRoute = currentScreenRoute,
-                    )
+                         sourceRoute = sourceRoute,
+                          tabsEntryId = tabsEntryId,
+                          sharedTransitionScope = sharedTransitionScope,
+                          animatedVisibilityScope = animatedVisibilityScope,
+                          onBoardSelected = onBoardSelected,
+                          onThreadSelected = onThreadSelected,
+                      )
                 }
             }
 
@@ -483,8 +594,10 @@ fun TabScreenContent(
                  onDismissThreadSheet = { tabListViewModel.dismissThreadInfoBottomSheet() },
                  navController = navController,
                  tabSessionStore = tabSessionStore,
-                 currentScreenRoute = currentScreenRoute,
-             )
+                   sourceRoute = sourceRoute,
+                   tabsEntryId = tabsEntryId,
+                   onBoardSelected = onBoardSelected,
+              )
 
             // --- URL dialog ---
             if (listUiState.showUrlDialog) {
@@ -505,22 +618,35 @@ fun TabScreenContent(
                             val result = tabListViewModel.openUrlInput(url, invalidUrlMessage)
                             when (result) {
                                 is UrlOpenResult.NavigateBoard -> {
-                                    tabSessionStore.registerAndSelectBoardRoute(result.route)
-                                    navController.showBoardScreenForTabSelection(
-                                        currentScreenRoute = currentScreenRoute,
-                                        route = result.route,
-                                    )
-                                    closeDrawer()
+                                    val isConfirmed =
+                                        tabSessionStore.registerAndConfirmBoardRoute(result.route)
+                                    if (isConfirmed) {
+                                        if (onBoardSelected != null) {
+                                            onBoardSelected(result.route)
+                                        } else {
+                                            navController.showBoardScreenFromTabs(
+                                                sourceRoute = sourceRoute,
+                                                tabsEntryId = tabsEntryId,
+                                                route = result.route,
+                                            )
+                                        }
+                                    }
+                                    tabListViewModel.setUrlDialogVisible(false)
                                 }
 
                                 is UrlOpenResult.NavigateThread -> {
                                     val index = tabSessionStore.registerAndSelectThreadRoute(result.route)
                                     if (index >= 0) {
-                                        navController.showThreadScreenForTabSelection(
-                                            currentScreenRoute = currentScreenRoute,
-                                            route = result.route,
-                                        )
-                                        closeDrawer()
+                                        if (onThreadSelected != null) {
+                                            onThreadSelected(result.route)
+                                        } else {
+                                            navController.showThreadScreenFromTabs(
+                                                sourceRoute = sourceRoute,
+                                                tabsEntryId = tabsEntryId,
+                                                route = result.route,
+                                            )
+                                        }
+                                        tabListViewModel.setUrlDialogVisible(false)
                                     }
                                 }
 
@@ -548,8 +674,10 @@ private fun TabDetailBottomSheets(
     onDismissBoardSheet: () -> Unit,
     onDismissThreadSheet: () -> Unit,
     navController: NavHostController,
-    tabSessionStore: TabSessionStore,
-    currentScreenRoute: AppRoute?,
+     tabSessionStore: TabSessionStore,
+     sourceRoute: AppRoute?,
+     tabsEntryId: String,
+     onBoardSelected: ((AppRoute.Board) -> Unit)?,
 ) {
     val boardTab = uiState.detailBoardTab
     if (boardTab != null) {
@@ -589,8 +717,10 @@ private fun TabDetailBottomSheets(
              ),
              navController = navController,
              tabSessionStore = tabSessionStore,
-             currentScreenRoute = currentScreenRoute,
-             showBoardAction = true,
+              currentScreenRoute = sourceRoute,
+              tabsEntryId = tabsEntryId,
+              onBoardSelected = onBoardSelected,
+              showBoardAction = true,
          )
     }
 }

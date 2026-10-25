@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -58,7 +59,6 @@ import com.websarva.wings.android.slevo.ui.common.bookmark.BookmarkSheetHost
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.navigation.showBoardScreenForTabSelection
 import com.websarva.wings.android.slevo.ui.navigation.showThreadScreenForTabSelection
-import com.websarva.wings.android.slevo.ui.tabs.TabsBottomSheet
 import com.websarva.wings.android.slevo.ui.tabs.dialog.UrlOpenDialog
 import com.websarva.wings.android.slevo.ui.tabs.store.TabSessionStore
 import com.websarva.wings.android.slevo.ui.util.ResolvedUrl
@@ -121,6 +121,13 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     bottomBarScrollBehavior: (@Composable (LazyListState) -> BottomAppBarScrollBehavior)? = null,
     bottomBarActionVisibilityEnabled: Boolean = true,
     animateAdjacentSelection: Boolean = false,
+    onOpenTabList: (() -> Unit)? = null,
+    onBottomChromeHeightChanged: (Int) -> Unit = {},
+    pageModifier: @Composable (
+        tabInfo: TabInfo,
+        isSharedTransitionCandidate: Boolean,
+        modifier: Modifier,
+    ) -> Modifier = { _, _, modifier -> modifier },
     optionalSheetContent: @Composable (tabInfo: TabInfo, uiState: UiState) -> Unit = { _, _ -> }
 ) {
     val displayDecision = remember(presentationState) {
@@ -149,7 +156,8 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
     val tabs = renderState.tabs
     val selectedPage = (displayDecision as? TabDisplayDecision.Selected)?.index ?: -1
     val selectedKey = (presentationState.selection as? TabSelectionResolution.Selected)?.key
-    var lastSynchronizedSelectedKey by remember { mutableStateOf(selectedKey) }
+    // Composition再生成時はPagerの保存済みpageがselected keyへ同期されるまで未同期として扱う。
+    var lastSynchronizedSelectedKey by remember { mutableStateOf<Key?>(null) }
 
     if (tabs.isNotEmpty()) {
         // --- Pager state ---
@@ -201,7 +209,13 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         if (page == selectedPage) lastSynchronizedSelectedKey = selectedKey
                         return@collectLatest
                     }
-                    if (getKey(settledTab) != getKey(selectedTab)) {
+                    if (shouldReportSettledTabSelection(
+                            selectedKey = selectedKey,
+                            lastSynchronizedSelectedKey = lastSynchronizedSelectedKey,
+                            settledPage = page,
+                            selectedPage = selectedPage,
+                        ) && getKey(settledTab) != getKey(selectedTab)
+                    ) {
                         onTabSelected(settledTab)
                     }
                 }
@@ -221,13 +235,16 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
 
         // --- Shared overlays and controller state ---
         val bookmarkSheetState = rememberModalBottomSheetState()
-        val tabListSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        var showTabListSheet by rememberSaveable { mutableStateOf(false) }
         var showUrlDialog by rememberSaveable { mutableStateOf(false) }
         var urlError by rememberSaveable { mutableStateOf<String?>(null) }
         var isUrlValidating by rememberSaveable { mutableStateOf(false) }
         val invalidUrlMessage = stringResource(R.string.invalid_url)
         val coroutineScope = rememberCoroutineScope()
+        val openTabList: () -> Unit = onOpenTabList ?: {
+            navController.navigate(AppRoute.MainShell()) {
+                launchSingleTop = true
+            }
+        }
 
         // PendingMissingではsettled pageを優先し、selection keyを直接表示に使わない。
         val settledPage = pagerState.settledPage
@@ -242,6 +259,12 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
         val settledProgress =
             actionProgressStates.getOrPut(settledTabKey) { mutableFloatStateOf(1f) }
         val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+        val canUsePageSharedTransition = isPageSharedTransitionCandidate(
+            page = settledPage,
+            pageCount = tabs.size,
+            settledPage = pagerState.settledPage,
+            isScrollInProgress = pagerState.isScrollInProgress,
+        )
         val rubberBandResistancePx = with(LocalDensity.current) {
             PAGER_RUBBER_BAND_RESISTANCE.toPx()
         }
@@ -276,29 +299,41 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
             )
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = pageModifier(
+                settledTab,
+                canUsePageSharedTransition,
+                Modifier.fillMaxSize(),
+            ),
+        ) {
             Scaffold(
                 bottomBar = {
-                    bottomBar(
-                        settledTab,
-                        settledUiState,
-                        settledProgress.value,
-                        { showTabListSheet = true },
-                        controllerModifier,
-                    ) { modifier ->
-                        PagerTitleCards(
-                            modifier = modifier,
-                            pagerState = pagerState,
-                            tabs = tabs,
-                            getUiState = getUiState,
-                            getKey = getKey,
-                            getActionProgress = { tab ->
-                                actionProgressStates.getOrPut(getKey(tab)) { mutableFloatStateOf(1f) }.value
-                            },
-                            overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
-                            titleCard = titleCard,
-                            openTabListSheet = { showTabListSheet = true },
-                        )
+                    Box(
+                        modifier = Modifier.onSizeChanged { size ->
+                            onBottomChromeHeightChanged(size.height)
+                        },
+                    ) {
+                        bottomBar(
+                            settledTab,
+                            settledUiState,
+                            settledProgress.value,
+                            openTabList,
+                            controllerModifier,
+                        ) { modifier ->
+                            PagerTitleCards(
+                                modifier = modifier,
+                                pagerState = pagerState,
+                                tabs = tabs,
+                                getUiState = getUiState,
+                                getKey = getKey,
+                                getActionProgress = { tab ->
+                                    actionProgressStates.getOrPut(getKey(tab)) { mutableFloatStateOf(1f) }.value
+                                },
+                                overscrollOffsetPx = { pagerOverscrollEffect.offsetPx },
+                                titleCard = titleCard,
+                                openTabListSheet = openTabList,
+                            )
+                        }
                     }
                 },
                 ) { innerPadding ->
@@ -368,7 +403,7 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                             contentModifier,
                             innerPadding,
                             navController,
-                            { showTabListSheet = true },
+                            openTabList,
                             {
                                 urlError = null
                                 showUrlDialog = true
@@ -378,31 +413,17 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                 }
             }
             BbsRouteStatusBarProtection()
+        }
 
-            BookmarkSheetHost(
+        BookmarkSheetHost(
                 sheetState = bookmarkSheetState,
                 holder = getBookmarkSheetHolder(settledTab),
                 uiState = settledUiState.bookmarkSheetState,
-            )
-            // 現在settle済みタブのoverlayをScaffoldの後ろに描画し、固定barを覆う。
-            optionalSheetContent(settledTab, settledUiState)
+        )
+        // 現在settle済みタブのoverlayをページ共有コンテナの外側へ描画し、拡縮対象から除外する。
+        optionalSheetContent(settledTab, settledUiState)
 
-            if (showTabListSheet) {
-                val initialPage = when (route) {
-                    is AppRoute.Thread -> 1
-                    else -> 0
-                }
-                TabsBottomSheet(
-                    sheetState = tabListSheetState,
-                    tabSessionStore = tabSessionStore,
-                    navController = navController,
-                    onDismissRequest = { showTabListSheet = false },
-                    initialPage = initialPage,
-                    currentScreenRoute = route,
-                )
-            }
-
-            if (showUrlDialog) {
+        if (showUrlDialog) {
                 UrlOpenDialog(
                     onDismissRequest = {
                         showUrlDialog = false
@@ -501,7 +522,6 @@ fun <TabInfo : Any, Key : Any, UiState : BaseUiState<UiState>> BbsRouteScaffold(
                         isUrlValidating = false
                     },
                 )
-            }
         }
     } else if (displayDecision is TabDisplayDecision.Loading) {
         // 初回 canonical snapshot 前だけローディング表示を出す。
@@ -661,6 +681,15 @@ internal fun isSharedTransitionCandidate(
     isScrollInProgress: Boolean,
 ): Boolean = page == settledPage && !isScrollInProgress
 
+/** ページ数を含めて現在表示ページがShared Bounds候補として有効か判定する。 */
+internal fun isPageSharedTransitionCandidate(
+    page: Int,
+    pageCount: Int,
+    settledPage: Int,
+    isScrollInProgress: Boolean,
+): Boolean = page in 0 until pageCount &&
+    isSharedTransitionCandidate(page, settledPage, isScrollInProgress)
+
 /**
  * 本文Pagerのページ進行をタイトルviewportの移動距離へ変換する。
  *
@@ -734,6 +763,19 @@ internal fun pagerMoveBehavior(currentPage: Int, targetPage: Int, pageCount: Int
         else -> PagerMoveBehavior.Immediate
     }
 }
+
+/**
+ * settled pageをユーザー操作として選択状態へ反映できるかを判定する。
+ *
+ * selected keyとPagerの同期が完了している状態で対象ページと異なるpageへsettleした場合だけ、
+ * settled tabを選択状態へ反映する。再生成直後など未同期keyでは旧pageを通知しない。
+ */
+internal fun <Key : Any> shouldReportSettledTabSelection(
+    selectedKey: Key?,
+    lastSynchronizedSelectedKey: Key?,
+    settledPage: Int,
+    selectedPage: Int,
+): Boolean = selectedKey == lastSynchronizedSelectedKey && settledPage != selectedPage
 
 /** Pager内部の一時的な範囲外要求に対してstable keyを生成する。 */
 private data class PagerFallbackKey(val revision: Any, val page: Int)

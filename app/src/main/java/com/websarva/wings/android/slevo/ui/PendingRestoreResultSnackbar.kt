@@ -11,9 +11,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.data.backup.pending.PendingRestoreNotificationType
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
+
+/**
+ * Root overlayとしてSnackbarを描画する。
+ *
+ * 呼び出し側が渡すbottom chromeの高さとsafe drawingだけを自身の配置へ適用し、RootNavHostの
+ * content paddingや測定boundsには伝播させない。
+ */
+@Composable
+internal fun RootSnackbarHost(
+    snackbarHostState: SnackbarHostState,
+    bottomChromeHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = modifier
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+            .padding(bottom = bottomChromeHeight),
+    )
+}
 
 /**
  * root-level Snackbarへpending restore結果を一度だけ表示する。
