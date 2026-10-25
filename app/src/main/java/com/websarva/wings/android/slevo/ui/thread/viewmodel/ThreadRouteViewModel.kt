@@ -38,7 +38,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadLoadingSource
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -437,15 +436,6 @@ class ThreadRouteViewModel @Inject constructor(
             val next = state.copy(popupStack = state.popupStack.dropLast(1))
             next.copy(isTabSwipeEnabled = shouldEnableTabSwipe(next))
         }
-        val activePopupIds = tabSessionStore.getThreadSessionState(ThreadId(tabKey))
-            .popupStack.mapTo(mutableSetOf()) { it.popupId }
-        updateContentState(tabKey) { content ->
-            content.copy(
-                revealedReplyTargetKeys = content.revealedReplyTargetKeys.filterTo(mutableSetOf()) { key ->
-                    key.popupId == null || key.popupId in activePopupIds
-                },
-            )
-        }
     }
 
     /** 返信元レス群をポップアップへ追加する。 */
@@ -504,22 +494,22 @@ class ThreadRouteViewModel @Inject constructor(
         )
     }
 
-    /** 表示箇所ごとにNG返信先の一時開示状態を切り替える。 */
+    /** 同じスレッド内にある指定NGレスの一時開示状態を切り替える。 */
     fun setReplyTargetDisclosure(
         tabKey: String,
-        key: ReplyTargetDisclosureKey,
+        postNumber: Int,
         revealed: Boolean,
     ) {
         val currentState = uiStateFor(tabKey).value
         // Guard: NGでないレスの本文は一時開示状態に追加しない。
-        if (revealed && key.postNumber !in currentState.ngPostNumbers) return
+        if (revealed && postNumber !in currentState.ngPostNumbers) return
         updateContentState(tabKey) { content ->
-            val keys = if (revealed) {
-                content.revealedReplyTargetKeys + key
+            val numbers = if (revealed) {
+                content.revealedReplyTargetNumbers + postNumber
             } else {
-                content.revealedReplyTargetKeys - key
+                content.revealedReplyTargetNumbers - postNumber
             }
-            content.copy(revealedReplyTargetKeys = keys)
+            content.copy(revealedReplyTargetNumbers = numbers)
         }
     }
 
@@ -1075,7 +1065,7 @@ class ThreadRouteViewModel @Inject constructor(
             // NGルールまたは対象レスの状態が変わった場合は、すべての開示を閉じる。
             updateContentState(tab.id.value) { current ->
                 current.copy(
-                    revealedReplyTargetKeys = emptySet(),
+                    revealedReplyTargetNumbers = emptySet(),
                     ngPostNumbersSnapshot = ngPostNumbers,
                     ngRulesSnapshot = ngList,
                 )
@@ -1105,29 +1095,15 @@ class ThreadRouteViewModel @Inject constructor(
         } else {
             prunePopupStackWithoutRenderablePosts(session.popupStack, posts.size, ngPostNumbers)
         }
-        val validDisclosureKeys = if (disclosureStateIsCurrent) {
-            content.revealedReplyTargetKeys.filterTo(mutableSetOf()) { key ->
-                if (key.postNumber !in ngPostNumbers) {
-                    false
-                } else if (key.popupId != null) {
-                    popupStack.any { popup -> popup.popupId == key.popupId }
-                } else {
-                    replyPreviewByPostNumber[key.hostPostNumber]
-                        ?.replyTargets
-                        ?.any { target ->
-                            target.lineIndex == key.lineIndex &&
-                                target.candidates.any { candidate ->
-                                    candidate.postNumber == key.postNumber &&
-                                        candidate.status == ReplyTargetCandidateStatus.NG
-                                }
-                        } == true
-                }
-            }
-        } else emptySet()
-        if (validDisclosureKeys != content.revealedReplyTargetKeys) {
-            // 無効になった行と閉じたポップアップの開示キーは所有stateからも除去する。
+        val validDisclosureNumbers = if (disclosureStateIsCurrent) {
+            content.revealedReplyTargetNumbers.intersect(ngPostNumbers)
+        } else {
+            emptySet()
+        }
+        if (validDisclosureNumbers != content.revealedReplyTargetNumbers) {
+            // NGでなくなったレスや対象一覧から消えたレスは開示集合から除去する。
             updateContentState(tab.id.value) { current ->
-                current.copy(revealedReplyTargetKeys = validDisclosureKeys)
+                current.copy(revealedReplyTargetNumbers = validDisclosureNumbers)
             }
         }
         val visibleRowsResult = if (posts == null) {
@@ -1181,7 +1157,7 @@ class ThreadRouteViewModel @Inject constructor(
             replySourceMap = content.replySourceMap,
             visibleReplySourceMap = visibleReplySourceMap,
             replyPreviewByPostNumber = replyPreviewByPostNumber,
-            revealedReplyTargetKeys = validDisclosureKeys,
+            revealedReplyTargetNumbers = validDisclosureNumbers,
             ngPostNumbers = ngPostNumbers,
             imageLoadFailureByUrl = content.imageLoadFailureByUrl,
             imageLoadingUrls = content.imageLoadingUrls,
@@ -1452,7 +1428,7 @@ private data class ThreadRouteContentState(
     val myPostNumbers: Set<Int> = emptySet(),
     val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
     val imageLoadingUrls: Set<String> = emptySet(),
-    val revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    val revealedReplyTargetNumbers: Set<Int> = emptySet(),
     val ngPostNumbersSnapshot: Set<Int> = emptySet(),
     val ngRulesSnapshot: List<NgEntity> = emptyList(),
     val observedThreadHistoryId: Long? = null,

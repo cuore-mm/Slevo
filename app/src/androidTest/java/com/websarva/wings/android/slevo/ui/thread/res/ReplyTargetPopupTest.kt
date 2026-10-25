@@ -22,7 +22,6 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -52,19 +51,13 @@ class ReplyTargetPopupTest {
             size = IntSize.Zero,
             contentType = PopupContentType.REPLY_TARGETS,
         )
-        val key = ReplyTargetDisclosureKey(
-            hostPostNumber = 0,
-            lineIndex = 1,
-            postNumber = 2,
-            popupId = 42L,
-        )
-        val changes = mutableListOf<Pair<ReplyTargetDisclosureKey, Boolean>>()
+        val changes = mutableListOf<Pair<Int, Boolean>>()
         var nestedPopupCount = 0
         val currentPostsState = mutableStateOf(posts)
         val currentNgPostNumbersState = mutableStateOf(setOf(2))
 
         composeRule.setContent {
-            var revealedKeys by remember { mutableStateOf(emptySet<ReplyTargetDisclosureKey>()) }
+            var revealedNumbers by remember { mutableStateOf(emptySet<Int>()) }
             SlevoTheme {
                 SharedTransitionLayout {
                     val transitionScope = this
@@ -73,13 +66,13 @@ class ReplyTargetPopupTest {
                             info = info,
                             posts = currentPostsState.value,
                             ngPostNumbers = currentNgPostNumbersState.value,
-                            revealedKeys = revealedKeys,
-                            onDisclosureChange = { changedKey, revealed ->
-                                changes += changedKey to revealed
-                                revealedKeys = if (revealed) {
-                                    revealedKeys + changedKey
+                            revealedNumbers = revealedNumbers,
+                            onDisclosureChange = { postNumber, revealed ->
+                                changes += postNumber to revealed
+                                revealedNumbers = if (revealed) {
+                                    revealedNumbers + postNumber
                                 } else {
-                                    revealedKeys - changedKey
+                                    revealedNumbers - postNumber
                                 }
                             },
                             onPopupOpen = { nestedPopupCount++ },
@@ -128,7 +121,7 @@ class ReplyTargetPopupTest {
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("name2", substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("ID:id2", substring = true).assertCountEquals(0)
-        assertEquals(listOf(key to true, key to false), changes)
+        assertEquals(listOf(2 to true, 2 to false), changes)
         assertEquals(0, nestedPopupCount)
 
         // --- Latest post resolution ---
@@ -159,8 +152,8 @@ private fun ReplyTargetPopupHarness(
     info: PopupInfo,
     posts: List<ThreadPostUiModel>,
     ngPostNumbers: Set<Int>,
-    revealedKeys: Set<ReplyTargetDisclosureKey>,
-    onDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit,
+    revealedNumbers: Set<Int>,
+    onDisclosureChange: (Int, Boolean) -> Unit,
     onPopupOpen: () -> Unit,
     sharedTransitionScope: androidx.compose.animation.SharedTransitionScope,
     animatedVisibilityScope: androidx.compose.animation.AnimatedVisibilityScope,
@@ -173,7 +166,7 @@ private fun ReplyTargetPopupHarness(
         idIndexList = emptyList(),
         ngPostNumbers = ngPostNumbers,
         myPostNumbers = emptySet(),
-        revealedReplyTargetKeys = revealedKeys,
+        revealedReplyTargetNumbers = revealedNumbers,
         headerTextScale = 1f,
         bodyTextScale = 1f,
         lineHeight = 1.25f,

@@ -65,7 +65,6 @@ import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.calculateTreeIndentWidths
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
@@ -121,7 +120,7 @@ fun ReplyPopup(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
-    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    revealedReplyTargetNumbers: Set<Int> = emptySet(),
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -140,7 +139,7 @@ fun ReplyPopup(
     onRequestTreePopup: (postNumber: Int, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyFrom: (replyNumbers: List<Int>, baseOffset: IntOffset) -> Unit,
     onAddPopupForReplyNumber: (postNumber: Int, baseOffset: IntOffset) -> Unit,
-    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
+    onReplyTargetDisclosureChange: (Int, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
     onPopupSizeChange: (index: Int, size: IntSize) -> Unit,
     onClose: () -> Unit,
@@ -221,7 +220,7 @@ fun ReplyPopup(
                     idIndexList = idIndexList,
                     ngPostNumbers = ngPostNumbers,
                     myPostNumbers = myPostNumbers,
-                    revealedReplyTargetKeys = revealedReplyTargetKeys,
+                    revealedReplyTargetNumbers = revealedReplyTargetNumbers,
                     headerTextScale = headerTextScale,
                     bodyTextScale = bodyTextScale,
                     lineHeight = lineHeight,
@@ -422,7 +421,7 @@ private fun PopupPostList(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
-    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey>,
+    revealedReplyTargetNumbers: Set<Int>,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -443,7 +442,7 @@ private fun PopupPostList(
     onContentClick: ((Int, IntOffset) -> Unit)?,
     onReplyFromClick: (List<Int>, IntOffset) -> Unit,
     onReplyClick: (Int, IntOffset) -> Unit,
-    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit,
+    onReplyTargetDisclosureChange: (Int, Boolean) -> Unit,
     onIdClick: (String, IntOffset) -> Unit,
 ) {
     // --- レイアウト ---
@@ -472,7 +471,7 @@ private fun PopupPostList(
                 idIndexList = idIndexList,
                 ngPostNumbers = ngPostNumbers,
                 myPostNumbers = myPostNumbers,
-                revealedReplyTargetKeys = revealedReplyTargetKeys,
+                revealedReplyTargetNumbers = revealedReplyTargetNumbers,
                 headerTextScale = headerTextScale,
                 bodyTextScale = bodyTextScale,
                 lineHeight = lineHeight,
@@ -526,7 +525,7 @@ private fun PopupPostLazyColumn(
     idIndexList: List<Int>,
     ngPostNumbers: Set<Int>,
     myPostNumbers: Set<Int>,
-    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey>,
+    revealedReplyTargetNumbers: Set<Int>,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeight: Float,
@@ -547,7 +546,7 @@ private fun PopupPostLazyColumn(
     onContentClick: ((Int, IntOffset) -> Unit)?,
     onReplyFromClick: (List<Int>, IntOffset) -> Unit,
     onReplyClick: (Int, IntOffset) -> Unit,
-    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit,
+    onReplyTargetDisclosureChange: (Int, Boolean) -> Unit,
     onIdClick: (String, IntOffset) -> Unit,
     maxHeight: Dp,
     maxWidth: Dp,
@@ -612,13 +611,7 @@ private fun PopupPostLazyColumn(
             val postNum = row.postNumber
             val postIndex = postNum - 1
             val indentWidth = row.indentWidth
-            val disclosureKey = ReplyTargetDisclosureKey(
-                hostPostNumber = 0,
-                lineIndex = row.originalIndex,
-                postNumber = postNum,
-                popupId = info.popupId,
-            )
-            val isRevealed = disclosureKey in revealedReplyTargetKeys
+            val isRevealed = postNum in revealedReplyTargetNumbers
             var postOffset by remember { mutableStateOf(IntOffset.Zero) }
             var isPostOffsetMeasured by remember { mutableStateOf(false) }
             val baseOffset = if (isPostOffsetMeasured) {
@@ -646,7 +639,7 @@ private fun PopupPostLazyColumn(
                         postNumber = postNum,
                         isRevealed = isRevealed,
                         onClick = {
-                            onReplyTargetDisclosureChange(disclosureKey, !isRevealed)
+                            onReplyTargetDisclosureChange(postNum, !isRevealed)
                         },
                     )
                 }
@@ -697,7 +690,7 @@ private fun PopupPostLazyColumn(
                 replyFromNumbers = replySourceMap[postNum]?.filterNot { it in ngPostNumbers }
                     ?: emptyList(),
                 onReplyFromClick = { numbers -> onReplyFromClick(numbers, baseOffset) },
-                revealedReplyTargetKeys = revealedReplyTargetKeys,
+                revealedReplyTargetNumbers = revealedReplyTargetNumbers,
                 onReplyClick = { number -> onReplyClick(number, baseOffset) },
                 onIdClick = { id -> onIdClick(id, baseOffset) },
                 onContentClick = { onContentClick?.invoke(postNum, baseOffset) },

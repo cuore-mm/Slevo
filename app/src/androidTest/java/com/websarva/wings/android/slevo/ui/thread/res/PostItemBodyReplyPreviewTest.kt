@@ -11,9 +11,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -22,9 +24,13 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.websarva.wings.android.slevo.ui.navigation.AppRoute
+import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
+import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadReplyPreviewTransformer
@@ -219,17 +225,12 @@ class PostItemBodyReplyPreviewTest {
             post(2, ">>1"),
         )
         val previewState = derivePreview(posts, ngPostNumbers = setOf(1))
-        val disclosureKey = ReplyTargetDisclosureKey(
-            hostPostNumber = 2,
-            lineIndex = 0,
-            postNumber = 1,
-        )
-        val disclosureChanges = mutableListOf<Pair<ReplyTargetDisclosureKey, Boolean>>()
+        val disclosureChanges = mutableListOf<Pair<Int, Boolean>>()
         val openedPosts = mutableListOf<Int>()
 
         // --- Compose disclosure state ---
         composeRule.setContent {
-            var revealedKeys by remember { mutableStateOf(emptySet<ReplyTargetDisclosureKey>()) }
+            var revealedNumbers by remember { mutableStateOf(emptySet<Int>()) }
             SlevoTheme {
                 SharedTransitionLayout {
                     val sharedScope = this
@@ -240,12 +241,15 @@ class PostItemBodyReplyPreviewTest {
                             sharedTransitionScope = sharedScope,
                             animatedVisibilityScope = this,
                             onReplyClick = { openedPosts += it },
-                            hostPostNumber = 2,
-                            revealedReplyTargetKeys = revealedKeys,
+                            revealedReplyTargetNumbers = revealedNumbers,
                             onImageLoadStart = { imageLoadStartCount++ },
-                            onDisclosureChange = { key, revealed ->
-                                disclosureChanges += key to revealed
-                                revealedKeys = if (revealed) revealedKeys + key else revealedKeys - key
+                            onDisclosureChange = { postNumber, revealed ->
+                                disclosureChanges += postNumber to revealed
+                                revealedNumbers = if (revealed) {
+                                    revealedNumbers + postNumber
+                                } else {
+                                    revealedNumbers - postNumber
+                                }
                             },
                         )
                     }
@@ -254,7 +258,6 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Privacy and local toggle assertions ---
-        composeRule.onNodeWithText("1  NGで非表示", substring = true).assertExists()
         composeRule.onNodeWithText("NGで非表示", substring = true).assertExists()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("name1", substring = true).assertCountEquals(0)
@@ -291,8 +294,100 @@ class PostItemBodyReplyPreviewTest {
         assertTrue(revealedCardBounds.height > hiddenCardBounds.height)
         composeRule.onNodeWithText("隠す").performClick()
         composeRule.onAllNodesWithText(privateBody, substring = true).assertCountEquals(0)
-        assertEquals(listOf(disclosureKey to true, disclosureKey to false), disclosureChanges)
+        assertEquals(listOf(1 to true, 1 to false), disclosureChanges)
         assertTrue(openedPosts.isEmpty())
+    }
+
+    /** Inlineと返信先popupのどちらから操作しても同じレスの開示状態を共有する。 */
+    @Test
+    fun ngTargetDisclosureIsSharedBetweenInlinePreviewAndPopup() {
+        // --- Fixture ---
+        val privateBody = "shared private reply body\nsecond line\nthird line\nfourth line"
+        val posts = listOf(post(1, privateBody), post(2, ">>1"))
+        val previewState = derivePreview(posts, ngPostNumbers = setOf(1))
+        val popupInfo = PopupInfo(
+            popupId = 99L,
+            postNumbers = listOf(1),
+            offset = IntOffset.Zero,
+            contentType = PopupContentType.REPLY_TARGETS,
+        )
+        val changes = mutableListOf<Pair<Int, Boolean>>()
+
+        // --- Shared disclosure state and both renderers ---
+        composeRule.setContent {
+            var revealedNumbers by remember { mutableStateOf(emptySet<Int>()) }
+            val onDisclosureChange: (Int, Boolean) -> Unit = { postNumber, revealed ->
+                changes += postNumber to revealed
+                // 同じ番号集合をインラインとポップアップの描画元にする。
+                revealedNumbers = if (revealed) {
+                    revealedNumbers + postNumber
+                } else {
+                    revealedNumbers - postNumber
+                }
+            }
+            SlevoTheme {
+                SharedTransitionLayout {
+                    val transitionScope = this
+                    AnimatedVisibility(visible = true) {
+                        val visibilityScope = this
+                        Column {
+                            PostBodyHarness(
+                                post = posts[1],
+                                previewState = previewState,
+                                sharedTransitionScope = transitionScope,
+                                animatedVisibilityScope = visibilityScope,
+                                onReplyClick = {},
+                                revealedReplyTargetNumbers = revealedNumbers,
+                                onDisclosureChange = onDisclosureChange,
+                            )
+                            ReplyPopup(
+                                popupStack = listOf(popupInfo),
+                                posts = posts,
+                                replySourceMap = emptyMap(),
+                                idCountMap = emptyMap(),
+                                idIndexList = emptyList(),
+                                ngPostNumbers = setOf(1),
+                                myPostNumbers = emptySet(),
+                                revealedReplyTargetNumbers = revealedNumbers,
+                                headerTextScale = 1f,
+                                bodyTextScale = 1f,
+                                lineHeight = 1.25f,
+                                onUrlClick = {},
+                                onThreadUrlClick = { _: AppRoute.Thread -> },
+                                onImageClick = { _, _, _, _ -> },
+                                onImageLongPress = { _, _ -> },
+                                onRequestMenu = {},
+                                onShowTextMenu = { _, _ -> },
+                                onRequestTreePopup = { _, _ -> },
+                                onAddPopupForReplyFrom = { _, _ -> },
+                                onAddPopupForReplyNumber = { _, _ -> },
+                                onReplyTargetDisclosureChange = onDisclosureChange,
+                                onAddPopupForId = { _, _ -> },
+                                onPopupSizeChange = { _, _ -> },
+                                onClose = {},
+                                sharedTransitionScope = transitionScope,
+                                animatedVisibilityScope = visibilityScope,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Cross-display state transitions ---
+        val disclosureButtonTag = "reply-target-disclosure-button-1"
+        composeRule.onAllNodesWithTag(disclosureButtonTag).assertCountEquals(2)
+        composeRule.onAllNodesWithTag(disclosureButtonTag)[0].performClick()
+        composeRule.onAllNodesWithText("shared private reply body", substring = true)
+            .assertCountEquals(2)
+        composeRule.onAllNodesWithTag(disclosureButtonTag).assertCountEquals(2)
+
+        // The popup button updates the same number set consumed by the inline preview.
+        composeRule.onAllNodesWithTag(disclosureButtonTag)[1].performClick()
+        composeRule.onAllNodesWithText("shared private reply body", substring = true)
+            .assertCountEquals(0)
+        composeRule.onAllNodesWithText("表示").assertCountEquals(2)
+        assertEquals(listOf(1 to true, 1 to false), changes)
     }
 
     /** 未取得範囲だけの行はインライン表示し、返信先一覧を開く操作を持たない。 */
@@ -411,9 +506,8 @@ private fun PostBodyHarness(
     animatedVisibilityScope: AnimatedVisibilityScope,
     onReplyClick: (Int) -> Unit,
     onReplyNumbersClick: (List<Int>) -> Unit = {},
-    hostPostNumber: Int = 0,
-    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
-    onDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
+    revealedReplyTargetNumbers: Set<Int> = emptySet(),
+    onDisclosureChange: (Int, Boolean) -> Unit = { _, _ -> },
     onImageLoadStart: (String) -> Unit = {},
     maxPostNumber: Int = 3,
     onRequestMenu: () -> Unit = {},
@@ -438,8 +532,7 @@ private fun PostBodyHarness(
         onRequestMenu = onRequestMenu,
         onReplyClick = onReplyClick,
         onReplyNumbersClick = onReplyNumbersClick,
-        replyTargetHostPostNumber = hostPostNumber,
-        revealedReplyTargetKeys = revealedReplyTargetKeys,
+        revealedReplyTargetNumbers = revealedReplyTargetNumbers,
         onReplyTargetDisclosureChange = onDisclosureChange,
         maxPostNumber = maxPostNumber,
         replyPreviewState = previewState,

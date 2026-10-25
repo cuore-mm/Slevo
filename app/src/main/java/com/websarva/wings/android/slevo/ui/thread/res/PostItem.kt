@@ -22,7 +22,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -87,10 +86,10 @@ fun PostItem(
     searchQuery: String = "",
     onReplyFromClick: ((List<Int>) -> Unit),
     onReplyClick: ((Int) -> Unit)? = null,
-    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    revealedReplyTargetNumbers: Set<Int> = emptySet(),
     onReplyTargetClick: ((Int) -> Unit)? = null,
     onReplyTargetNumbersClick: ((List<Int>) -> Unit)? = null,
-    onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
+    onReplyTargetDisclosureChange: ((Int, Boolean) -> Unit)? = null,
     onIdClick: ((String) -> Unit),
     onUrlClick: (String) -> Unit,
     onThreadUrlClick: (AppRoute.Thread) -> Unit,
@@ -170,8 +169,7 @@ fun PostItem(
                 onRequestMenu = { onRequestMenu(menuTarget) },
                 onReplyClick = onReplyClick,
                 onReplyNumbersClick = onReplyFromClick,
-                replyTargetHostPostNumber = postNum,
-                revealedReplyTargetKeys = revealedReplyTargetKeys,
+                revealedReplyTargetNumbers = revealedReplyTargetNumbers,
                 onReplyTargetClick = onReplyTargetClick,
                 onReplyTargetNumbersClick = onReplyTargetNumbersClick,
                 onReplyTargetDisclosureChange = onReplyTargetDisclosureChange,

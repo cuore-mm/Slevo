@@ -52,7 +52,7 @@ data class ThreadUiState(
     val replySourceMap: Map<Int, List<Int>> = emptyMap(),
     val visibleReplySourceMap: Map<Int, List<Int>> = emptyMap(),
     val replyPreviewByPostNumber: Map<Int, PostReplyPreviewUiState> = emptyMap(),
-    val revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    val revealedReplyTargetNumbers: Set<Int> = emptySet(),
     val ngPostNumbers: Set<Int> = emptySet(),
     val imageLoadFailureByUrl: Map<String, ImageLoadFailureType> = emptyMap(),
     val imageLoadingUrls: Set<String> = emptySet(),

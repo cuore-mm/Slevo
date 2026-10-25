@@ -41,7 +41,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateUiModel
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
@@ -85,11 +84,10 @@ internal fun PostItemBody(
     onRequestMenu: () -> Unit,
     onReplyClick: ((Int) -> Unit)?,
     onReplyNumbersClick: ((List<Int>) -> Unit)?,
-    replyTargetHostPostNumber: Int = 0,
-    revealedReplyTargetKeys: Set<ReplyTargetDisclosureKey> = emptySet(),
+    revealedReplyTargetNumbers: Set<Int> = emptySet(),
     onReplyTargetClick: ((Int) -> Unit)? = null,
     onReplyTargetNumbersClick: ((List<Int>) -> Unit)? = null,
-    onReplyTargetDisclosureChange: ((ReplyTargetDisclosureKey, Boolean) -> Unit)? = null,
+    onReplyTargetDisclosureChange: ((Int, Boolean) -> Unit)? = null,
     maxPostNumber: Int,
     replyPreviewState: PostReplyPreviewUiState?,
     transitionNamespace: String,
@@ -176,12 +174,7 @@ internal fun PostItemBody(
                             ranges = target.unavailableRanges,
                         )
                     } else {
-                        val disclosureKey = ReplyTargetDisclosureKey(
-                            hostPostNumber = replyTargetHostPostNumber,
-                            lineIndex = target.lineIndex,
-                            postNumber = selected.postNumber,
-                        )
-                        val isRevealed = disclosureKey in revealedReplyTargetKeys
+                        val isRevealed = selected.postNumber in revealedReplyTargetNumbers
                         val selectedPost = selected.post
                         if (selectedPost != null && selected.status != ReplyTargetCandidateStatus.UNAVAILABLE) {
                             val isNgTarget = selected.status == ReplyTargetCandidateStatus.NG
@@ -194,11 +187,11 @@ internal fun PostItemBody(
                                 overflowNumbers = target.referencedNumbers,
                                 unavailableRanges = target.unavailableRanges,
                                 onHide = if (isNgTarget && isRevealed) {
-                                    { onReplyTargetDisclosureChange?.invoke(disclosureKey, false) }
+                                    { onReplyTargetDisclosureChange?.invoke(selected.postNumber, false) }
                                 } else null,
                                 isNgHidden = isNgTarget && !isRevealed,
                                 onReveal = if (isNgTarget && !isRevealed) {
-                                    { onReplyTargetDisclosureChange?.invoke(disclosureKey, true) }
+                                    { onReplyTargetDisclosureChange?.invoke(selected.postNumber, true) }
                                 } else null,
                                 headerTextScale = headerTextScale,
                                 bodyTextScale = bodyTextStyle.fontSize.value /
@@ -678,7 +671,6 @@ private fun PostItemBodyWithMultipleReplyTargetsPreview() {
                 onRequestMenu = {},
                 onReplyClick = {},
                 onReplyNumbersClick = {},
-                replyTargetHostPostNumber = 9,
                 onReplyTargetClick = {},
                 onReplyTargetNumbersClick = { _ -> },
                 onReplyTargetDisclosureChange = { _, _ -> },

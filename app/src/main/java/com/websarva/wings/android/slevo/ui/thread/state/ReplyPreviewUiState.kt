@@ -29,14 +29,6 @@ data class ReplyTargetUnavailableRange(
     val lastPostNumber: Int,
 )
 
-/** NG返信先の一時開示状態を表示箇所ごとに識別する。 */
-data class ReplyTargetDisclosureKey(
-    val hostPostNumber: Int,
-    val lineIndex: Int,
-    val postNumber: Int,
-    val popupId: Long? = null,
-)
-
 /** 安価だけの行に挿入する返信先と候補一覧を表す。 */
 data class ReplyTargetPreviewUiState(
     val lineIndex: Int,

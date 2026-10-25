@@ -24,7 +24,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.PopupInfo
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadListItem
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadSortType
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadUiState
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.navigation.AppRoute
 import com.websarva.wings.android.slevo.ui.thread.screen.resolvePopupBaseOffset
@@ -61,7 +60,7 @@ fun LazyListScope.threadPostListContent(
         replyNumbers: List<Int>,
         baseOffset: IntOffset,
     ) -> Unit = { _, _ -> },
-    onReplyTargetDisclosureChange: (ReplyTargetDisclosureKey, Boolean) -> Unit = { _, _ -> },
+    onReplyTargetDisclosureChange: (Int, Boolean) -> Unit = { _, _ -> },
     onAddPopupForId: (id: String, baseOffset: IntOffset) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -149,7 +148,7 @@ fun LazyListScope.threadPostListContent(
                 },
                 indentWidth = indent,
                 replyFromNumbers = uiState.visibleReplySourceMap[postNum] ?: emptyList(),
-                revealedReplyTargetKeys = uiState.revealedReplyTargetKeys,
+                revealedReplyTargetNumbers = uiState.revealedReplyTargetNumbers,
                 isMyPost = postNum in uiState.myPostNumbers,
                 dimmed = display.dimmed,
                 searchQuery = uiState.searchQuery,

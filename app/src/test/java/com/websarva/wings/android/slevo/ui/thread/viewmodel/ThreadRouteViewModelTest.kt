@@ -32,7 +32,6 @@ import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostGroup
 import com.websarva.wings.android.slevo.ui.thread.state.ThreadPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.PopupContentType
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetCandidateStatus
-import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetDisclosureKey
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -823,10 +822,12 @@ class ThreadRouteViewModelTest {
         assertEquals(1, afterNgRemoval.overflowCount)
     }
 
-    /** プレビューとポップアップのNG開示は独立し、一覧を閉じるとポップアップ分だけ破棄する。 */
+    /** NG開示をスレッド内で共有し、popup close後も保持して別スレッドから分離する。 */
     @Test
-    fun replyTargetDisclosureIsScopedAndResetAfterPopupCloses() = runTest {
+    fun replyTargetDisclosureIsSharedWithinThreadAndResetAfterNgRulesChange() = runTest {
+        // --- Thread and NG fixtures ---
         val threadId = ThreadId.of("example.com", "test", "reply-target-disclosure")
+        val otherThreadId = ThreadId.of("example.com", "test", "other-reply-target-disclosure")
         val ngRules = MutableStateFlow(
             listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
         )
@@ -835,20 +836,23 @@ class ThreadRouteViewModelTest {
             threadPost(2, ">>1 >>99"),
         )
         val dependencies = mockDependencies(
-            tabs = listOf(threadTab(threadId, "title")),
+            tabs = listOf(threadTab(threadId, "title"), threadTab(otherThreadId, "other title")),
             selectedTabKey = threadId.value,
             ngRules = ngRules,
-            loadResults = listOf(contentLoadResult(posts)),
+            loadResults = listOf(contentLoadResult(posts), contentLoadResult(posts)),
         )
         val viewModel = dependencies.createViewModel()
         val uiState = viewModel.uiStateFor(threadId.value)
+        val otherUiState = viewModel.uiStateFor(otherThreadId.value)
         backgroundScope.launch { uiState.collect {} }
+        backgroundScope.launch { otherUiState.collect {} }
         advanceUntilIdle()
 
-        val inlineKey = ReplyTargetDisclosureKey(hostPostNumber = 2, lineIndex = 0, postNumber = 1)
-        viewModel.setReplyTargetDisclosure(threadId.value, inlineKey, revealed = true)
+        // --- Disclosure state shared by inline and popup displays ---
+        viewModel.setReplyTargetDisclosure(threadId.value, postNumber = 1, revealed = true)
         advanceUntilIdle()
-        assertEquals(setOf(inlineKey), uiState.value.revealedReplyTargetKeys)
+        assertEquals(setOf(1), uiState.value.revealedReplyTargetNumbers)
+        assertTrue(otherUiState.value.revealedReplyTargetNumbers.isEmpty())
 
         viewModel.addPopupForReplyTargetNumbers(
             threadId.value,
@@ -857,19 +861,12 @@ class ThreadRouteViewModelTest {
         )
         advanceUntilIdle()
         val popup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
-        val popupKey = ReplyTargetDisclosureKey(
-            hostPostNumber = 0,
-            lineIndex = 0,
-            postNumber = 1,
-            popupId = popup.popupId,
-        )
-        viewModel.setReplyTargetDisclosure(threadId.value, popupKey, revealed = true)
-        advanceUntilIdle()
-        assertEquals(setOf(inlineKey, popupKey), uiState.value.revealedReplyTargetKeys)
+        assertEquals(setOf(1), uiState.value.revealedReplyTargetNumbers)
 
+        // --- Popup close and reopen retain thread-owned disclosure ---
         viewModel.removeTopPopup(threadId.value)
         advanceUntilIdle()
-        assertEquals(setOf(inlineKey), uiState.value.revealedReplyTargetKeys)
+        assertEquals(setOf(1), uiState.value.revealedReplyTargetNumbers)
 
         viewModel.addPopupForReplyTargetNumbers(
             threadId.value,
@@ -879,8 +876,18 @@ class ThreadRouteViewModelTest {
         advanceUntilIdle()
         val reopenedPopup = dependencies.sessionStates.value.getValue(threadId.value).popupStack.single()
         assertTrue(reopenedPopup.popupId != popup.popupId)
-        assertEquals(setOf(inlineKey), uiState.value.revealedReplyTargetKeys)
+        assertEquals(setOf(1), uiState.value.revealedReplyTargetNumbers)
 
+        // --- A matching post in another thread has independent state ---
+        viewModel.setReplyTargetDisclosure(otherThreadId.value, postNumber = 1, revealed = true)
+        advanceUntilIdle()
+        assertEquals(setOf(1), otherUiState.value.revealedReplyTargetNumbers)
+        viewModel.setReplyTargetDisclosure(otherThreadId.value, postNumber = 1, revealed = false)
+        advanceUntilIdle()
+        assertEquals(setOf(1), uiState.value.revealedReplyTargetNumbers)
+        assertTrue(otherUiState.value.revealedReplyTargetNumbers.isEmpty())
+
+        // --- NG rule changes reset disclosure without changing NG filtering ---
         ngRules.value = ngRules.value + NgEntity(
             pattern = "unused rule",
             isRegex = false,
@@ -888,13 +895,15 @@ class ThreadRouteViewModelTest {
             type = NgType.WORD,
         )
         advanceUntilIdle()
-        assertTrue(uiState.value.revealedReplyTargetKeys.isEmpty())
+        assertTrue(uiState.value.revealedReplyTargetNumbers.isEmpty())
+        assertTrue(otherUiState.value.revealedReplyTargetNumbers.isEmpty())
         assertEquals(setOf(1), uiState.value.ngPostNumbers)
     }
 
-    /** 安価行が本文から消えた時点で開示を破棄し、後日の再出現へ引き継がない。 */
+    /** NG対象レスが一覧から消えた時点で開示を破棄し、後日の再出現へ引き継がない。 */
     @Test
-    fun replyTargetDisclosureIsDiscardedWhenItsAnchorLineDisappears() = runTest {
+    fun replyTargetDisclosureIsDiscardedWhenItsPostDisappears() = runTest {
+        // --- Initial and updated post fixtures ---
         val threadId = ThreadId.of("example.com", "test", "reply-target-invalidated")
         val ngRules = MutableStateFlow(
             listOf(NgEntity(pattern = "blocked", isRegex = false, boardId = 1L, type = NgType.WORD)),
@@ -903,10 +912,7 @@ class ThreadRouteViewModelTest {
             threadPost(1, "blocked candidate"),
             threadPost(2, ">>1"),
         )
-        val changedPosts = listOf(
-            threadPost(1, "blocked candidate"),
-            threadPost(2, "anchor removed"),
-        )
+        val changedPosts = listOf(threadPost(1, "post removed"))
         val dependencies = mockDependencies(
             tabs = listOf(threadTab(threadId, "title")),
             selectedTabKey = threadId.value,
@@ -922,20 +928,21 @@ class ThreadRouteViewModelTest {
         backgroundScope.launch { uiState.collect {} }
         advanceUntilIdle()
 
-        val disclosureKey = ReplyTargetDisclosureKey(hostPostNumber = 2, lineIndex = 0, postNumber = 1)
-        viewModel.setReplyTargetDisclosure(threadId.value, disclosureKey, revealed = true)
+        // --- Disappearance removes the disclosed post number ---
+        viewModel.setReplyTargetDisclosure(threadId.value, postNumber = 1, revealed = true)
         advanceUntilIdle()
-        assertEquals(setOf(disclosureKey), uiState.value.revealedReplyTargetKeys)
+        assertEquals(setOf(1), uiState.value.revealedReplyTargetNumbers)
 
         viewModel.reloadThread(threadId.value)
         advanceUntilIdle()
-        assertTrue(uiState.value.replyPreviewByPostNumber[2]?.replyTargets.isNullOrEmpty())
-        assertTrue(uiState.value.revealedReplyTargetKeys.isEmpty())
+        assertTrue(uiState.value.posts?.size == 1)
+        assertTrue(uiState.value.revealedReplyTargetNumbers.isEmpty())
 
+        // --- A later post with the same number starts hidden ---
         viewModel.reloadThread(threadId.value)
         advanceUntilIdle()
         assertEquals(listOf(1), uiState.value.replyPreviewByPostNumber[2]?.replyTargets?.single()?.referencedNumbers)
-        assertTrue(uiState.value.revealedReplyTargetKeys.isEmpty())
+        assertTrue(uiState.value.revealedReplyTargetNumbers.isEmpty())
     }
 
     /** テスト用依存一式を構築する。 */

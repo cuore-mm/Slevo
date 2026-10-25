@@ -18,7 +18,7 @@
 
 - [x] 3.1 `PopupInfo.kt`と`ThreadRouteViewModel`へ取得済み候補番号だけを渡す返信先専用入口を接続する。通常リンク等の既存filterは維持する。
 - [x] 3.2 popup stackの返信先モードはNGを含む取得済み候補が残る間だけ維持し、候補がすべて未取得になれば閉じる。同一判定は番号順と表示種別で行い、更新後の番号解決と通常モードの既存挙動をテストする。
-- [x] 3.3 `ThreadUiState`と`ThreadRouteViewModel`へ表示箇所単位のNG開示集合と表示/隠すイベントを追加する。プレビューの行キーと`popupId`を区別し、閉鎖・無効化・NGルール更新時に掃除する。unit testで他箇所への非伝播、再構成時保持、閉じて再表示時のリセット、新たなNGの非表示、NG設定非変更を検証する。
+- [x] 3.3 `ThreadUiState`と`ThreadRouteViewModel`のNG開示stateを表示箇所別キーから、タブが所有するスレッド内の対象レス番号集合へ変更する。表示/隠すイベントは番号を受け、同番号のプレビューと全返信先ポップアップへ共有する。NGルール更新、対象が存在しない/NGでなくなる場合、スレッド破棄で状態を除去する。
 - [x] 3.4 `ReplyPopup`で選択済みを含む取得済み正常レス/NG状態だけを表示し、未取得候補と範囲行を表示しない。更新後に解決不能な番号を描画せず、全候補消失時に閉じることをテストする。
 
 ## 4. NG表示・隠すUIと未取得範囲表示
@@ -41,6 +41,12 @@
 - [x] 5.3 strict validation、`git diff --check`、KDoc/Preview規約、Preview描画結果と永続化や通知への非波及を再確認する。
 - [x] 5.4 既存`ReplyPreviewCard`/`PostItemHeader`の変更PreviewをStudio描画し、`mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`と接続可能なAndroid testを再実行する。strict validation、`git diff --check`、通常投稿との配置一致、インライン日時省略/三行上限、NG情報の非露出を確認する。
 - [x] 5.5 最終ファイル構成を確認し、開示/非表示Previewで共有Footerの位置・余白、ボタン枠線、本文三行上限を検証する。strict validation、`git diff --check`、debug build/unit testを実行し、端末接続時はAndroid testも実行する。
+
+## 6. 同一レス番号の開示状態を表示箇所間で共有
+
+- [x] 6.1 ViewModel testでインラインからの開示がpopupにも反映され、popup close/reopen後も保持されること、同番号を持つ別タブでは独立すること、NGルール更新と対象レス消失で状態がリセットされることを確認する。
+- [x] 6.2 `PostItemBody`、`ReplyPopup`、`ThreadScaffold`の開示state参照とイベントをレス番号単位に接続する。Compose testでインラインと返信先popupの表示/隠すが相互に即時反映され、NG非表示中の情報非露出とNG設定非変更が保たれることを確認する。
+- [x] 6.3 `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`を実行し、OpenSpec strict validationと`git diff --check`を通す。端末が利用可能なら変更対象のCompose testも実行し、検証結果をtasksへ記録する。
 
 仕様統合上の注意: 未アーカイブの`add-thread-reply-previews`を基点とするMODIFIED deltaが含まれる。将来の統合順は旧change→本changeであり、本計画作成ではarchiveを行わない。
 
@@ -120,3 +126,12 @@
 - Studio解析: `ReplyPreviewCard.kt`、`ReplyPreviewFooter.kt`、`PostItemHeader.kt`、`PostItemBody.kt`にコンパイル阻害エラーなし。INFO提案のみ。
 - Studio Preview: Gradle再ビルド後、NG非表示、開示中NG、複数未取得範囲、Footerの4件を描画。開閉ボタン、3行本文、「ほかN件」と未取得範囲の並びを確認した。
 - 最終確認: `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`成功（57 actionable tasks、13 executed・44 UP-TO-DATE）。`mise exec -- ./gradlew :app:connectedDebugAndroidTest`成功（Android 17の2台で各117 tests、失敗・skipなし）。`openspec validate preserve-reply-target-references --strict`はvalid、`git diff --check`成功。
+
+## 同一スレッド内のNG開示状態共有後
+
+- 表示箇所キーを廃止し、`ThreadRouteContentState`がレス番号集合を所有する形へ変更した。プレビュー・全返信先ポップアップは同じ番号で読み書きし、popup close後も保持する。NG snapshot更新時は全解除し、NGでなくなった/一覧から消えたレスを除去する。
+- ViewModel testで同一スレッド内共有、popup close/reopen後の保持、別スレッドの同番号との分離、NGルール更新時と対象レス消失時のリセットを確認した。
+- Compose test `ngTargetDisclosureIsSharedBetweenInlinePreviewAndPopup`: Android 17の`OpenCode_Mobile_Test`と`Medium_Phone`で成功。インラインの開示がpopupへ反映され、popupの「隠す」がインラインへ反映されることを確認した。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`: 成功（57 actionable tasks、5 executed・52 UP-TO-DATE）。`mise exec -- ./gradlew :app:compileDebugAndroidTestKotlin`: 成功。
+- `mise exec -- ./gradlew :app:connectedDebugAndroidTest`: 全件実行は失敗。`PostItemBodyReplyPreviewTest`と`ReplyTargetPopupTest`で、現行`ReplyTargetDisclosureAction`の32dp高さに対しテストが48dp以上を要求し、各2台で失敗した。変更対象の共有Compose testは成功。今回承認された「既存ボタン寸法維持」の範囲を越えるため、高さは変更していない。
+- `openspec validate preserve-reply-target-references --strict`: valid。先行change依存による単独archive不可INFOのみ。`git diff --check`: 成功。
