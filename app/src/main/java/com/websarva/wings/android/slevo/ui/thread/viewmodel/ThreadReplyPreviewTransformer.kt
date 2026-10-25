@@ -221,12 +221,29 @@ internal object ThreadReplyPreviewTransformer {
         )
     }
 
-    /** 返信元本文から親番号への単一安価と直後の空白を除き、安価だけの行を省く。 */
-    private fun removeReplySourceAnchor(body: String, hostNumber: Int): String =
-        splitContentLines(body).mapNotNull { line ->
+    /** 本文全体で唯一の親番号への単一安価だけを除き、安価だけの行を省く。 */
+    private fun removeReplySourceAnchor(body: String, hostNumber: Int): String {
+        val anchors = ReplyAnchorParser.parseAnchors(body)
+        // Guard: 複数の返信対象から一部だけを消すと、残った安価だけへの返信に見える。
+        if (anchors.size != 1) return body
+
+        val anchor = anchors.single()
+        val range = anchor.ranges.singleOrNull()
+        // Guard: 親番号への単一指定以外は返信対象を示す情報として残す。
+        if (
+            !singleAnchorRegex.matches(anchor.rawText) ||
+            range == null ||
+            range.first != hostNumber ||
+            range.last != hostNumber
+        ) {
+            return body
+        }
+
+        return splitContentLines(body).mapNotNull { line ->
             val (text, removedAnchor) = removeReplySourceAnchorFromLine(line.text, hostNumber)
             if (removedAnchor && text.isBlank()) null else text
         }.joinToString("\n")
+    }
 
     /** 一行から親番号への単一安価を除き、除去の有無と残りの文字列を返す。 */
     private fun removeReplySourceAnchorFromLine(line: String, hostNumber: Int): Pair<String, Boolean> {

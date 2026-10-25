@@ -60,6 +60,16 @@
 - [x] 8.4 `ThreadRouteViewModelTest`で無関係なstate更新が返信プレビュー派生データを再生成しないこと、`ReplyAnchorParserTest`で巨大範囲が取得済み上限を超えて展開されないこと、Composeテストで非表示の追加画像をロードしないことを確認する。通常レスの表示内容、既読境界、新着グループは既存回帰テストで維持を確認する。
 - [x] 8.5 三つのdeltaの全Scenarioと実装・テストを照合し、型/非自明関数のKDoc・長い関数の区分コメント・`@Preview`のコメントなしを確認する。`openspec validate add-thread-reply-previews --strict`の成功と検証結果を記録し、計画外のDB/設定/バックグラウンド処理変更がないことを確認する。
 
+## 9. 返信元本文の複数安価を全て保持
+
+- [x] 9.1 `ThreadReplyPreviewTransformer.removeReplySourceAnchor`で本文全体の安価token数を判定し、唯一のtokenだけが親番号への単一安価の場合に限り従来の省略を行う。`ThreadReplyPreviewTransformerTest`で単一tokenの省略、同じ行の複数token、複数行の複数token、複合tokenの保持と返信先本文への非波及を検証する。
+- [x] 9.2 `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest`を実行し、OpenSpec strict validationと`git diff --check`を通す。テスト結果をこの節に追記する。
+
+複数安価の保持変更に対する検証記録:
+- `mise exec -- ./gradlew :app:testDebugUnitTest --tests com.websarva.wings.android.slevo.ui.thread.viewmodel.ThreadReplyPreviewTransformerTest` — 成功（24件）。
+- `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
+- `openspec validate add-thread-reply-previews --strict`、`git diff --check` — 成功。
+
 前回の実装時の検証記録:
 - `mise exec -- ./gradlew :app:assembleDebug :app:testDebugUnitTest` — 成功。
 - `mise exec -- ./gradlew :app:connectedDebugAndroidTest` — 成功（106件、失敗0件）。

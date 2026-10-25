@@ -230,10 +230,9 @@ class ThreadReplyPreviewTransformerTest {
         assertEquals(listOf("https://example.com/only.gif"), result?.imageUrls)
     }
 
-    /** 返信元だけ親レス単一安価と後続空白を省き、複数指定と返信先本文を保つ。 */
-    /** 返信元だけ親安価を除去し、返信先本文は変更しないことを検証する。 */
+    /** 複数安価がある返信元では親安価を含む全ての安価と本文を保持する。 */
     @Test
-    fun omitsOnlySingleAnchorToHostFromReplySourcePreview() {
+    fun preservesEveryAnchorWhenReplySourceBodyHasMultipleAnchors() {
         val sourceBody = listOf(
             ">>2 ありがとう",
             ">>2",
@@ -257,7 +256,7 @@ class ThreadReplyPreviewTransformerTest {
         )
 
         assertEquals(
-            "ありがとう\n>>2,3 カンマ指定\n>>2-3 範囲指定\n>>1 別レス\n続き 本文",
+            ">>2 ありがとう\n>>2\n>>2,3 カンマ指定\n>>2-3 範囲指定\n>>2 \n>>1 別レス\n続き >>2\t本文",
             result.getValue(2).replySourcePreviews.single().body,
         )
         assertEquals(
@@ -266,6 +265,44 @@ class ThreadReplyPreviewTransformerTest {
         )
         assertTrue(result.getValue(3).replyTargets.firstOrNull()?.selectedCandidate?.post?.body?.contains(">>2") == true)
         assertEquals(sourceBody, posts.first().body.content)
+    }
+
+    /** 本文全体で親宛て単一安価だけのときに限り安価と空白を省略する。 */
+    @Test
+    fun omitsParentAnchorOnlyWhenItIsTheOnlyAnchorInReplySourceBody() {
+        val cases = listOf(
+            ">>2 ありがとう" to "ありがとう",
+            "before\n  >>2 \nafter" to "before\nafter",
+            ">>2 >>3" to ">>2 >>3",
+            ">>2\n>>3" to ">>2\n>>3",
+            ">>2,3" to ">>2,3",
+            ">>2-3" to ">>2-3",
+        )
+
+        cases.forEach { (sourceBody, expectedReplySourceBody) ->
+            val posts = listOf(
+                post("source", "id1", sourceBody),
+                post("host", "id2", ">>1"),
+                post("viewer", "id3", ">>1"),
+            )
+
+            val result = ThreadReplyPreviewTransformer.derive(
+                posts = posts,
+                visibleReplySourceMap = mapOf(2 to listOf(1)),
+                ngPostNumbers = emptySet(),
+                defaultName = "",
+            )
+
+            assertEquals(
+                expectedReplySourceBody,
+                result.getValue(2).replySourcePreviews.single().body,
+            )
+            assertEquals(
+                sourceBody,
+                result.getValue(3).replyTargets.single().selectedCandidate?.post?.body,
+            )
+            assertEquals(sourceBody, posts.first().body.content)
+        }
     }
 
     /** 複数行の返信先候補を独立して保持し、返信元一覧を三件に制限する。 */
