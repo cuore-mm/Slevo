@@ -161,8 +161,6 @@ internal fun ReplyPreviewCard(
                 overflowCount = overflowCount,
                 overflowNumbers = overflowNumbers,
                 unavailableRanges = unavailableRanges,
-                bodyTextScale = bodyTextScale,
-                lineHeightEm = lineHeightEm,
                 onOpenOverflow = onOpenOverflow,
             )
         }

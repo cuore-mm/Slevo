@@ -4,8 +4,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults.verticalAlignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,9 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
@@ -33,8 +36,6 @@ internal fun ReplyPreviewFooter(
     overflowCount: Int,
     overflowNumbers: List<Int>,
     unavailableRanges: List<ReplyTargetUnavailableRange>,
-    bodyTextScale: Float,
-    lineHeightEm: Float,
     onOpenOverflow: (List<Int>) -> Unit,
 ) {
     val hasOverflowAction = overflowCount > 0 && overflowNumbers.isNotEmpty()
@@ -48,12 +49,11 @@ internal fun ReplyPreviewFooter(
     Column(modifier = Modifier.fillMaxWidth()) {
         // --- Remaining acquired candidates ---
         if (overflowCount > 0 && overflowNumbers.isNotEmpty()) {
+            HorizontalDivider()
             ReplyPreviewOverflowAction(
                 previewType = previewType,
                 overflowCount = overflowCount,
                 overflowNumbers = overflowNumbers,
-                textSize = MaterialTheme.typography.bodyMedium.fontSize * bodyTextScale * 0.9f,
-                lineHeightEm = lineHeightEm,
                 onOpenOverflow = onOpenOverflow,
             )
         }
@@ -74,8 +74,6 @@ private fun ReplyPreviewOverflowAction(
     previewType: ImageReplyPreviewType,
     overflowCount: Int,
     overflowNumbers: List<Int>,
-    textSize: TextUnit,
-    lineHeightEm: Float,
     onOpenOverflow: (List<Int>) -> Unit,
 ) {
     // --- Accessibility action ---
@@ -90,26 +88,33 @@ private fun ReplyPreviewOverflowAction(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
             .clickable(
                 role = Role.Button,
                 onClickLabel = overflowDescription,
                 onClick = { onOpenOverflow(overflowNumbers) },
             )
             .semantics { contentDescription = overflowDescription },
-        color = if (previewType == ImageReplyPreviewType.REPLY_SOURCE) {
-            Color.Transparent
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        },
+        color = Color.Transparent,
     ) {
-        Text(
-            text = stringResource(R.string.reply_preview_other_count, overflowCount),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-            fontSize = textSize,
-            lineHeight = lineHeightEm.em,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.reply_preview_other_count, overflowCount),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -136,14 +141,13 @@ internal fun ReplyTargetUnavailableRangesRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = unavailableText,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelSmall,
         )
     }
 }
@@ -160,8 +164,6 @@ private fun ReplyPreviewFooterPreview() {
                 ReplyTargetUnavailableRange(101, 103),
                 ReplyTargetUnavailableRange(105, 200),
             ),
-            bodyTextScale = 1f,
-            lineHeightEm = 1.4f,
             onOpenOverflow = {},
         )
     }
