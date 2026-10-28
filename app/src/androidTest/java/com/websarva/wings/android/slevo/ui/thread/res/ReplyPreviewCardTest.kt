@@ -3,6 +3,7 @@ package com.websarva.wings.android.slevo.ui.thread.res
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
@@ -23,6 +24,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,6 +53,28 @@ import org.junit.runner.RunWith
 class ReplyPreviewCardTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    /** 未取得文言の位置を押しても候補一覧を開き、投稿との間に区切り線を表示する。 */
+    @Test
+    fun combinedFooterOpensListFromUnavailableText() {
+        val opened = mutableListOf<List<Int>>()
+        composeRule.setContent {
+            PreviewCardHarness(
+                post = ReplyPreviewPostUiModel(1, "", "", "本文", emptyList()),
+                previewType = ImageReplyPreviewType.REPLY_TARGET,
+                overflowCount = 1,
+                overflowNumbers = listOf(1, 2),
+                unavailableRanges = listOf(ReplyTargetUnavailableRange(101, 103)),
+                onOpenPost = {},
+                onOpenOverflow = { opened.add(it) },
+            )
+        }
+        composeRule.onNodeWithTag("reply-preview-footer-divider", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("reply-preview-footer").performTouchInput {
+            click(Offset(width * 0.25f, height * 0.8f))
+        }
+        composeRule.runOnIdle { assertEquals(listOf(listOf(1, 2)), opened) }
+    }
 
     /** ヘッダーを画像の上に保ち、レス・画像・省略を別操作として扱う。 */
     @Test
@@ -465,12 +491,14 @@ private fun PreviewCardHarness(
                                 sharedTransitionScope = sharedScope,
                                 animatedVisibilityScope = visibilityScope,
                             )
-                            ReplyPreviewOverflowSection(
-                                previewType = ImageReplyPreviewType.REPLY_SOURCE,
-                                overflowCount = overflowCount,
-                                overflowNumbers = overflowNumbers,
-                                onOpenOverflow = onOpenOverflow,
-                            )
+                            com.websarva.wings.android.slevo.ui.thread.state.replyPreviewFooterState(
+                                overflowCount, overflowNumbers, emptyList(),
+                            )?.let { footer ->
+                                ReplyPreviewFooterContent(
+                                    state = footer,
+                                    modifier = Modifier.clickable { onOpenOverflow(overflowNumbers) },
+                                )
+                            }
                             }
                         } else {
                             ReplyTargetPreviewCard(

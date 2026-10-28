@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewFooterUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,8 +24,10 @@ class ReplyTargetUnavailableRangesRowTest {
     fun unavailableRangeIsShownWithoutEnumeratingItsNumbers() {
         composeRule.setContent {
             SlevoTheme {
-                ReplyTargetUnavailableRangesRow(
-                    ranges = listOf(ReplyTargetUnavailableRange(101, Int.MAX_VALUE)),
+                ReplyPreviewFooterContent(
+                    state = ReplyPreviewFooterUiState.Unavailable(
+                        listOf(ReplyTargetUnavailableRange(101, Int.MAX_VALUE)),
+                    ),
                 )
             }
         }

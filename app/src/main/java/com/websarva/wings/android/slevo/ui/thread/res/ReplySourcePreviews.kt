@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,9 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
+import com.websarva.wings.android.slevo.R
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
@@ -98,12 +104,20 @@ internal fun ReplySourcePreviews(
                     animatedVisibilityScope = animatedVisibilityScope,
                 )
                 // 省略操作は一覧の末尾に配置し、最後の縦線の内側に収める。
-                if (index == state.replySourcePreviews.lastIndex) {
-                    ReplyPreviewOverflowSection(
-                        previewType = ImageReplyPreviewType.REPLY_SOURCE,
-                        overflowCount = state.replySourceOverflowCount,
-                        overflowNumbers = state.replySourceNumbers,
-                        onOpenOverflow = onReplyNumbersClick,
+                val footerState = state.replySourceFooterState
+                if (index == state.replySourcePreviews.lastIndex && footerState != null) {
+                    HorizontalDivider()
+                    val description = stringResource(
+                        R.string.reply_preview_open_source_list,
+                        state.replySourceNumbers.size,
+                    )
+                    ReplyPreviewFooterContent(
+                        state = footerState,
+                        modifier = Modifier.clickable(
+                            role = Role.Button,
+                            onClickLabel = description,
+                            onClick = { onReplyNumbersClick(state.replySourceNumbers) },
+                        ).semantics { contentDescription = description },
                     )
                 }
             }

@@ -29,6 +29,37 @@ data class ReplyTargetUnavailableRange(
     val lastPostNumber: Int,
 )
 
+/** 返信プレビュー末尾に表示する省略件数と未取得範囲を表す。 */
+sealed interface ReplyPreviewFooterUiState {
+    /** 一覧を開ける省略候補の件数。 */
+    data class More(val count: Int) : ReplyPreviewFooterUiState
+
+    /** 取得できない返信先番号の範囲。 */
+    data class Unavailable(val ranges: List<ReplyTargetUnavailableRange>) : ReplyPreviewFooterUiState
+
+    /** 省略候補と未取得範囲を併記する状態。 */
+    data class MoreAndUnavailable(
+        val count: Int,
+        val ranges: List<ReplyTargetUnavailableRange>,
+    ) : ReplyPreviewFooterUiState
+}
+
+/** 省略候補と未取得範囲から表示するフッター状態を組み立てる。 */
+fun replyPreviewFooterState(
+    overflowCount: Int,
+    overflowNumbers: List<Int>,
+    unavailableRanges: List<ReplyTargetUnavailableRange>,
+): ReplyPreviewFooterUiState? {
+    val hasMore = overflowCount > 0 && overflowNumbers.isNotEmpty()
+    return when {
+        hasMore && unavailableRanges.isNotEmpty() ->
+            ReplyPreviewFooterUiState.MoreAndUnavailable(overflowCount, unavailableRanges)
+        hasMore -> ReplyPreviewFooterUiState.More(overflowCount)
+        unavailableRanges.isNotEmpty() -> ReplyPreviewFooterUiState.Unavailable(unavailableRanges)
+        else -> null
+    }
+}
+
 /** 安価だけの行に挿入する返信先と候補一覧を表す。 */
 data class ReplyTargetPreviewUiState(
     val lineIndex: Int,
@@ -47,6 +78,10 @@ data class ReplyTargetPreviewUiState(
     /** 選択済み候補以外の取得済み候補件数を返す。 */
     val overflowCount: Int
         get() = (candidates.size - if (selectedCandidate == null) 0 else 1).coerceAtLeast(0)
+
+    /** 返信先の候補と未取得範囲に対応するフッター状態。 */
+    val footerState: ReplyPreviewFooterUiState?
+        get() = replyPreviewFooterState(overflowCount, referencedNumbers, unavailableRanges)
 }
 
 /** 元本文の範囲を参照する、プレビュー挿入前後の本文セグメントを表す。 */
@@ -73,4 +108,8 @@ data class PostReplyPreviewUiState(
     /** 先頭三件の表示後に省略される返信元件数。 */
     val replySourceOverflowCount: Int
         get() = (replySourceNumbers.size - replySourcePreviews.size).coerceAtLeast(0)
+
+    /** 返信元一覧末尾に表示する省略候補の状態。 */
+    val replySourceFooterState: ReplyPreviewFooterUiState?
+        get() = replyPreviewFooterState(replySourceOverflowCount, replySourceNumbers, emptyList())
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,6 +28,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -43,8 +46,10 @@ import com.websarva.wings.android.slevo.ui.common.ImageThumbnail
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
 import com.websarva.wings.android.slevo.ui.common.transition.ImageSharedTransitionKeyFactory
 import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
+import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewFooterUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyTargetUnavailableRange
+import com.websarva.wings.android.slevo.ui.thread.state.replyPreviewFooterState
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressRegistry
 import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
@@ -61,6 +66,8 @@ internal fun ReplyTargetPreviewCard(
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
     unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
+    footerState: ReplyPreviewFooterUiState? =
+        replyPreviewFooterState(overflowCount, overflowNumbers, unavailableRanges),
     onHide: (() -> Unit)? = null,
     isNgHidden: Boolean = false,
     onReveal: (() -> Unit)? = null,
@@ -123,14 +130,35 @@ internal fun ReplyTargetPreviewCard(
                 )
             }
 
-            // --- Shared overflow and unavailable-range footer ---
-            ReplyPreviewFooter(
-                previewType = ImageReplyPreviewType.REPLY_TARGET,
-                overflowCount = overflowCount,
-                overflowNumbers = overflowNumbers,
-                unavailableRanges = unavailableRanges,
-                onOpenOverflow = onOpenOverflow,
-            )
+            // --- Footer and optional list action ---
+            if (footerState != null) {
+                if (post != null) {
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .testTag("reply-preview-footer-divider")
+                    )
+                }
+                val canOpen = footerState is ReplyPreviewFooterUiState.More ||
+                        footerState is ReplyPreviewFooterUiState.MoreAndUnavailable
+                val description =
+                    stringResource(R.string.reply_preview_open_target_list, overflowNumbers.size)
+                val footerModifier = if (canOpen) {
+                    Modifier
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = description,
+                            onClick = { onOpenOverflow(overflowNumbers) },
+                        )
+                        .semantics { contentDescription = description }
+                } else {
+                    Modifier
+                }
+                ReplyPreviewFooterContent(
+                    state = footerState,
+                    modifier = footerModifier.testTag("reply-preview-footer"),
+                )
+            }
         }
     }
 }

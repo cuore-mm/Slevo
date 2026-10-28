@@ -181,6 +181,7 @@ internal fun PostItemBody(
                         overflowCount = target.overflowCount,
                         overflowNumbers = target.referencedNumbers,
                         unavailableRanges = target.unavailableRanges,
+                        footerState = target.footerState,
                         onHide = if (isNgTarget && isRevealed) {
                             { selected?.let { onReplyTargetDisclosureChange?.invoke(it.postNumber, false) } }
                         } else null,
