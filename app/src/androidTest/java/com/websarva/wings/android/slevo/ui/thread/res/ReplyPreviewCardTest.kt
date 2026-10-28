@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -212,14 +213,15 @@ class ReplyPreviewCardTest {
                 SharedTransitionLayout {
                     val sharedScope = this
                     AnimatedVisibility(visible = true) {
-                        ReplySourcePreview(
+                        ReplyPreviewPostContent(
                             post = ReplyPreviewPostUiModel(1, "", "", "本文全幅", emptyList()),
                             hostNamespace = "thread-post-2",
+                            previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                            onHide = null,
                             headerTextScale = 1f,
                             bodyTextScale = 1f,
                             lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                             onOpenPost = {},
-                            onOpenOverflow = {},
                             onImageClick = { _, _, _, _ -> },
                             onImageLongPress = { _, _ -> },
                             imageLoadFailureByUrl = emptyMap(),
@@ -442,16 +444,16 @@ private fun PreviewCardHarness(
                     // --- Preview card parameters ---
                     val previewContent: @Composable () -> Unit = {
                         if (previewType == ImageReplyPreviewType.REPLY_SOURCE) {
-                            ReplySourcePreview(
+                            Column {
+                            ReplyPreviewPostContent(
                                 post = post,
                                 hostNamespace = "thread-post-20",
-                                overflowCount = overflowCount,
-                                overflowNumbers = overflowNumbers,
+                                previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                                onHide = null,
                                 headerTextScale = headerTextScale,
                                 bodyTextScale = bodyTextScale,
                                 lineHeightEm = lineHeightEm,
                                 onOpenPost = onOpenPost,
-                                onOpenOverflow = onOpenOverflow,
                                 onImageClick = onImageClick,
                                 onImageLongPress = { _, _ -> },
                                 imageLoadFailureByUrl = imageFailures,
@@ -463,6 +465,13 @@ private fun PreviewCardHarness(
                                 sharedTransitionScope = sharedScope,
                                 animatedVisibilityScope = visibilityScope,
                             )
+                            ReplyPreviewOverflowSection(
+                                previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                                overflowCount = overflowCount,
+                                overflowNumbers = overflowNumbers,
+                                onOpenOverflow = onOpenOverflow,
+                            )
+                            }
                         } else {
                             ReplyTargetPreviewCard(
                                 post = post,

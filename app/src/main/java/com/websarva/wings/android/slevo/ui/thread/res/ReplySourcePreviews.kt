@@ -2,7 +2,6 @@ package com.websarva.wings.android.slevo.ui.thread.res
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Column
@@ -12,20 +11,21 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.websarva.wings.android.slevo.data.model.TextDisplaySettingsConstraints
 import com.websarva.wings.android.slevo.ui.common.transition.ImageReplyPreviewType
+import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.thread.state.PostReplyPreviewUiState
 import com.websarva.wings.android.slevo.ui.thread.state.ReplyPreviewPostUiModel
-import com.websarva.wings.android.slevo.ui.theme.SlevoTheme
 import com.websarva.wings.android.slevo.ui.util.ImageLoadFailureType
 
 /** 本文・通常画像の後に見出しなしの返信元プレビューと省略操作を表示する。 */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-internal fun PostReplyPreviews(
+internal fun ReplySourcePreviews(
     state: PostReplyPreviewUiState,
     hostNamespace: String,
     headerTextScale: Float,
@@ -44,10 +44,14 @@ internal fun PostReplyPreviews(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
+    // Guard: 返信元がなければ余白や区切り線も表示しない。
     if (state.replySourcePreviews.isEmpty()) return
+    val railColor = MaterialTheme.colorScheme.outlineVariant
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
     ) {
         // --- Oldest visible previews and separators ---
         state.replySourcePreviews.forEachIndexed { index, preview ->
@@ -59,46 +63,71 @@ internal fun PostReplyPreviews(
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
             }
-            val overflowCount = if (index == state.replySourcePreviews.lastIndex) {
-                state.replySourceOverflowCount
-            } else 0
-            ReplySourcePreview(
-                post = preview,
-                hostNamespace = hostNamespace,
-                overflowCount = overflowCount,
-                overflowNumbers = state.replySourceNumbers,
-                headerTextScale = headerTextScale,
-                bodyTextScale = bodyTextScale,
-                lineHeightEm = lineHeightEm,
-                onOpenPost = { onReplyClick(preview.postNumber) },
-                onOpenOverflow = onReplyNumbersClick,
-                onImageClick = onImageClick,
-                onImageLongPress = onImageLongPress,
-                imageLoadFailureByUrl = imageLoadFailureByUrl,
-                onImageLoadStart = onImageLoadStart,
-                onImageLoadError = onImageLoadError,
-                onImageLoadSuccess = onImageLoadSuccess,
-                onImageRetry = onImageRetry,
-                enableSharedElement = enableSharedElement,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope,
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBehind {
+                        val strokeWidth = 2.dp.toPx()
+                        drawLine(
+                            railColor,
+                            Offset(strokeWidth / 2, 0f),
+                            Offset(strokeWidth / 2, size.height),
+                            strokeWidth
+                        )
+                    }
+                    .testTag("reply-preview-source-rail-${preview.postNumber}"),
+            ) {
+                ReplyPreviewPostContent(
+                    post = preview,
+                    hostNamespace = hostNamespace,
+                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    onHide = null,
+                    headerTextScale = headerTextScale,
+                    bodyTextScale = bodyTextScale,
+                    lineHeightEm = lineHeightEm,
+                    onOpenPost = { onReplyClick(preview.postNumber) },
+                    onImageClick = onImageClick,
+                    onImageLongPress = onImageLongPress,
+                    imageLoadFailureByUrl = imageLoadFailureByUrl,
+                    onImageLoadStart = onImageLoadStart,
+                    onImageLoadError = onImageLoadError,
+                    onImageLoadSuccess = onImageLoadSuccess,
+                    onImageRetry = onImageRetry,
+                    enableSharedElement = enableSharedElement,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                )
+                // 省略操作は一覧の末尾に配置し、最後の縦線の内側に収める。
+                if (index == state.replySourcePreviews.lastIndex) {
+                    ReplyPreviewOverflowSection(
+                        previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                        overflowCount = state.replySourceOverflowCount,
+                        overflowNumbers = state.replySourceNumbers,
+                        onOpenOverflow = onReplyNumbersClick,
+                    )
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 private fun PostReplyPreviewsPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                PostReplyPreviews(
+                ReplySourcePreviews(
                     state = PostReplyPreviewUiState(
                         replySourcePreviews = listOf(
                             ReplyPreviewPostUiModel(2, "名前", "abc123", "返信本文", emptyList()),
-                            ReplyPreviewPostUiModel(4, "名前", "abc123", "次の返信本文", emptyList()),
+                            ReplyPreviewPostUiModel(
+                                4,
+                                "名前",
+                                "abc123",
+                                "次の返信本文",
+                                emptyList()
+                            ),
                             ReplyPreviewPostUiModel(6, "", "xyz789", "もう一件", emptyList()),
                         ),
                         replySourceNumbers = listOf(2, 4, 6, 8, 10),

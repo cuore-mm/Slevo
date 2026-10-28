@@ -48,7 +48,7 @@ class PostReplyPreviewsTest {
                 SharedTransitionLayout {
                     val sharedScope = this
                     AnimatedVisibility(visible = true) {
-                        PostReplyPreviews(
+                        ReplySourcePreviews(
                             state = state,
                             hostNamespace = "thread-post-12",
                             headerTextScale = 1f,

@@ -206,7 +206,7 @@ fun PostItem(
                 animatedVisibilityScope = animatedVisibilityScope
             )
             replyPreviewState?.let { previewState ->
-                PostReplyPreviews(
+                ReplySourcePreviews(
                     state = previewState,
                     hostNamespace = transitionNamespace,
                     headerTextScale = headerTextScale,

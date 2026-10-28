@@ -23,9 +23,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -138,76 +135,6 @@ internal fun ReplyTargetPreviewCard(
     }
 }
 
-/** 取得済みの返信元を縦線付きで表示し、省略分の一覧操作を添える。 */
-@Composable
-internal fun ReplySourcePreview(
-    post: ReplyPreviewPostUiModel,
-    hostNamespace: String,
-    overflowCount: Int = 0,
-    overflowNumbers: List<Int> = emptyList(),
-    headerTextScale: Float,
-    bodyTextScale: Float,
-    lineHeightEm: Float,
-    onOpenPost: () -> Unit,
-    onOpenOverflow: (List<Int>) -> Unit,
-    onImageClick: (String, List<String>, Int, String) -> Unit,
-    onImageLongPress: (String, List<String>) -> Unit,
-    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
-    onImageLoadStart: (String) -> Unit,
-    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
-    onImageLoadSuccess: (String) -> Unit,
-    onImageRetry: (String) -> Unit,
-    enableSharedElement: Boolean,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-) {
-    // --- Reply-source rail ---
-    val railColor = MaterialTheme.colorScheme.outlineVariant
-    val railWidth = 2.dp
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                val strokeWidth = railWidth.toPx()
-                drawLine(
-                    color = railColor,
-                    start = Offset(x = strokeWidth / 2, y = 0f),
-                    end = Offset(x = strokeWidth / 2, y = size.height),
-                    strokeWidth = strokeWidth,
-                )
-            }
-            .testTag("reply-preview-source-rail-${post.postNumber}"),
-    ) {
-        // --- Post and overflow ---
-        ReplyPreviewPostContent(
-            post = post,
-            hostNamespace = hostNamespace,
-            previewType = ImageReplyPreviewType.REPLY_SOURCE,
-            onHide = null,
-            headerTextScale = headerTextScale,
-            bodyTextScale = bodyTextScale,
-            lineHeightEm = lineHeightEm,
-            onOpenPost = onOpenPost,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            imageLoadFailureByUrl = imageLoadFailureByUrl,
-            onImageLoadStart = onImageLoadStart,
-            onImageLoadError = onImageLoadError,
-            onImageLoadSuccess = onImageLoadSuccess,
-            onImageRetry = onImageRetry,
-            enableSharedElement = enableSharedElement,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-        )
-        ReplyPreviewOverflowSection(
-            previewType = ImageReplyPreviewType.REPLY_SOURCE,
-            overflowCount = overflowCount,
-            overflowNumbers = overflowNumbers,
-            onOpenOverflow = onOpenOverflow,
-        )
-    }
-}
-
 /** 非表示中は投稿モデルを受け取らず、番号・状態・開示操作だけを構成する。 */
 @Composable
 private fun ReplyPreviewHiddenHeader(
@@ -265,7 +192,7 @@ private fun ReplyPreviewHiddenHeader(
 
 /** 通常表示・開示表示のヘッダーと本文・画像を既存のカード形式で構成する。 */
 @Composable
-private fun ReplyPreviewPostContent(
+internal fun ReplyPreviewPostContent(
     post: ReplyPreviewPostUiModel,
     hostNamespace: String,
     previewType: ImageReplyPreviewType,
@@ -488,7 +415,7 @@ private fun ReplyPreviewCardPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplySourcePreview(
+                ReplyPreviewPostContent(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 12,
                         name = "投稿者名",
@@ -497,11 +424,12 @@ private fun ReplyPreviewCardPreview() {
                         imageUrls = emptyList(),
                     ),
                     hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    onHide = null,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                     onOpenPost = {},
-                    onOpenOverflow = {},
                     onImageClick = { _, _, _, _ -> },
                     onImageLongPress = { _, _ -> },
                     imageLoadFailureByUrl = emptyMap(),
@@ -564,7 +492,7 @@ private fun ReplyPreviewCardImageOnlyPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplySourcePreview(
+                ReplyPreviewPostContent(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 13,
                         name = "",
@@ -573,11 +501,12 @@ private fun ReplyPreviewCardImageOnlyPreview() {
                         imageUrls = listOf("https://example.com/only.jpg"),
                     ),
                     hostNamespace = "thread-post-20",
+                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
+                    onHide = null,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
                     onOpenPost = {},
-                    onOpenOverflow = {},
                     onImageClick = { _, _, _, _ -> },
                     onImageLongPress = { _, _ -> },
                     imageLoadFailureByUrl = emptyMap(),
