@@ -48,15 +48,7 @@ internal fun ReplyPreviewFooter(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // --- Remaining acquired candidates ---
-        if (overflowCount > 0 && overflowNumbers.isNotEmpty()) {
-            HorizontalDivider()
-            ReplyPreviewOverflowAction(
-                previewType = previewType,
-                overflowCount = overflowCount,
-                overflowNumbers = overflowNumbers,
-                onOpenOverflow = onOpenOverflow,
-            )
-        }
+        ReplyPreviewOverflowSection(previewType, overflowCount, overflowNumbers, onOpenOverflow)
 
         // --- Unavailable target ranges ---
         if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
@@ -66,6 +58,20 @@ internal fun ReplyPreviewFooter(
             )
         }
     }
+}
+
+/** 省略候補がある場合に区切り線と一覧操作を表示する。 */
+@Composable
+internal fun ReplyPreviewOverflowSection(
+    previewType: ImageReplyPreviewType,
+    overflowCount: Int,
+    overflowNumbers: List<Int>,
+    onOpenOverflow: (List<Int>) -> Unit,
+) {
+    // Guard: 開く候補がない場合は区切り線も表示しない。
+    if (overflowCount <= 0 || overflowNumbers.isEmpty()) return
+    HorizontalDivider()
+    ReplyPreviewOverflowAction(previewType, overflowCount, overflowNumbers, onOpenOverflow)
 }
 
 /** 省略分の取得済み返信先を一覧で開く操作を表示する。 */

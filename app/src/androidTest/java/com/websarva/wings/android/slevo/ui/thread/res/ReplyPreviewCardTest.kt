@@ -212,10 +212,9 @@ class ReplyPreviewCardTest {
                 SharedTransitionLayout {
                     val sharedScope = this
                     AnimatedVisibility(visible = true) {
-                        ReplyPreviewCard(
+                        ReplySourcePreview(
                             post = ReplyPreviewPostUiModel(1, "", "", "本文全幅", emptyList()),
                             hostNamespace = "thread-post-2",
-                            previewType = ImageReplyPreviewType.REPLY_SOURCE,
                             headerTextScale = 1f,
                             bodyTextScale = 1f,
                             lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
@@ -442,32 +441,55 @@ private fun PreviewCardHarness(
                 Box(modifier = Modifier.width(320.dp)) {
                     // --- Preview card parameters ---
                     val previewContent: @Composable () -> Unit = {
-                        ReplyPreviewCard(
-                            post = post,
-                            hostNamespace = "thread-post-20",
-                            previewType = previewType,
-                            overflowCount = overflowCount,
-                            overflowNumbers = overflowNumbers,
-                            unavailableRanges = unavailableRanges,
-                            isNgHidden = isNgHidden,
-                            onReveal = onReveal,
-                            onHide = onHide,
-                            headerTextScale = headerTextScale,
-                            bodyTextScale = bodyTextScale,
-                            lineHeightEm = lineHeightEm,
-                            onOpenPost = onOpenPost,
-                            onOpenOverflow = onOpenOverflow,
-                            onImageClick = onImageClick,
-                            onImageLongPress = { _, _ -> },
-                            imageLoadFailureByUrl = imageFailures,
-                            onImageLoadStart = onImageLoadStart,
-                            onImageLoadError = { _, _ -> },
-                            onImageLoadSuccess = onImageLoadSuccess,
-                            onImageRetry = onImageRetry,
-                            enableSharedElement = true,
-                            sharedTransitionScope = sharedScope,
-                            animatedVisibilityScope = visibilityScope,
-                        )
+                        if (previewType == ImageReplyPreviewType.REPLY_SOURCE) {
+                            ReplySourcePreview(
+                                post = post,
+                                hostNamespace = "thread-post-20",
+                                overflowCount = overflowCount,
+                                overflowNumbers = overflowNumbers,
+                                headerTextScale = headerTextScale,
+                                bodyTextScale = bodyTextScale,
+                                lineHeightEm = lineHeightEm,
+                                onOpenPost = onOpenPost,
+                                onOpenOverflow = onOpenOverflow,
+                                onImageClick = onImageClick,
+                                onImageLongPress = { _, _ -> },
+                                imageLoadFailureByUrl = imageFailures,
+                                onImageLoadStart = onImageLoadStart,
+                                onImageLoadError = { _, _ -> },
+                                onImageLoadSuccess = onImageLoadSuccess,
+                                onImageRetry = onImageRetry,
+                                enableSharedElement = true,
+                                sharedTransitionScope = sharedScope,
+                                animatedVisibilityScope = visibilityScope,
+                            )
+                        } else {
+                            ReplyTargetPreviewCard(
+                                post = post,
+                                hostNamespace = "thread-post-20",
+                                overflowCount = overflowCount,
+                                overflowNumbers = overflowNumbers,
+                                unavailableRanges = unavailableRanges,
+                                isNgHidden = isNgHidden,
+                                onReveal = onReveal,
+                                onHide = onHide,
+                                headerTextScale = headerTextScale,
+                                bodyTextScale = bodyTextScale,
+                                lineHeightEm = lineHeightEm,
+                                onOpenPost = onOpenPost,
+                                onOpenOverflow = onOpenOverflow,
+                                onImageClick = onImageClick,
+                                onImageLongPress = { _, _ -> },
+                                imageLoadFailureByUrl = imageFailures,
+                                onImageLoadStart = onImageLoadStart,
+                                onImageLoadError = { _, _ -> },
+                                onImageLoadSuccess = onImageLoadSuccess,
+                                onImageRetry = onImageRetry,
+                                enableSharedElement = true,
+                                sharedTransitionScope = sharedScope,
+                                animatedVisibilityScope = visibilityScope,
+                            )
+                        }
                     }
                     if (insidePostItemContainer) {
                         PostItemContainer(

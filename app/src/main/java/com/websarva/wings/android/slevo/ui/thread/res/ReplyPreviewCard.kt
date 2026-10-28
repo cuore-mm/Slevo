@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -56,13 +55,12 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
 private val REPLY_PREVIEW_CONTENT_HORIZONTAL_PADDING = 12.dp
 private val REPLY_PREVIEW_CONTENT_VERTICAL_PADDING = 8.dp
 
-/** 返信先または返信元の内容と未取得範囲を状態に応じてカード内に表示する。 */
+/** 返信先の投稿と未取得範囲を状態に応じてカード内に表示する。 */
 @Composable
-internal fun ReplyPreviewCard(
+internal fun ReplyTargetPreviewCard(
     modifier: Modifier = Modifier,
     post: ReplyPreviewPostUiModel?,
     hostNamespace: String,
-    previewType: ImageReplyPreviewType,
     overflowCount: Int = 0,
     overflowNumbers: List<Int> = emptyList(),
     unavailableRanges: List<ReplyTargetUnavailableRange> = emptyList(),
@@ -85,45 +83,16 @@ internal fun ReplyPreviewCard(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val isReplySource = previewType == ImageReplyPreviewType.REPLY_SOURCE
-
-    // --- Existing card surface and reply-source rail ---
+    // --- Reply-target card surface ---
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .then(
-                if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
-                    Modifier.testTag("reply-preview-target-${post?.postNumber ?: "unavailable"}")
-                } else {
-                    Modifier
-                },
-            ),
-        shape = if (isReplySource) RectangleShape else MaterialTheme.shapes.medium,
-        color = if (isReplySource) Color.Transparent else
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            .testTag("reply-preview-target-${post?.postNumber ?: "unavailable"}"),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (isReplySource && post != null) {
-                        val railWidth = 2.dp
-                        Modifier
-                            .drawBehind {
-                                val strokeWidth = railWidth.toPx()
-                                drawLine(
-                                    color = colors.outlineVariant,
-                                    start = Offset(x = strokeWidth / 2, y = 0f),
-                                    end = Offset(x = strokeWidth / 2, y = size.height),
-                                    strokeWidth = strokeWidth,
-                                )
-                            }
-                            .testTag("reply-preview-source-rail-${post.postNumber}")
-                    } else {
-                        Modifier
-                    },
-                ),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             // --- State-specific header and post content ---
             // 未取得の投稿にはヘッダーや本文を表示しない。
@@ -138,7 +107,7 @@ internal fun ReplyPreviewCard(
                 ReplyPreviewPostContent(
                     post = post,
                     hostNamespace = hostNamespace,
-                    previewType = previewType,
+                    previewType = ImageReplyPreviewType.REPLY_TARGET,
                     onHide = onHide,
                     headerTextScale = headerTextScale,
                     bodyTextScale = bodyTextScale,
@@ -159,13 +128,83 @@ internal fun ReplyPreviewCard(
 
             // --- Shared overflow and unavailable-range footer ---
             ReplyPreviewFooter(
-                previewType = previewType,
+                previewType = ImageReplyPreviewType.REPLY_TARGET,
                 overflowCount = overflowCount,
                 overflowNumbers = overflowNumbers,
                 unavailableRanges = unavailableRanges,
                 onOpenOverflow = onOpenOverflow,
             )
         }
+    }
+}
+
+/** 取得済みの返信元を縦線付きで表示し、省略分の一覧操作を添える。 */
+@Composable
+internal fun ReplySourcePreview(
+    post: ReplyPreviewPostUiModel,
+    hostNamespace: String,
+    overflowCount: Int = 0,
+    overflowNumbers: List<Int> = emptyList(),
+    headerTextScale: Float,
+    bodyTextScale: Float,
+    lineHeightEm: Float,
+    onOpenPost: () -> Unit,
+    onOpenOverflow: (List<Int>) -> Unit,
+    onImageClick: (String, List<String>, Int, String) -> Unit,
+    onImageLongPress: (String, List<String>) -> Unit,
+    imageLoadFailureByUrl: Map<String, ImageLoadFailureType>,
+    onImageLoadStart: (String) -> Unit,
+    onImageLoadError: (String, ImageLoadFailureType) -> Unit,
+    onImageLoadSuccess: (String) -> Unit,
+    onImageRetry: (String) -> Unit,
+    enableSharedElement: Boolean,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+) {
+    // --- Reply-source rail ---
+    val railColor = MaterialTheme.colorScheme.outlineVariant
+    val railWidth = 2.dp
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val strokeWidth = railWidth.toPx()
+                drawLine(
+                    color = railColor,
+                    start = Offset(x = strokeWidth / 2, y = 0f),
+                    end = Offset(x = strokeWidth / 2, y = size.height),
+                    strokeWidth = strokeWidth,
+                )
+            }
+            .testTag("reply-preview-source-rail-${post.postNumber}"),
+    ) {
+        // --- Post and overflow ---
+        ReplyPreviewPostContent(
+            post = post,
+            hostNamespace = hostNamespace,
+            previewType = ImageReplyPreviewType.REPLY_SOURCE,
+            onHide = null,
+            headerTextScale = headerTextScale,
+            bodyTextScale = bodyTextScale,
+            lineHeightEm = lineHeightEm,
+            onOpenPost = onOpenPost,
+            onImageClick = onImageClick,
+            onImageLongPress = onImageLongPress,
+            imageLoadFailureByUrl = imageLoadFailureByUrl,
+            onImageLoadStart = onImageLoadStart,
+            onImageLoadError = onImageLoadError,
+            onImageLoadSuccess = onImageLoadSuccess,
+            onImageRetry = onImageRetry,
+            enableSharedElement = enableSharedElement,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+        )
+        ReplyPreviewOverflowSection(
+            previewType = ImageReplyPreviewType.REPLY_SOURCE,
+            overflowCount = overflowCount,
+            overflowNumbers = overflowNumbers,
+            onOpenOverflow = onOpenOverflow,
+        )
     }
 }
 
@@ -449,7 +488,7 @@ private fun ReplyPreviewCardPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplyPreviewCard(
+                ReplySourcePreview(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 12,
                         name = "投稿者名",
@@ -458,7 +497,6 @@ private fun ReplyPreviewCardPreview() {
                         imageUrls = emptyList(),
                     ),
                     hostNamespace = "thread-post-20",
-                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
@@ -486,7 +524,7 @@ private fun ReplyPreviewCardWithImagesPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplyPreviewCard(
+                ReplyTargetPreviewCard(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 12,
                         name = "投稿者名",
@@ -499,7 +537,6 @@ private fun ReplyPreviewCardWithImagesPreview() {
                         ),
                     ),
                     hostNamespace = "thread-post-20",
-                    previewType = ImageReplyPreviewType.REPLY_TARGET,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
@@ -527,7 +564,7 @@ private fun ReplyPreviewCardImageOnlyPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplyPreviewCard(
+                ReplySourcePreview(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 13,
                         name = "",
@@ -536,7 +573,6 @@ private fun ReplyPreviewCardImageOnlyPreview() {
                         imageUrls = listOf("https://example.com/only.jpg"),
                     ),
                     hostNamespace = "thread-post-20",
-                    previewType = ImageReplyPreviewType.REPLY_SOURCE,
                     headerTextScale = 1f,
                     bodyTextScale = 1f,
                     lineHeightEm = TextDisplaySettingsConstraints.DEFAULT_LINE_HEIGHT,
@@ -564,7 +600,7 @@ private fun ReplyPreviewCardWithDisjointUnavailableRangesPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplyPreviewCard(
+                ReplyTargetPreviewCard(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 8,
                         name = "返信先の投稿者",
@@ -573,7 +609,6 @@ private fun ReplyPreviewCardWithDisjointUnavailableRangesPreview() {
                         imageUrls = emptyList(),
                     ),
                     hostNamespace = "thread-post-20",
-                    previewType = ImageReplyPreviewType.REPLY_TARGET,
                     unavailableRanges = listOf(
                         ReplyTargetUnavailableRange(101, 103),
                         ReplyTargetUnavailableRange(105, 200),
@@ -605,7 +640,7 @@ private fun RevealedNgReplyPreviewCardPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplyPreviewCard(
+                ReplyTargetPreviewCard(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 14,
                         name = "一時表示中の投稿者",
@@ -614,7 +649,6 @@ private fun RevealedNgReplyPreviewCardPreview() {
                         imageUrls = emptyList(),
                     ),
                     hostNamespace = "thread-post-20",
-                    previewType = ImageReplyPreviewType.REPLY_TARGET,
                     overflowCount = 2,
                     overflowNumbers = listOf(14, 16, 18),
                     unavailableRanges = listOf(ReplyTargetUnavailableRange(15, Int.MAX_VALUE)),
@@ -646,7 +680,7 @@ private fun HiddenNgReplyPreviewCardPreview() {
     SlevoTheme {
         SharedTransitionLayout {
             AnimatedVisibility(visible = true) {
-                ReplyPreviewCard(
+                ReplyTargetPreviewCard(
                     post = ReplyPreviewPostUiModel(
                         postNumber = 14,
                         name = "非表示中の投稿者",
@@ -655,7 +689,6 @@ private fun HiddenNgReplyPreviewCardPreview() {
                         imageUrls = emptyList(),
                     ),
                     hostNamespace = "thread-post-20",
-                    previewType = ImageReplyPreviewType.REPLY_TARGET,
                     isNgHidden = true,
                     onReveal = {},
                     headerTextScale = 1f,

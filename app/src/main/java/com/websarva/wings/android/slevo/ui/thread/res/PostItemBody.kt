@@ -174,11 +174,10 @@ internal fun PostItemBody(
                     }
                     val isNgTarget = selectedPost != null && selected?.status == ReplyTargetCandidateStatus.NG
                     val isRevealed = selected?.postNumber in revealedReplyTargetNumbers
-                    ReplyPreviewCard(
+                    ReplyTargetPreviewCard(
                         modifier = Modifier.padding(vertical = 4.dp),
                         post = selectedPost,
                         hostNamespace = transitionNamespace,
-                        previewType = ImageReplyPreviewType.REPLY_TARGET,
                         overflowCount = target.overflowCount,
                         overflowNumbers = target.referencedNumbers,
                         unavailableRanges = target.unavailableRanges,

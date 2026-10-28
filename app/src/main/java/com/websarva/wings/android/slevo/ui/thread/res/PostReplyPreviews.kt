@@ -62,10 +62,9 @@ internal fun PostReplyPreviews(
             val overflowCount = if (index == state.replySourcePreviews.lastIndex) {
                 state.replySourceOverflowCount
             } else 0
-            ReplyPreviewCard(
+            ReplySourcePreview(
                 post = preview,
                 hostNamespace = hostNamespace,
-                previewType = ImageReplyPreviewType.REPLY_SOURCE,
                 overflowCount = overflowCount,
                 overflowNumbers = state.replySourceNumbers,
                 headerTextScale = headerTextScale,
