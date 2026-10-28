@@ -56,11 +56,11 @@ import com.websarva.wings.android.slevo.ui.util.ImageLoadProgressState
 private val REPLY_PREVIEW_CONTENT_HORIZONTAL_PADDING = 12.dp
 private val REPLY_PREVIEW_CONTENT_VERTICAL_PADDING = 8.dp
 
-/** 返信先または返信元一件を既存の小型ヘッダー・本文・画像形式で表示する。 */
+/** 返信先または返信元の内容と未取得範囲を状態に応じてカード内に表示する。 */
 @Composable
 internal fun ReplyPreviewCard(
     modifier: Modifier = Modifier,
-    post: ReplyPreviewPostUiModel,
+    post: ReplyPreviewPostUiModel?,
     hostNamespace: String,
     previewType: ImageReplyPreviewType,
     overflowCount: Int = 0,
@@ -94,19 +94,20 @@ internal fun ReplyPreviewCard(
             .fillMaxWidth()
             .then(
                 if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
-                    Modifier.testTag("reply-preview-target-${post.postNumber}")
+                    Modifier.testTag("reply-preview-target-${post?.postNumber ?: "unavailable"}")
                 } else {
                     Modifier
                 },
             ),
         shape = if (isReplySource) RectangleShape else MaterialTheme.shapes.medium,
-        color = if (isReplySource) Color.Transparent else colors.surfaceVariant.copy(alpha = 0.35f),
+        color = if (isReplySource) Color.Transparent else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
-                    if (isReplySource) {
+                    if (isReplySource && post != null) {
                         val railWidth = 2.dp
                         Modifier
                             .drawBehind {
@@ -125,15 +126,16 @@ internal fun ReplyPreviewCard(
                 ),
         ) {
             // --- State-specific header and post content ---
-            if (isNgHidden) {
+            // 未取得の投稿にはヘッダーや本文を表示しない。
+            if (post != null && isNgHidden) {
                 ReplyPreviewHiddenHeader(
                     postNumber = post.postNumber,
                     onReveal = onReveal,
                     headerTextScale = headerTextScale,
                     lineHeightEm = lineHeightEm,
                 )
-            } else {
-                ReplyPreviewCardContent(
+            } else if (post != null) {
+                ReplyPreviewPostContent(
                     post = post,
                     hostNamespace = hostNamespace,
                     previewType = previewType,
@@ -224,7 +226,7 @@ private fun ReplyPreviewHiddenHeader(
 
 /** 通常表示・開示表示のヘッダーと本文・画像を既存のカード形式で構成する。 */
 @Composable
-private fun ReplyPreviewCardContent(
+private fun ReplyPreviewPostContent(
     post: ReplyPreviewPostUiModel,
     hostNamespace: String,
     previewType: ImageReplyPreviewType,
@@ -290,7 +292,7 @@ private fun ReplyPreviewCardContent(
             lineHeightEm = lineHeightEm,
             onHide = onHide,
         )
-        ReplyPreviewCardPostContent(
+        ReplyPreviewPostBody(
             post = post,
             imageNamespace = imageNamespace,
             imageDescription = imageDescription,
@@ -356,7 +358,7 @@ private fun ReplyPreviewCardPostHeader(
 
 /** 本文と先頭画像を表示し、画像操作を既存の共有遷移へ接続する。 */
 @Composable
-private fun ReplyPreviewCardPostContent(
+private fun ReplyPreviewPostBody(
     post: ReplyPreviewPostUiModel,
     imageNamespace: String,
     imageDescription: String,

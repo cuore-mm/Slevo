@@ -169,60 +169,51 @@ internal fun PostItemBody(
                         onReplyTargetNumbersClick?.invoke(target.referencedNumbers)
                             ?: onReplyNumbersClick?.invoke(target.referencedNumbers)
                     }
-                    if (selected == null) {
-                        ReplyTargetUnavailableRangesRow(
-                            ranges = target.unavailableRanges,
-                        )
-                    } else {
-                        val isRevealed = selected.postNumber in revealedReplyTargetNumbers
-                        val selectedPost = selected.post
-                        if (selectedPost != null && selected.status != ReplyTargetCandidateStatus.UNAVAILABLE) {
-                            val isNgTarget = selected.status == ReplyTargetCandidateStatus.NG
-                            ReplyPreviewCard(
-                                modifier = Modifier.padding(vertical = 4.dp),
-                                post = selectedPost,
-                                hostNamespace = transitionNamespace,
-                                previewType = ImageReplyPreviewType.REPLY_TARGET,
-                                overflowCount = target.overflowCount,
-                                overflowNumbers = target.referencedNumbers,
-                                unavailableRanges = target.unavailableRanges,
-                                onHide = if (isNgTarget && isRevealed) {
-                                    { onReplyTargetDisclosureChange?.invoke(selected.postNumber, false) }
-                                } else null,
-                                isNgHidden = isNgTarget && !isRevealed,
-                                onReveal = if (isNgTarget && !isRevealed) {
-                                    { onReplyTargetDisclosureChange?.invoke(selected.postNumber, true) }
-                                } else null,
-                                headerTextScale = headerTextScale,
-                                bodyTextScale = bodyTextStyle.fontSize.value /
-                                        MaterialTheme.typography.bodyMedium.fontSize.value,
-                                lineHeightEm = lineHeightEm,
-                                onOpenPost = {
-                                    if (onReplyTargetClick != null) {
-                                        onReplyTargetClick(selected.postNumber)
-                                    } else {
-                                        onReplyClick?.invoke(selected.postNumber)
-                                    }
-                                },
-                                onOpenOverflow = { openCandidates() },
-                                onImageClick = onImageClick,
-                                onImageLongPress = onImageLongPress,
-                                imageLoadFailureByUrl = imageLoadFailureByUrl,
-                                onImageLoadStart = onImageLoadStart,
-                                onImageLoadError = onImageLoadError,
-                                onImageLoadSuccess = onImageLoadSuccess,
-                                onImageRetry = onImageRetry,
-                                enableSharedElement = enableSharedElement,
-                                sharedTransitionScope = transitionScope,
-                                animatedVisibilityScope = visibilityScope,
-                            )
-                        } else {
-                            // Guard: 未取得候補は本文へ追加せず、未取得範囲だけを表示する。
-                            ReplyTargetUnavailableRangesRow(
-                                ranges = target.unavailableRanges,
-                            )
-                        }
+                    val selectedPost = selected?.post?.takeIf {
+                        selected.status != ReplyTargetCandidateStatus.UNAVAILABLE
                     }
+                    val isNgTarget = selectedPost != null && selected?.status == ReplyTargetCandidateStatus.NG
+                    val isRevealed = selected?.postNumber in revealedReplyTargetNumbers
+                    ReplyPreviewCard(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        post = selectedPost,
+                        hostNamespace = transitionNamespace,
+                        previewType = ImageReplyPreviewType.REPLY_TARGET,
+                        overflowCount = target.overflowCount,
+                        overflowNumbers = target.referencedNumbers,
+                        unavailableRanges = target.unavailableRanges,
+                        onHide = if (isNgTarget && isRevealed) {
+                            { selected?.let { onReplyTargetDisclosureChange?.invoke(it.postNumber, false) } }
+                        } else null,
+                        isNgHidden = isNgTarget && !isRevealed,
+                        onReveal = if (isNgTarget && !isRevealed) {
+                            { selected?.let { onReplyTargetDisclosureChange?.invoke(it.postNumber, true) } }
+                        } else null,
+                        headerTextScale = headerTextScale,
+                        bodyTextScale = bodyTextStyle.fontSize.value /
+                                MaterialTheme.typography.bodyMedium.fontSize.value,
+                        lineHeightEm = lineHeightEm,
+                        onOpenPost = {
+                            selected?.let {
+                                if (onReplyTargetClick != null) {
+                                    onReplyTargetClick(it.postNumber)
+                                } else {
+                                    onReplyClick?.invoke(it.postNumber)
+                                }
+                            }
+                        },
+                        onOpenOverflow = { openCandidates() },
+                        onImageClick = onImageClick,
+                        onImageLongPress = onImageLongPress,
+                        imageLoadFailureByUrl = imageLoadFailureByUrl,
+                        onImageLoadStart = onImageLoadStart,
+                        onImageLoadError = onImageLoadError,
+                        onImageLoadSuccess = onImageLoadSuccess,
+                        onImageRetry = onImageRetry,
+                        enableSharedElement = enableSharedElement,
+                        sharedTransitionScope = transitionScope,
+                        animatedVisibilityScope = visibilityScope,
+                    )
                 }
             }
         }
