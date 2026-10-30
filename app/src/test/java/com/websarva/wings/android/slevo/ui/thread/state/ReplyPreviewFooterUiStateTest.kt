@@ -11,9 +11,10 @@ class ReplyPreviewFooterUiStateTest {
     fun createsFooterForAvailableCombinations() {
         val ranges = listOf(ReplyTargetUnavailableRange(101, 103))
         assertNull(replyPreviewFooterState(0, emptyList(), emptyList()))
+        assertNull(replyPreviewFooterState(0, listOf(1, 2, 3), emptyList()))
         assertNull(replyPreviewFooterState(2, emptyList(), emptyList()))
         assertEquals(
-            ReplyPreviewFooterUiState.More(2),
+            ReplyPreviewFooterUiState.More(3),
             replyPreviewFooterState(2, listOf(1, 2, 3), emptyList()),
         )
         assertEquals(
@@ -21,7 +22,7 @@ class ReplyPreviewFooterUiStateTest {
             replyPreviewFooterState(0, emptyList(), ranges),
         )
         assertEquals(
-            ReplyPreviewFooterUiState.MoreAndUnavailable(2, ranges),
+            ReplyPreviewFooterUiState.MoreAndUnavailable(3, ranges),
             replyPreviewFooterState(2, listOf(1, 2, 3), ranges),
         )
     }

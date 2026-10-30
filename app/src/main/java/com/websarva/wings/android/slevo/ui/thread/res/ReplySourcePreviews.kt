@@ -117,7 +117,11 @@ internal fun ReplySourcePreviews(
                             role = Role.Button,
                             onClickLabel = description,
                             onClick = { onReplyNumbersClick(state.replySourceNumbers) },
-                        ).semantics { contentDescription = description },
+                        ).semantics { contentDescription = description }
+                            .padding(
+                                horizontal = 12.dp,
+                                vertical = 8.dp,
+                            ),
                     )
                 }
             }

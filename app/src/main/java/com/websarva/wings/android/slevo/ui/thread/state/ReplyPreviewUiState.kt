@@ -29,9 +29,9 @@ data class ReplyTargetUnavailableRange(
     val lastPostNumber: Int,
 )
 
-/** 返信プレビュー末尾に表示する省略件数と未取得範囲を表す。 */
+/** 返信プレビュー末尾に表示する一覧の総件数と未取得範囲を表す。 */
 sealed interface ReplyPreviewFooterUiState {
-    /** 一覧を開ける省略候補の件数。 */
+    /** 一覧に表示する取得済み候補の総件数。 */
     data class More(val count: Int) : ReplyPreviewFooterUiState
 
     /** 取得できない返信先番号の範囲。 */
@@ -51,10 +51,11 @@ fun replyPreviewFooterState(
     unavailableRanges: List<ReplyTargetUnavailableRange>,
 ): ReplyPreviewFooterUiState? {
     val hasMore = overflowCount > 0 && overflowNumbers.isNotEmpty()
+    val totalCount = overflowNumbers.size
     return when {
         hasMore && unavailableRanges.isNotEmpty() ->
-            ReplyPreviewFooterUiState.MoreAndUnavailable(overflowCount, unavailableRanges)
-        hasMore -> ReplyPreviewFooterUiState.More(overflowCount)
+            ReplyPreviewFooterUiState.MoreAndUnavailable(totalCount, unavailableRanges)
+        hasMore -> ReplyPreviewFooterUiState.More(totalCount)
         unavailableRanges.isNotEmpty() -> ReplyPreviewFooterUiState.Unavailable(unavailableRanges)
         else -> null
     }

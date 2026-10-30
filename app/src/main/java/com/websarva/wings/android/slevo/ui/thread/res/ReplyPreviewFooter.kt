@@ -43,7 +43,7 @@ internal fun ReplyPreviewFooterContent(
         is ReplyPreviewFooterUiState.Unavailable -> state.ranges
     }
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -106,6 +106,10 @@ internal fun ReplyPreviewFooterContent(
 private fun ReplyPreviewFooterPreview() {
     SlevoTheme {
         ReplyPreviewFooterContent(
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 8.dp,
+            ),
             state = ReplyPreviewFooterUiState.MoreAndUnavailable(
                 count = 2,
                 ranges = listOf(ReplyTargetUnavailableRange(101, 103)),

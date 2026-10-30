@@ -82,7 +82,7 @@ class PostReplyPreviewsTest {
         composeRule.onAllNodesWithTag("reply-preview-source-divider").assertCountEquals(2)
         val sourceRail = composeRule.onNodeWithTag("reply-preview-source-rail-2")
         assertTrue(sourceRail.fetchSemanticsNode().boundsInRoot.height > 0f)
-        val overflow = composeRule.onNodeWithText("ほか2件")
+        val overflow = composeRule.onNodeWithText("全5件を表示")
         assertTrue(
             overflow.fetchSemanticsNode().boundsInRoot.height >=
                 48f * composeRule.density.density,

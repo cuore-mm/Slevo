@@ -156,7 +156,12 @@ internal fun ReplyTargetPreviewCard(
                 }
                 ReplyPreviewFooterContent(
                     state = footerState,
-                    modifier = footerModifier.testTag("reply-preview-footer"),
+                    modifier = footerModifier
+                        .testTag("reply-preview-footer")
+                        .padding(
+                            horizontal = REPLY_PREVIEW_CONTENT_HORIZONTAL_PADDING,
+                            vertical = REPLY_PREVIEW_CONTENT_VERTICAL_PADDING,
+                        ),
                 )
             }
         }

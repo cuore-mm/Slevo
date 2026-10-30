@@ -124,7 +124,7 @@ class ReplyPreviewCardTest {
         val headerBounds = headerText.fetchSemanticsNode().boundsInRoot
         val headerActionBounds = headerAction.fetchSemanticsNode().boundsInRoot
         val imageBounds = image.fetchSemanticsNode().boundsInRoot
-        val overflowBounds = composeRule.onNodeWithText("ほか2件").fetchSemanticsNode().boundsInRoot
+        val overflowBounds = composeRule.onNodeWithText("全5件を表示").fetchSemanticsNode().boundsInRoot
         assertTrue("The thumbnail must be below the full-width header", imageBounds.top >= headerBounds.bottom)
         val minimumActionHeight = with(composeRule.density) { 48.dp.toPx() }
         assertTrue(headerActionBounds.height >= minimumActionHeight)
@@ -134,7 +134,7 @@ class ReplyPreviewCardTest {
 
         // --- Independent post, overflow, and image actions ---
         composeRule.onNodeWithText("プレビュー本文").performClick()
-        composeRule.onNodeWithText("ほか2件").performClick()
+        composeRule.onNodeWithText("全5件を表示").performClick()
         image.performClick()
         composeRule.runOnIdle {
             failures.value = mapOf(imageUrl to ImageLoadFailureType.HTTP_404)
@@ -177,9 +177,9 @@ class ReplyPreviewCardTest {
             )
         }
 
-        val overflow = composeRule.onNodeWithText("ほか2件")
+        val overflow = composeRule.onNodeWithText("全3件を表示")
         val unavailable = composeRule.onNodeWithText(
-            "レス101〜103は未取得のため参照できません",
+            "レス101〜103は未取得です",
         )
         val hiddenOverflowLeft = overflow.fetchSemanticsNode().boundsInRoot.left
         val hiddenUnavailableLeft = unavailable.fetchSemanticsNode().boundsInRoot.left
@@ -226,8 +226,8 @@ class ReplyPreviewCardTest {
             )
         }
 
-        composeRule.onNodeWithText("ほか1件").assertExists()
-        composeRule.onNodeWithText("レス101〜103は未取得のため参照できません")
+        composeRule.onNodeWithText("全2件を表示").assertExists()
+        composeRule.onNodeWithText("レス101〜103は未取得です")
             .assertDoesNotExist()
     }
 

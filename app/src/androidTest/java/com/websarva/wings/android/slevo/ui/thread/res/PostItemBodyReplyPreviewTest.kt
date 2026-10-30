@@ -128,7 +128,7 @@ class PostItemBodyReplyPreviewTest {
         // --- Replaced row and candidate list action ---
         composeRule.onAllNodesWithText(">>1,2", substring = true, useUnmergedTree = true).assertCountEquals(0)
         composeRule.onNodeWithText("1  name1  ID:id1", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText("ほか1件").performClick()
+        composeRule.onNodeWithText("全2件を表示").performClick()
 
         assertEquals(listOf(listOf(1, 2)), openedNumbers)
         assertTrue(openedTargets.isEmpty())
@@ -419,7 +419,7 @@ class PostItemBodyReplyPreviewTest {
         }
 
         val unavailableRow = composeRule.onNodeWithText(
-            "レス3〜2147483647は未取得のため参照できません",
+            "レス3〜2147483647は未取得です",
         )
         unavailableRow.assertExists()
         unavailableRow.assertHasNoClickAction()
@@ -455,7 +455,7 @@ class PostItemBodyReplyPreviewTest {
             }
         }
 
-        composeRule.onNodeWithText("ほか999件").assertExists()
+        composeRule.onNodeWithText("全1000件を表示").assertExists()
         composeRule.onAllNodesWithText("参照先が上限を超えたため、一部を省略しています").assertCountEquals(0)
     }
 
@@ -491,8 +491,8 @@ class PostItemBodyReplyPreviewTest {
             }
         }
 
-        composeRule.onNodeWithText("ほか1000件").assertExists()
-        composeRule.onNodeWithText("レス1002〜2147483647は未取得のため参照できません").assertExists()
+        composeRule.onNodeWithText("全1001件を表示").assertExists()
+        composeRule.onNodeWithText("レス1002〜2147483647は未取得です").assertExists()
     }
 }
 

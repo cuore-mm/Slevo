@@ -4,11 +4,11 @@
     <string name="reply_preview_open_source_post">返信元のレス%1$dを表示</string>
     <string name="reply_preview_open_target_list">返信先の一覧を表示（%1$d件）</string>
     <string name="reply_preview_open_source_list">返信の一覧を表示（%1$d件）</string>
-    <string name="reply_preview_other_count">ほか%1$d件</string>
+    <string name="reply_preview_other_count">全%1$d件を表示</string>
     <string name="reply_preview_image_description">レス%3$dの画像%1$d枚中1枚目、ほか%2$d枚を表示</string>
     <string name="reply_preview_image_more">+%1$d</string>
     <string name="reply_preview_ng_hidden">NGで非表示</string>
-    <string name="reply_preview_unavailable_ranges">レス%1$sは未取得のため参照できません</string>
+    <string name="reply_preview_unavailable_ranges">レス%1$sは未取得です</string>
     <string name="reply_preview_reveal">表示</string>
     <string name="reply_preview_hide">隠す</string>
     <string name="reply_preview_reveal_target">レス%1$dを表示</string>

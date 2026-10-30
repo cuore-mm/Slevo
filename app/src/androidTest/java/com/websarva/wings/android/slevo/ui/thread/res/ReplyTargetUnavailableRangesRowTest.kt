@@ -33,7 +33,7 @@ class ReplyTargetUnavailableRangesRowTest {
         }
 
         val unavailableRow = composeRule.onNodeWithText(
-            "レス101〜2147483647は未取得のため参照できません",
+            "レス101〜2147483647は未取得です",
         )
         unavailableRow.assertExists()
         unavailableRow.assertHasNoClickAction()
