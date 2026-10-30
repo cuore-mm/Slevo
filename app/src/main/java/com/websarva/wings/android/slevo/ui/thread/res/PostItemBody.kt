@@ -182,11 +182,12 @@ internal fun PostItemBody(
                         overflowNumbers = target.referencedNumbers,
                         unavailableRanges = target.unavailableRanges,
                         footerState = target.footerState,
-                        onHide = if (isNgTarget && isRevealed) {
+                        // 切り替え中の旧ヘッダーにも操作を残し、フェード中の高さを保つ。
+                        onHide = if (isNgTarget) {
                             { selected?.let { onReplyTargetDisclosureChange?.invoke(it.postNumber, false) } }
                         } else null,
                         isNgHidden = isNgTarget && !isRevealed,
-                        onReveal = if (isNgTarget && !isRevealed) {
+                        onReveal = if (isNgTarget) {
                             { selected?.let { onReplyTargetDisclosureChange?.invoke(it.postNumber, true) } }
                         } else null,
                         headerTextScale = headerTextScale,

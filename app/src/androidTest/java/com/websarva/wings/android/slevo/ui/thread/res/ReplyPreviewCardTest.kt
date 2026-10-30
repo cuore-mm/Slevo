@@ -17,8 +17,10 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -53,6 +55,44 @@ import org.junit.runner.RunWith
 class ReplyPreviewCardTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    /** NG表示の切り替え中は両方の内容が存在し、完了後に切り替わる。 */
+    @Test
+    fun ngDisclosureCrossfadesBetweenHiddenAndRevealedContent() {
+        val hidden = mutableStateOf(true)
+        composeRule.mainClock.autoAdvance = false
+        try {
+            composeRule.setContent {
+                PreviewCardHarness(
+                    post = ReplyPreviewPostUiModel(1, "", "", "アニメーション本文", emptyList()),
+                    previewType = ImageReplyPreviewType.REPLY_TARGET,
+                    isNgHidden = hidden.value,
+                    onReveal = { hidden.value = false },
+                    onHide = { hidden.value = true },
+                    onOpenPost = {},
+                )
+            }
+            composeRule.onNodeWithText("アニメーション本文").assertDoesNotExist()
+            composeRule.runOnIdle { hidden.value = false }
+            composeRule.mainClock.advanceTimeBy(64)
+            composeRule.onAllNodesWithTag("reply-preview-number-1", useUnmergedTree = true)
+                .assertCountEquals(1)
+            composeRule.onNodeWithText("NGで非表示", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithText("アニメーション本文", useUnmergedTree = true).assertExists()
+            composeRule.mainClock.advanceTimeBy(1_000)
+            composeRule.onNodeWithText("NGで非表示", useUnmergedTree = true).assertDoesNotExist()
+            composeRule.runOnIdle { hidden.value = true }
+            composeRule.mainClock.advanceTimeBy(64)
+            composeRule.onAllNodesWithTag("reply-preview-number-1", useUnmergedTree = true)
+                .assertCountEquals(1)
+            composeRule.onNodeWithText("NGで非表示", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithText("アニメーション本文", useUnmergedTree = true).assertExists()
+            composeRule.mainClock.advanceTimeBy(1_000)
+            composeRule.onNodeWithText("アニメーション本文", useUnmergedTree = true).assertDoesNotExist()
+        } finally {
+            composeRule.mainClock.autoAdvance = true
+        }
+    }
 
     /** 未取得文言の位置を押しても候補一覧を開き、投稿との間に区切り線を表示する。 */
     @Test
@@ -112,11 +152,8 @@ class ReplyPreviewCardTest {
             )
         }
 
-        val headerText = composeRule.onNodeWithText(
-            "12  投稿者名  ID:sample-id",
-            useUnmergedTree = true,
-        )
-        val headerAction = composeRule.onNodeWithText("12  投稿者名  ID:sample-id")
+        val headerText = composeRule.onNodeWithTag("reply-preview-header-12", useUnmergedTree = true)
+        val headerAction = composeRule.onNodeWithText("投稿者名  ID:sample-id", substring = true)
         val image = composeRule.onNodeWithContentDescription(
             "レス12の画像3枚中1枚目、ほか2枚を表示",
             useUnmergedTree = true,

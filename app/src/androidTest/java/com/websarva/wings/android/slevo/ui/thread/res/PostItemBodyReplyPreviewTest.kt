@@ -49,6 +49,48 @@ class PostItemBodyReplyPreviewTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    /** 開示中と非表示中の両方で、フェード中の旧ヘッダーに操作が残る。 */
+    @Test
+    fun ngDisclosureKeepsOutgoingActionDuringFade() {
+        val posts = listOf(post(1, "private body"), post(2, ">>1"))
+        val previewState = derivePreview(posts, ngPostNumbers = setOf(1))
+        val revealed = mutableStateOf(emptySet<Int>())
+        composeRule.mainClock.autoAdvance = false
+        try {
+            composeRule.setContent {
+                SlevoTheme {
+                    SharedTransitionLayout {
+                        val sharedScope = this
+                        AnimatedVisibility(visible = true) {
+                            PostBodyHarness(
+                                post = posts[1],
+                                previewState = previewState,
+                                sharedTransitionScope = sharedScope,
+                                animatedVisibilityScope = this,
+                                onReplyClick = {},
+                                revealedReplyTargetNumbers = revealed.value,
+                                onDisclosureChange = { number, show ->
+                                    revealed.value = if (show) revealed.value + number else revealed.value - number
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            composeRule.runOnIdle { revealed.value = setOf(1) }
+            composeRule.mainClock.advanceTimeBy(64)
+            composeRule.onNodeWithText("表示", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithText("隠す", useUnmergedTree = true).assertExists()
+            composeRule.mainClock.advanceTimeBy(1_000)
+            composeRule.runOnIdle { revealed.value = emptySet() }
+            composeRule.mainClock.advanceTimeBy(64)
+            composeRule.onNodeWithText("表示", useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithText("隠す", useUnmergedTree = true).assertExists()
+        } finally {
+            composeRule.mainClock.autoAdvance = true
+        }
+    }
+
     /** 単一安価を重ねず一体化し、前後本文の順序と対象レス操作を維持する。 */
     @Test
     fun singleAnchorIsReplacedByOneInlineTargetCard() {
@@ -79,7 +121,8 @@ class PostItemBodyReplyPreviewTest {
         }
 
         // --- Layout and target action ---
-        composeRule.onNodeWithText("1  name1  ID:id1", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("reply-preview-number-1", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("  name1  ID:id1", useUnmergedTree = true).assertExists()
         composeRule.onAllNodesWithText("レス", substring = true, useUnmergedTree = true).assertCountEquals(0)
         composeRule.onAllNodesWithText(">>1", substring = true, useUnmergedTree = true).assertCountEquals(0)
         composeRule.onAllNodesWithText("ほか", substring = true).assertCountEquals(0)
@@ -127,7 +170,8 @@ class PostItemBodyReplyPreviewTest {
 
         // --- Replaced row and candidate list action ---
         composeRule.onAllNodesWithText(">>1,2", substring = true, useUnmergedTree = true).assertCountEquals(0)
-        composeRule.onNodeWithText("1  name1  ID:id1", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("reply-preview-number-1", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("  name1  ID:id1", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("全2件を表示").performClick()
 
         assertEquals(listOf(listOf(1, 2)), openedNumbers)
@@ -277,7 +321,7 @@ class PostItemBodyReplyPreviewTest {
         assertTrue(hiddenButtonBounds.left > hiddenHeaderBounds.left)
         composeRule.onNodeWithText("表示").performClick()
         composeRule.onNodeWithText("private NG reply body", substring = true).assertExists()
-        composeRule.onNodeWithText("1  name1  ID:id1", substring = true).assertExists()
+        composeRule.onNodeWithText("name1  ID:id1", substring = true).assertExists()
         composeRule.onAllNodesWithText("date1", substring = true).assertCountEquals(0)
         val revealedBodyBounds = composeRule.onNodeWithTag(
             "reply-preview-body-1",

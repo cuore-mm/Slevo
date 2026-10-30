@@ -1,9 +1,16 @@
 package com.websarva.wings.android.slevo.ui.thread.res
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -100,19 +107,14 @@ internal fun ReplyTargetPreviewCard(
         ) {
             // --- State-specific header and post content ---
             // 未取得の投稿にはヘッダーや本文を表示しない。
-            if (post != null && isNgHidden) {
-                ReplyPreviewHiddenHeader(
-                    postNumber = post.postNumber,
-                    onReveal = onReveal,
-                    headerTextScale = headerTextScale,
-                    lineHeightEm = lineHeightEm,
-                )
-            } else if (post != null) {
+            if (post != null) {
                 ReplyPreviewPostContent(
                     post = post,
                     hostNamespace = hostNamespace,
                     previewType = ImageReplyPreviewType.REPLY_TARGET,
                     onHide = onHide,
+                    isNgHidden = isNgHidden,
+                    onReveal = onReveal,
                     headerTextScale = headerTextScale,
                     bodyTextScale = bodyTextScale,
                     lineHeightEm = lineHeightEm,
@@ -168,61 +170,6 @@ internal fun ReplyTargetPreviewCard(
     }
 }
 
-/** 非表示中は投稿モデルを受け取らず、番号・状態・開示操作だけを構成する。 */
-@Composable
-private fun ReplyPreviewHiddenHeader(
-    postNumber: Int,
-    onReveal: (() -> Unit)?,
-    headerTextScale: Float,
-    lineHeightEm: Float,
-) {
-    // --- Hidden status and disclosure row ---
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = {})
-            .padding(
-                horizontal = REPLY_PREVIEW_CONTENT_HORIZONTAL_PADDING,
-                vertical = REPLY_PREVIEW_CONTENT_VERTICAL_PADDING,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("reply-preview-header-$postNumber"),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("reply-preview-hidden-status-$postNumber"),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = postNumber.toString(),
-                    fontSize = MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f,
-                    fontWeight = FontWeight.Medium,
-                    lineHeight = lineHeightEm.em,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = stringResource(R.string.reply_preview_ng_hidden),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            onReveal?.let { reveal ->
-                ReplyTargetDisclosureAction(
-                    postNumber = postNumber,
-                    isRevealed = false,
-                    onClick = reveal,
-                )
-            }
-        }
-    }
-}
-
 /** 通常表示・開示表示のヘッダーと本文・画像を既存のカード形式で構成する。 */
 @Composable
 internal fun ReplyPreviewPostContent(
@@ -230,6 +177,8 @@ internal fun ReplyPreviewPostContent(
     hostNamespace: String,
     previewType: ImageReplyPreviewType,
     onHide: (() -> Unit)?,
+    isNgHidden: Boolean = false,
+    onReveal: (() -> Unit)? = null,
     headerTextScale: Float,
     bodyTextScale: Float,
     lineHeightEm: Float,
@@ -246,7 +195,6 @@ internal fun ReplyPreviewPostContent(
     animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     // --- Content semantics and transition metadata ---
-    val progressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
     val openPostDescription = stringResource(
         if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
             R.string.reply_preview_open_target_post
@@ -254,17 +202,6 @@ internal fun ReplyPreviewPostContent(
             R.string.reply_preview_open_source_post
         },
         post.postNumber,
-    )
-    val imageDescription = stringResource(
-        R.string.reply_preview_image_description,
-        post.imageUrls.size,
-        (post.imageUrls.size - 1).coerceAtLeast(0),
-        post.postNumber,
-    )
-    val imageNamespace = ImageSharedTransitionKeyFactory.replyPreviewNamespace(
-        hostNamespace = hostNamespace,
-        previewType = previewType,
-        targetPostNumber = post.postNumber,
     )
     val previewHeaderTextSize =
         MaterialTheme.typography.bodyMedium.fontSize * headerTextScale * 0.9f
@@ -274,10 +211,12 @@ internal fun ReplyPreviewPostContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(
-                role = Role.Button,
-                onClickLabel = openPostDescription,
-                onClick = onOpenPost,
+            .then(
+                if (isNgHidden) Modifier.clickable(onClick = {}) else Modifier.clickable(
+                    role = Role.Button,
+                    onClickLabel = openPostDescription,
+                    onClick = onOpenPost,
+                ),
             )
             .padding(
                 horizontal = REPLY_PREVIEW_CONTENT_HORIZONTAL_PADDING,
@@ -285,30 +224,119 @@ internal fun ReplyPreviewPostContent(
             ),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        ReplyPreviewCardPostHeader(
-            post = post,
-            headerTextSize = previewHeaderTextSize,
-            lineHeightEm = lineHeightEm,
-            onHide = onHide,
+        if (previewType == ImageReplyPreviewType.REPLY_TARGET) {
+            ReplyTargetAnimatedHeader(
+                post = post,
+                headerTextSize = previewHeaderTextSize,
+                lineHeightEm = lineHeightEm,
+                isNgHidden = isNgHidden,
+                onHide = onHide,
+                onReveal = onReveal,
+            )
+        } else {
+            ReplyPreviewCardPostHeader(post, previewHeaderTextSize, lineHeightEm, onHide)
+        }
+        // --- Body visibility and image metadata ---
+        AnimatedVisibility(
+            visible = !isNgHidden,
+            enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+            exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+        ) {
+            val progressByUrl by ImageLoadProgressRegistry.progressByUrl.collectAsState()
+            val imageDescription = stringResource(
+                R.string.reply_preview_image_description,
+                post.imageUrls.size,
+                (post.imageUrls.size - 1).coerceAtLeast(0),
+                post.postNumber,
+            )
+            val imageNamespace = ImageSharedTransitionKeyFactory.replyPreviewNamespace(
+                hostNamespace = hostNamespace,
+                previewType = previewType,
+                targetPostNumber = post.postNumber,
+            )
+            ReplyPreviewPostBody(
+                post = post,
+                imageNamespace = imageNamespace,
+                imageDescription = imageDescription,
+                progressByUrl = progressByUrl,
+                imageLoadFailureByUrl = imageLoadFailureByUrl,
+                textSize = previewBodyTextSize,
+                lineHeightEm = lineHeightEm,
+                onImageClick = onImageClick,
+                onImageLongPress = onImageLongPress,
+                onImageLoadStart = onImageLoadStart,
+                onImageLoadError = onImageLoadError,
+                onImageLoadSuccess = onImageLoadSuccess,
+                onImageRetry = onImageRetry,
+                enableSharedElement = enableSharedElement,
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+        }
+    }
+}
+
+/** 返信先番号を固定し、残りのヘッダーをNG表示状態に応じて切り替える。 */
+@Composable
+private fun ReplyTargetAnimatedHeader(
+    post: ReplyPreviewPostUiModel,
+    headerTextSize: TextUnit,
+    lineHeightEm: Float,
+    isNgHidden: Boolean,
+    onHide: (() -> Unit)?,
+    onReveal: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().testTag("reply-preview-header-${post.postNumber}"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = post.postNumber.toString(),
+            modifier = Modifier.testTag("reply-preview-number-${post.postNumber}"),
+            fontSize = headerTextSize,
+            fontWeight = FontWeight.Medium,
+            lineHeight = lineHeightEm.em,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        ReplyPreviewPostBody(
-            post = post,
-            imageNamespace = imageNamespace,
-            imageDescription = imageDescription,
-            progressByUrl = progressByUrl,
-            imageLoadFailureByUrl = imageLoadFailureByUrl,
-            textSize = previewBodyTextSize,
-            lineHeightEm = lineHeightEm,
-            onImageClick = onImageClick,
-            onImageLongPress = onImageLongPress,
-            onImageLoadStart = onImageLoadStart,
-            onImageLoadError = onImageLoadError,
-            onImageLoadSuccess = onImageLoadSuccess,
-            onImageRetry = onImageRetry,
-            enableSharedElement = enableSharedElement,
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-        )
+        AnimatedContent(
+            targetState = isNgHidden,
+            modifier = Modifier.weight(1f),
+            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+            label = "ngReplyHeader",
+        ) { hidden ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (hidden) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = stringResource(R.string.reply_preview_ng_hidden),
+                        modifier = Modifier.weight(1f)
+                            .testTag("reply-preview-hidden-status-${post.postNumber}"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    onReveal?.let {
+                        ReplyTargetDisclosureAction(post.postNumber, false, it)
+                    }
+                } else {
+                    // 表示中だけ名前とIDを組み立て、元の順序と区切りを保つ。
+                    val metadata = buildString {
+                        if (post.name.isNotBlank()) append("  ${post.name}")
+                        if (post.id.isNotBlank()) append("  ID:${post.id}")
+                    }
+                    Text(
+                        text = metadata,
+                        modifier = Modifier.weight(1f)
+                            .testTag("reply-preview-metadata-${post.postNumber}"),
+                        fontSize = headerTextSize,
+                        lineHeight = lineHeightEm.em,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    onHide?.let {
+                        ReplyTargetDisclosureAction(post.postNumber, true, it)
+                    }
+                }
+            }
+        }
     }
 }
 
